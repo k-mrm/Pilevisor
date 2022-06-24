@@ -47,7 +47,7 @@ int vmm_init_secondary() {
 
 int vmm_init_cpu0() {
   uart_init();
-  vmm_log("mvmm booting...\n");
+  vmm_log("vmm booting...\n");
   kalloc_init();
   pcpu_init();
   write_sysreg(vbar_el2, (u64)vectable);
