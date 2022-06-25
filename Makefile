@@ -19,19 +19,19 @@ ifndef NCPU
 NCPU = 1
 endif
 
-C = common
+C = core
+D = drivers
 M = main
 S = sub
 
-COMMONOBJS = $(C)/boot.o $(C)/init.o $(C)/uart.o $(C)/lib.o $(C)/pmalloc.o $(C)/printf.o $(C)/vcpu.o \
-			 $(C)/mm.o $(C)/vector.o $(C)/guest.o $(C)/trap.o $(C)/pcpu.o $(C)/vgic.o $(C)/node.o \
-			 $(C)/gic.o $(C)/mmio.o $(C)/vtimer.o $(C)/vpsci.o $(C)/vsm.o $(C)/msg.o $(C)/virtio.o $(C)/virtio_net.o
+COREOBJS = $(patsubst %.c,%.o,$(wildcard $(C)/*.c))
+DRVOBJS = $(patsubst %.c,%.o,$(wildcard $(D)/*.c))
 
-MOBJS = $(M)/main-node.o
-SOBJS = $(S)/sub-node.o
+MOBJS = $(patsubst %.c,%.o,$(wildcard $(M)/*.c))
+SOBJS = $(patsubst %.c,%.o,$(wildcard $(S)/*.c))
 
-MAINOBJS = $(COMMONOBJS) $(MOBJS)
-SUBOBJS = $(COMMONOBJS) $(SOBJS)
+MAINOBJS = $(COREOBJS) $(DRVOBJS) $(MOBJS)
+SUBOBJS = $(COREOBJS) $(DRVOBJS) $(SOBJS)
 
 QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 256
 QEMUOPTS += -global virtio-mmio.force-legacy=false
@@ -49,7 +49,7 @@ MAC_S = $(shell date '+%S')
 %.o: %.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
--include: *.d
+#-include: *.d
 
 guest/hello.img: guest/hello/Makefile
 	make -C guest/hello
