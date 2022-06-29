@@ -83,13 +83,13 @@ void free_vcpu(struct vcpu *vcpu) {
   memset(vcpu, 0, sizeof(*vcpu));
 }
 
-void trapret(void);
-
 void vcpu_ready(struct vcpu *vcpu) {
   vmm_log("vcpu ready %d\n", vcpu->cpuid);
 
   vcpu->state = READY;
 }
+
+void trapret(void);
 
 static void switch_vcpu(struct vcpu *vcpu) {
   cur_pcpu()->vcpu = vcpu;

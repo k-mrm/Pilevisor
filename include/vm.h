@@ -26,24 +26,8 @@ struct vmconfig {
   struct vmmap_entry *vmmap;
 };
 
-struct vm {
-  char name[16];
-  int nvcpu;
-  struct vcpu *vcpus[VCPU_MAX];
-  u64 *vttbr;
-  struct vgic *vgic;
-  struct mmio_info *pmap;
-  int npmap;
-  int used;
-  spinlock_t lock;
-  u64 fdt;    /* fdt base address for linux */
-};
-
-extern struct vm vms[VM_MAX];
-
-void create_vm(struct vmconfig *vmcfg);
-
 void pagetrap(struct vm *vm, u64 va, u64 size,
               int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
               int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *));
+
 #endif

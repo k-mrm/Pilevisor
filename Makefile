@@ -25,6 +25,7 @@ M = main
 S = sub
 
 COREOBJS = $(patsubst %.c,%.o,$(wildcard $(C)/*.c))
+COREOBJS += $(patsubst %.S,%.o,$(wildcard $(C)/*.S))
 DRVOBJS = $(patsubst %.c,%.o,$(wildcard $(D)/*.c))
 
 MOBJS = $(patsubst %.c,%.o,$(wildcard $(M)/*.c))
@@ -57,11 +58,15 @@ guest/hello.img: guest/hello/Makefile
 guest/vsmtest.img: guest/vsmtest/Makefile
 	make -C guest/vsmtest
 
-poc-main: $(MAINOBJS) $(M)/memory.ld guest/vsmtest.img
-	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
-	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) hello-img.o
+poc-main: $(MAINOBJS) $(M)/memory.ld dtb guest/linux/Image guest/linux/rootfs.img
+	#$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
+	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
+	$(LD) -r -b binary guest/linux/Image -o image.o
+	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
+	$(LD) -r -b binary virt.dtb -o virt.dtb.o
+	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
-poc-sub: $(SUBOBJS) $(S)/memory.ld guest/vsmtest.img
+poc-sub: $(SUBOBJS) $(S)/memory.ld dtb 
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) hello-img.o
 
@@ -88,8 +93,15 @@ dev-sub: poc-sub
 gdb: poc-main
 	$(QEMU) -S -gdb tcp::1234 $(QEMUOPTS) poc-main
 
+dts:
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 128
+	dtc -I dtb -O dts -o virt.dts virt.dtb
+
+dtb:
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 128
+
 clean:
 	make -C guest clean
 	$(RM) $(COMMONOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d
 
-.PHONY: qemu gdb clean
+.PHONY: dev-main dev-sub clean dts dtb

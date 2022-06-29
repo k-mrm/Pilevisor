@@ -9,19 +9,6 @@
 #include "log.h"
 #include "mmio.h"
 
-struct vm vms[VM_MAX];
-
-static struct vm *allocvm() {
-  for(struct vm *vm = vms; vm < &vms[VM_MAX]; vm++) {
-    if(vm->used == 0) {
-      vm->used = 1;
-      return vm;
-    }
-  }
-
-  return NULL;
-}
-
 void pagetrap(struct vm *vm, u64 ipa, u64 size,
               int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
               int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *)) {
@@ -59,10 +46,6 @@ void create_vm(struct vmconfig *vmcfg) {
     panic("invalid mem size");
   if(vmcfg->nvcpu > VCPU_MAX)
     panic("too many vcpu");
-
-  struct vm *vm = allocvm();
-
-  strcpy(vm->name, guest->name);
 
   /* set fdt ipa */
   vm->fdt = 0x44400000;

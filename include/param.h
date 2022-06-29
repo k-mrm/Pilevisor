@@ -1,8 +1,16 @@
 #ifndef MVMM_PARAM_H
 #define MVMM_PARAM_H
 
-#define NCPU      8
-#define VM_MAX    1
-#define VCPU_MAX  8
+/* n physical cpu in this node */
+#define NCPU      4
+
+/* max vcpu per node */
+#define VCPU_PER_NODE_MAX   4
+
+/* max vcpu */
+#define VCPU_MAX  4096
+
+/* max node */
+#define NODE_MAX  32
 
 #endif
