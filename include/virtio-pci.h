@@ -4,6 +4,7 @@
 #include "aarch64.h"
 #include "types.h"
 #include "pci.h"
+#include "virtio.h"
 
 struct virtio_pci_cap {
   u8 cap_vndr;
@@ -47,48 +48,6 @@ struct virtio_pci_common_cfg {
   u64 queue_device; /* read-write */
 };
 
-/* virtqueue */
-#define NQUEUE  8
-
-#define VIRTQ_DESC_F_NEXT     1
-#define VIRTQ_DESC_F_WRITE    2 
-#define VIRTQ_DESC_F_INDIRECT 4
-struct virtq_desc {
-  u64 addr;
-  u32 len;
-  u16 flags;
-  u16 next;
-} __attribute__((packed, aligned(16)));
-
-#define VIRTQ_AVAIL_F_NO_INTERRUPT  1
-struct virtq_avail {
-  u16 flags;
-  u16 idx;
-  u16 ring[NQUEUE];
-} __attribute__((packed, aligned(2)));
-
-struct virtq_used_elem {
-  u32 id;
-  u32 len;
-} __attribute__((packed));
-
-#define VIRTQ_USED_F_NO_NOTIFY  1
-struct virtq_used {
-  u16 flags;
-  u16 idx;
-  struct virtq_used_elem ring[NQUEUE];
-} __attribute__((packed, aligned(4)));
-
-
-struct virtq {
-  struct virtq_desc *desc;
-  struct virtq_avail *avail;
-  struct virtq_used *used;
-  u16 free_head;
-  u16 nfree;
-  u16 last_used_idx;
-};
-
 struct virtio_pci_dev {
   struct pci_dev *pci;
   struct virtio_pci_common_cfg *vtcfg;
@@ -107,13 +66,5 @@ struct virtio_pci_dev {
 #define VIRTIO_PCI_CAP_DEVICE_CFG        4
 /* PCI configuration access */ 
 #define VIRTIO_PCI_CAP_PCI_CFG           5
-
-/* device status */
-#define DEV_STATUS_ACKNOWLEDGE  1
-#define DEV_STATUS_DRIVER 2
-#define DEV_STATUS_FAILED 128
-#define DEV_STATUS_FEATURES_OK  8
-#define DEV_STATUS_DRIVER_OK  4
-#define DEV_STATUS_NEEDS_RESET  64
 
 #endif

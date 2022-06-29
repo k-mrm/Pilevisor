@@ -4,70 +4,14 @@
 #include "kalloc.h"
 #include "lib.h"
 
-static void desc_init(struct virtq *vq) {
-  for(int i = 0; i < NQUEUE; i++) {
-    if(i != NQUEUE - 1) {
-      vq->desc[i].flags = VIRTQ_DESC_F_NEXT;
-      vq->desc[i].next = i + 1;
-    }
-  }
-}
-
-static int alloc_desc(struct virtq *vq) {
-  if(vq->nfree == 0)
-    panic("virtq kokatu");
-
-  u16 d = vq->free_head;
-  if(vq->desc[d].flags & VIRTQ_DESC_F_NEXT)
-    vq->free_head = vq->desc[d].next;
-  
-  vq->nfree--;
-
-  return d;
-}
-
-static void free_desc(struct virtq *vq, u16 n) {
-  u16 head = n;
-  int empty = 0;
-
-  if(vq->nfree == 0)
-    empty = 1;
-
-  while(vq->nfree++, (vq->desc[n].flags & VIRTQ_DESC_F_NEXT)) {
-    n = vq->desc[n].next;
-  }
-
-  vq->desc[n].flags = VIRTQ_DESC_F_NEXT;
-  if(!empty)
-    vq->desc[n].next = vq->free_head;
-  vq->free_head = head;
-}
-
-static void virtq_init(struct virtq *vq) {
-  memset(vq, 0, sizeof(*vq));
-
-  vq->desc = kalloc();
-  vq->avail = kalloc();
-  vq->used = kalloc();
-
-  vq->nfree = NQUEUE;
-
-  desc_init(vq);
-}
-
-void virtio_notify_queue(struct virtio_pci_dev *vdev, int queue) {
+static void virtio_pci_notify_queue(struct virtio_pci_dev *vdev, int queue) {
   u16 notify_off = vdev->vtcfg->queue_notify_off;
   u32 *addr = (u32 *)((u64)vdev->notify_base + notify_off * vdev->notify_off_multiplier);
 
   *addr = queue;
 }
 
-static int virtio_net_init(struct virtio_pci_dev *vdev) {
-  vmm_log("virtio_net_init\n");
-  return -1;
-}
-
-void virtio_rng_req(struct virtio_pci_dev *vdev, u64 *rnd) {
+static void virtio_pci_rng_req(struct virtio_pci_dev *vdev, u64 *rnd) {
   struct virtq *vq = &vdev->virtq;
   *rnd = 0;
 
@@ -80,7 +24,7 @@ void virtio_rng_req(struct virtio_pci_dev *vdev, u64 *rnd) {
   vq->avail->ring[vq->avail->idx % NQUEUE] = d;
   vq->avail->idx++;
 
-  virtio_notify_queue(vdev, 0);
+  virtio_pci_notify_queue(vdev, 0);
 
   isb();
 
@@ -90,7 +34,7 @@ void virtio_rng_req(struct virtio_pci_dev *vdev, u64 *rnd) {
   free_desc(vq, d);
 }
 
-static int virtio_rng_init(struct virtio_pci_dev *vdev) {
+static int virtio_pci_rng_init(struct virtio_pci_dev *vdev) {
   vmm_log("virtio_rng_init\n");
   struct virtio_pci_common_cfg *vtcfg = vdev->vtcfg;
 
@@ -188,10 +132,10 @@ int virtio_pci_dev_init(struct pci_dev *pci_dev) {
 
   switch(pci_dev->dev_id - 0x1040) {
     case 1:
-      virtio_net_init(&vdev);
+      /* net */
       break;
     case 4:
-      virtio_rng_init(&vdev);
+      virtio_pci_rng_init(&vdev);
       break;
     default:
       return -1;

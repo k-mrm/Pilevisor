@@ -1,79 +1,49 @@
 #ifndef MVMM_VIRTIO_MMIO_H
 #define MVMM_VIRTIO_MMIO_H
 
+#include "aarch64.h"
 #include "types.h"
 #include "spinlock.h"
+#include "virtio.h"
 
-#define VIRTIO_MMIO_MAGIC_VALUE       0x000 // 0x74726976
-#define VIRTIO_MMIO_VERSION           0x004 // version; 1 is legacy
-#define VIRTIO_MMIO_DEVICE_ID         0x008 // device type; 1 is net, 2 is disk
-#define VIRTIO_MMIO_VENDOR_ID         0x00c // 0x554d4551
-#define VIRTIO_MMIO_DEVICE_FEATURES   0x010
-#define VIRTIO_MMIO_DRIVER_FEATURES   0x020
-#define VIRTIO_MMIO_GUEST_PAGE_SIZE   0x028 // page size for PFN, write-only
-#define VIRTIO_MMIO_QUEUE_SEL         0x030 // select queue, write-only
-#define VIRTIO_MMIO_QUEUE_NUM_MAX     0x034 // max size of current queue, read-only
-#define VIRTIO_MMIO_QUEUE_NUM         0x038 // size of current queue, write-only
-#define VIRTIO_MMIO_QUEUE_ALIGN       0x03c // used ring alignment, write-only
-#define VIRTIO_MMIO_QUEUE_PFN         0x040 // physical page number for queue, read/write
-#define VIRTIO_MMIO_QUEUE_READY       0x044 // ready bit
-#define VIRTIO_MMIO_QUEUE_NOTIFY      0x050 // write-only
-#define VIRTIO_MMIO_INTERRUPT_STATUS  0x060 // read-only
-#define VIRTIO_MMIO_INTERRUPT_ACK     0x064 // write-only
-#define VIRTIO_MMIO_STATUS            0x070 // read/write
+#define VIRTIO_MAGIC   0x74726976
 
-#define NUM   8
+#define VIRTIO_MMIO_MAGICVALUE           0x000
+#define VIRTIO_MMIO_VERSION              0x004
+#define VIRTIO_MMIO_DEVICE_ID            0x008
+#define VIRTIO_MMIO_VENDOR_ID            0x00c
+#define VIRTIO_MMIO_DEVICE_FEATURES      0x010
+#define VIRTIO_MMIO_DEVICE_FEATURES_SEL  0x014
+#define VIRTIO_MMIO_DRIVER_FEATURES      0x020
+#define VIRTIO_MMIO_DRIVER_FEATURES_SEL  0x024
+#define VIRTIO_MMIO_QUEUE_SEL            0x030
+#define VIRTIO_MMIO_QUEUE_NUM_MAX        0x034
+#define VIRTIO_MMIO_QUEUE_NUM            0x038
+#define VIRTIO_MMIO_QUEUE_READY          0x044
+#define VIRTIO_MMIO_QUEUE_NOTIFY         0x050
+#define VIRTIO_MMIO_INTERRUPT_STATUS     0x060
+#define VIRTIO_MMIO_INTERRUPT_ACK        0x064
+#define VIRTIO_MMIO_STATUS               0x070
+#define VIRTIO_MMIO_QUEUE_DESC_LOW       0x080
+#define VIRTIO_MMIO_QUEUE_DESC_HIGH      0x084
+#define VIRTIO_MMIO_QUEUE_DRIVER_LOW     0x090
+#define VIRTIO_MMIO_QUEUE_DRIVER_HIGH    0x094
+#define VIRTIO_MMIO_QUEUE_DEVICE_LOW     0x0a0
+#define VIRTIO_MMIO_QUEUE_DEVICE_HIGH    0x0a4
+#define VIRTIO_MMIO_CONFIG_GENERATION    0x0fc
+#define VIRTIO_MMIO_CONFIG               0x100
 
-struct virtq_desc {
-  u64 addr;
-  u32 len;
-  u16 flags;
-  u16 next;
-};
-#define VRING_DESC_F_NEXT  1 // chained with another descriptor
-#define VRING_DESC_F_WRITE 2 // device writes (vs read)
+static inline u32 vtmmio_read(void *base, u32 off) {
+  return *(volatile u32 *)((volatile char *)base + off);
+}
 
-struct virtq_avail {
-  u16 flags; // always zero
-  u16 idx;   // driver will write ring[idx] next
-  u16 ring[NUM]; // descriptor numbers of chain heads
-  u16 unused;
-};
-
-struct virtq_used_elem {
-  u32 id;   // index of start of completed descriptor chain
-  u32 len;
-};
-
-struct virtq_used {
-  u16 flags; // always zero
-  u16 idx;   // device increments when it adds a ring[] entry
-  struct virtq_used_elem ring[NUM];
-};
-
-struct virtio_blk_req {
-  u32 type; // VIRTIO_BLK_T_IN or ..._OUT
-  u32 reserved;
-  u64 sector;
-};
-
-struct vm;
-void virtio_mmio_init(struct vm *vm);
-
-struct vtdev_desc {
-  u64 ipa;
-  u64 real_addr;
-  u32 len;
-  u16 next;
-  bool across_page: 1;
-  bool has_next: 1;
-};
+static inline void vtmmio_write(void *base, u32 off, u32 val) {
+  *(volatile u32 *)((volatile char *)base + off) = val;
+  dsb(sy);
+}
 
 struct virtio_mmio_dev {
-  int qnum;
-  u16 last_used_idx;
-  struct vtdev_desc ring[NUM];
-  spinlock_t lock;
+  void *base;
 };
 
 #endif
