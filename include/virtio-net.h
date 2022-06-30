@@ -6,9 +6,9 @@
 #include "virtio.h"
 #include "virtio-mmio.h"
 
-#define VIRTIO_NET_F_CSUM   0
-#define VIRTIO_NET_F_GUEST_CSUM   1
-#define VIRTIO_NET_F_CTRL_GUEST_OFFLOADS    2
+#define VIRTIO_NET_F_CSUM       0
+#define VIRTIO_NET_F_GUEST_CSUM 1
+#define VIRTIO_NET_F_CTRL_GUEST_OFFLOADS  2
 #define VIRTIO_NET_F_MTU    3
 #define VIRTIO_NET_F_MAC    5
 #define VIRTIO_NET_F_GUEST_TSO4   7
@@ -17,18 +17,18 @@
 #define VIRTIO_NET_F_GUEST_UFO    10
 #define VIRTIO_NET_F_HOST_TSO4    11
 #define VIRTIO_NET_F_HOST_TSO6    12
-#define VIRTIO_NET_F_HOST_ECN   13
-#define VIRTIO_NET_F_HOST_UFO   14
+#define VIRTIO_NET_F_HOST_ECN     13
+#define VIRTIO_NET_F_HOST_UFO     14
 #define VIRTIO_NET_F_MRG_RXBUF    15
-#define VIRTIO_NET_F_STATUS   16
-#define VIRTIO_NET_F_CTRL_VQ    17
-#define VIRTIO_NET_F_CTRL_RX    18
+#define VIRTIO_NET_F_STATUS       16
+#define VIRTIO_NET_F_CTRL_VQ      17
+#define VIRTIO_NET_F_CTRL_RX      18
 #define VIRTIO_NET_F_CTRL_VLAN    19 
 #define VIRTIO_NET_F_CTRL_RX_EXTRA    20 
 #define VIRTIO_NET_F_GUEST_ANNOUNCE   21 
 #define VIRTIO_NET_F_MQ   22
 #define VIRTIO_NET_F_CTRL_MAC_ADDR    23
-#define VIRTIO_NET_F_STANDBY    62
+#define VIRTIO_NET_F_STANDBY          62
 
 struct virtio_net {
   void *base;

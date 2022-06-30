@@ -7,6 +7,8 @@
 #include "spinlock.h"
 #include "guest.h"
 #include "vm.h"
+#include "virtio-net.h"
+#include "vsm.h"
 
 struct node {
   struct vcpu *vcpus[VCPU_PER_NODE_MAX];
@@ -19,7 +21,7 @@ struct node {
   struct vgic *vgic;
 
   /* nic */
-  struct nic *nic;
+  struct virtio_net *nic;
   u8 mac[6];
 
   struct mmio_info *pmap;
@@ -37,6 +39,6 @@ struct node {
   int nremote;
 };
 
-void node_init(struct node *node, struct vmconfig *vmcfg);
+void node_init(struct vmconfig *vmcfg);
 
 #endif

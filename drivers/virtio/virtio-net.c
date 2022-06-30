@@ -48,4 +48,13 @@ int virtio_net_init(void *base, int intid) {
 
   virtq_init(&netdev.tx);
   virtq_init(&netdev.rx);
+
+  virtq_reg_to_dev(base, &netdev.tx, 0);
+  virtq_reg_to_dev(base, &netdev.rx, 1);
+
+  /* initialized */
+  status = vtmmio_read(base, VIRTIO_MMIO_STATUS);
+  vtmmio_write(base, VIRTIO_MMIO_STATUS, status | DEV_STATUS_DRIVER_OK);
+
+  return 0;
 }

@@ -13,6 +13,29 @@ static void desc_init(struct virtq *vq) {
   }
 }
 
+#define LO(addr)  (u32)((addr) & 0xffffffff)
+#define HI(addr)  (u32)(((addr) >> 32) & 0xffffffff)
+
+/* mmio only */
+int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_SEL, qsel);
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_NUM, NQUEUE);
+  int qmax = vtmmio_read(base, VIRTIO_MMIO_QUEUE_NUM_MAX);
+  if(qmax < NQUEUE)
+    panic("queue?");
+
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_LOW, LO(vq->desc));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_HIGH, HI(vq->desc));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_LOW, LO(vq->avail));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_HIGH, HI(vq->avail));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_LOW, LO(vq->used));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_HIGH, HI(vq->used));
+
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_READY, 1);
+
+  return 0;
+}
+
 int alloc_desc(struct virtq *vq) {
   if(vq->nfree == 0)
     panic("virtq kokatu");
