@@ -2,7 +2,7 @@
 #include "types.h"
 #include "vsm.h"
 #include "mm.h"
-#include "pmalloc.h"
+#include "kalloc.h"
 #include "log.h"
 #include "lib.h"
 #include "node.h"
@@ -52,7 +52,7 @@ int vsm_access(struct node *node, u64 ipa, u64 *reg, enum maccsize accsz, bool w
   /* FIXME */
   /* access remote memory */
   if(0x40000000+256*1024 <= ipa && ipa <= 0x40000000+256*1024+256*1024) {
-    buf = pmalloc();
+    buf = kalloc();
     u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
     if(vsm_fetch_page(node, 1, page_ipa, buf) < 0)
       goto err;
@@ -91,7 +91,7 @@ err:
 }
 
 void vsm_init(struct vsmctl *vsm, u64 entry, u64 ram_start_gpa, u64 ram_size, u64 img_start, u64 img_size) {
-  u64 *vttbr = pmalloc();
+  u64 *vttbr = kalloc();
   if(!vttbr)
     panic("no mem");
   if(ram_size <= img_size)
@@ -100,7 +100,7 @@ void vsm_init(struct vsmctl *vsm, u64 entry, u64 ram_start_gpa, u64 ram_size, u6
   /* mapping code */
   u64 p, cpsize;
   for(p = 0; p < img_size; p += PAGESIZE) {
-    char *page = pmalloc();
+    char *page = kalloc();
     if(!page)
       panic("nomem");
 
@@ -118,7 +118,7 @@ void vsm_init(struct vsmctl *vsm, u64 entry, u64 ram_start_gpa, u64 ram_size, u6
 
   /* mapping ram */
   for(int i = 0; p < ram_size; p += PAGESIZE, i++) {
-    char *page = pmalloc();
+    char *page = kalloc();
     if(!page)
       panic("nomem");
     if(i == 0) {
