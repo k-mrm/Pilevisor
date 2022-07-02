@@ -1,5 +1,6 @@
 /* virtual shared memory */
 #include "types.h"
+#include "aarch64.h"
 #include "vsm.h"
 #include "mm.h"
 #include "kalloc.h"
@@ -81,12 +82,12 @@ int vsm_access(struct node *node, u64 ipa, u64 *reg, enum maccsize accsz, bool w
     return -1;
   }
 
-  pfree(buf);
+  kfree(buf);
 
   return 0;
 
 err:
-  pfree(buf);
+  kfree(buf);
   panic("fetch failed");
 }
 

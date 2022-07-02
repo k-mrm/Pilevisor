@@ -2,7 +2,7 @@
 #define MVMM_VCPU_H
 
 #include "types.h"
-#include "vm.h"
+#include "node.h"
 #include "param.h"
 #include "vgic.h"
 #include "gic.h"
@@ -51,12 +51,12 @@ struct vcpu {
   struct gic_state gic;
   struct vgic_cpu *vgic;
 
-  struct vm *vm;
+  struct node *node;
 
   int cpuid;
 };
 
-struct vcpu *new_vcpu(struct vm *vm, int vcpuid, u64 entry);
+struct vcpu *new_vcpu(struct node *node, int vcpuid, u64 entry);
 void free_vcpu(struct vcpu *vcpu);
 
 void vcpu_ready(struct vcpu *vcpu);

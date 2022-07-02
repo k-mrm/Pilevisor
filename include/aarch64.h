@@ -21,6 +21,8 @@
 #define isb()     asm volatile("isb");
 #define dsb(ty)   asm volatile("dsb " #ty);
 
+#define wfi()     asm volatile("wfi");
+
 #define HCR_VM    (1<<0)
 #define HCR_SWIO  (1<<1)
 #define HCR_FMO   (1<<3)

@@ -45,13 +45,13 @@ static void vcpu_features_init(struct vcpu *vcpu) {
   vcpu->features.pfr0 = pfr0;
 }
 
-struct vcpu *new_vcpu(struct vm *vm, int vcpuid, u64 entry) {
+struct vcpu *new_vcpu(struct node *node, int vcpuid) {
   struct vcpu *vcpu = allocvcpu();
   if(!vcpu)
     panic("vcpu kokatsu");
 
   vcpu->name = "cortex-a72";
-  vcpu->vm = vm;
+  vcpu->node = node;
   vcpu->cpuid = vcpuid;
 
   vcpu->vgic = new_vgic_cpu(vcpuid);
