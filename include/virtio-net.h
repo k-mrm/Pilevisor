@@ -30,13 +30,6 @@
 #define VIRTIO_NET_F_CTRL_MAC_ADDR    23
 #define VIRTIO_NET_F_STANDBY          62
 
-struct virtio_net {
-  void *base;
-  int intid;
-  struct virtq tx;
-  struct virtq rx;
-};
-
 struct virtio_net_config {
   u8 mac[6];
 #define VIRTIO_NET_S_LINK_UP  1
@@ -44,6 +37,14 @@ struct virtio_net_config {
   u16 status;
   u16 max_virtqueue_pairs;
 } __attribute__((packed));
+
+struct virtio_net {
+  void *base;
+  struct virtio_net_config *cfg;
+  int intid;
+  struct virtq tx;
+  struct virtq rx;
+};
 
 struct virtio_net_hdr {
 #define VIRTIO_NET_HDR_F_NEEDS_CSUM    1    /* Use csum_start, csum_offset */

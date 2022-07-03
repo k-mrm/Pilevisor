@@ -9,17 +9,14 @@
 struct virtio_net netdev;
 
 void virtio_net_get_mac(struct virtio_net *nic, u8 *mac) {
-  struct virtio_net_config *cfg = (struct virtio_net_config *)(nic->base + VIRTIO_MMIO_CONFIG);
-
-  vmm_log("config %p\n", cfg);
-
-  memcpy(mac, cfg->mac, sizeof(u8)*6);
+  memcpy(mac, nic->cfg->mac, sizeof(u8)*6);
 }
 
 int virtio_net_init(void *base, int intid) {
   vmm_log("virtio_net_init\n");
 
   netdev.base = base;
+  netdev.cfg = (struct virtio_net_config *)(nic->base + VIRTIO_MMIO_CONFIG);
   netdev.intid = intid;
 
   vtmmio_write(base, VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
