@@ -67,9 +67,11 @@ poc-main: $(MAINOBJS) $(M)/memory.ld dtb guest/linux/Image guest/linux/rootfs.im
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
-poc-sub: $(SUBOBJS) $(S)/memory.ld dtb 
-	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
-	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) hello-img.o
+poc-sub: $(SUBOBJS) $(S)/memory.ld dtb guest/linux/Image guest/linux/rootfs.img
+	$(LD) -r -b binary guest/linux/Image -o image.o
+	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
+	$(LD) -r -b binary virt.dtb -o virt.dtb.o
+	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
 
 dev-main: poc-main
 	sudo ip link add br4poc type bridge || true
