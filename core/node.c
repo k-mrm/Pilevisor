@@ -120,10 +120,13 @@ void node_init(struct vmconfig *vmcfg) {
   node->pmap = NULL;
   node->vgic = new_vgic(node);
 
+  node->nic = &netdev;
+  virtio_net_get_mac(node->nic, node->mac);
+  vmm_log("node mac %m\n", node->mac);
+
   spinlock_init(&node->lock);
 
   node->ctl->initcore(node);
 
   node->ctl->start(node);
-  // vcpu_ready(node->vcpus[0]);
 }

@@ -11,8 +11,8 @@
 #define va_copy(d, s) __builtin_va_copy(d, s)
 
 enum printopt {
-  PRINT_0X      = 1 << 0,
-  ZERO_PADDING  = 1 << 1,
+  PR_0X     = 1 << 0,
+  ZERO_PAD  = 1 << 1,
 };
 
 static void printiu64(i64 num, int base, bool sign, int digit, enum printopt opt) {
@@ -33,7 +33,7 @@ static void printiu64(i64 num, int base, bool sign, int digit, enum printopt opt
     *--cur = "0123456789abcdef"[unum % base];
   } while(unum /= base);
 
-  if(opt & PRINT_0X) {
+  if(opt & PR_0X) {
     *--cur = 'x';
     *--cur = '0';
   }
@@ -44,7 +44,7 @@ static void printiu64(i64 num, int base, bool sign, int digit, enum printopt opt
   int len = strlen(cur);
   if(digit > 0) {
     while(digit-- > len)
-      uart_putc(' '); 
+      uart_putc(opt & ZERO_PAD? '0' : ' '); 
   }
   uart_puts(cur);
   if(digit < 0) {
@@ -77,7 +77,7 @@ static const char *fetch_digit(const char *fmt, int *digit) {
 
 static void printmacaddr(u8 *mac) {
   for(int i = 0; i < 6; i++) {
-    printiu64(mac[i], 16, false, 2, 0);
+    printiu64(mac[i], 16, false, 2, ZERO_PAD);
     if(i != 5)
       uart_putc(':');
   }
@@ -106,7 +106,7 @@ static int vprintf(const char *fmt, va_list ap) {
           break;
         case 'p':
           p = va_arg(ap, void *);
-          printiu64((u64)p, 16, false, digit, PRINT_0X);
+          printiu64((u64)p, 16, false, digit, PR_0X);
           break;
         case 'c':
           uart_putc(va_arg(ap, int));

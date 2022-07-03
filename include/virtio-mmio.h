@@ -46,4 +46,6 @@ struct virtio_mmio_dev {
   void *base;
 };
 
+int virtio_mmio_init(void);
+
 #endif

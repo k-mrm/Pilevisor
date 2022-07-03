@@ -11,6 +11,7 @@
 #include "pci.h"
 #include "log.h"
 #include "psci.h"
+#include "virtio-mmio.h"
 
 extern struct guest xv6_img;
 extern struct guest linux_img;
@@ -58,6 +59,7 @@ int vmm_init_cpu0() {
   vcpu_init();
   s2mmu_init();
   // pci_init();
+  virtio_mmio_init();
   hcr_setup();
 
   struct vmconfig vmcfg = {
