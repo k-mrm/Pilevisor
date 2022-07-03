@@ -9,14 +9,14 @@
 
 #define BIT(n)  (1<<(n))
 
-static struct vgic vgics[VM_MAX];
+static struct vgic vgics[NODE_MAX];
 static struct vgic_cpu vgic_cpus[VCPU_MAX];
 static spinlock_t vgic_cpus_lock;
 
 extern int gic_lr_max;
 
 static struct vgic *allocvgic() {
-  for(struct vgic *vgic = vgics; vgic < &vgics[VM_MAX]; vgic++) {
+  for(struct vgic *vgic = vgics; vgic < &vgics[NODE_MAX]; vgic++) {
     acquire(&vgic->lock);
     if(vgic->used == 0) {
       vgic->used = 1;
@@ -130,7 +130,7 @@ static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
   else if(is_ppi(intid))
     return &vcpu->vgic->ppis[intid - 16];
   else if(is_spi(intid))
-    return &vcpu->vm->vgic->spis[intid - 32];
+    return &vcpu->node->vgic->spis[intid - 32];
 
   panic("unknown %d", intid);
   return NULL;
@@ -143,7 +143,7 @@ static void vgic_dump_irq_state(struct vcpu *vcpu, int intid) {
 }
 
 static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
-  struct vm *vm = vcpu->vm;
+  struct node *node = vcpu->node;
 
   u16 targetlist = ICC_SGI1R_TargetList(sgir); 
   u8 intid = ICC_SGI1R_INTID(sgir);
@@ -152,10 +152,10 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
   /* TODO: support Affinity */
   for(int i = 0; i < 16; i++) {
     if(targetlist & BIT(i)) {
-      if(i >= vm->nvcpu)
+      if(i >= node->nvcpu)
         continue;
 
-      struct vcpu *target = vm->vcpus[i];
+      struct vcpu *target = node->vcpus[i];
 
       // vgic_inject_virq(target, intid, intid, 1);
     }
@@ -183,7 +183,7 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
 static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
   int intid, idx;
   struct vgic_irq *irq;
-  struct vgic *vgic = vcpu->vm->vgic;
+  struct vgic *vgic = vcpu->node->vgic;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -290,7 +290,7 @@ end:
 static int vgicd_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
-  struct vgic *vgic = vcpu->vm->vgic;
+  struct vgic *vgic = vcpu->node->vgic;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -527,12 +527,12 @@ static int vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
   u32 ridx = offset / 0x20000;
   u32 roffset = offset % 0x20000;
 
-  if(ridx > vcpu->vm->nvcpu) {
+  if(ridx > vcpu->node->nvcpu) {
     vmm_warn("invalid rdist access");
     return -1;
   }
 
-  vcpu = vcpu->vm->vcpus[ridx];
+  vcpu = vcpu->node->vcpus[ridx];
 
   return __vgicr_mmio_read(vcpu, roffset, val, mmio);
 }
@@ -541,17 +541,17 @@ static int vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
   u32 ridx = offset / 0x20000;
   u32 roffset = offset % 0x20000;
 
-  if(ridx > vcpu->vm->nvcpu) {
+  if(ridx > vcpu->node->nvcpu) {
     vmm_warn("invalid rdist access");
     return -1;
   }
 
-  vcpu = vcpu->vm->vcpus[ridx];
+  vcpu = vcpu->node->vcpus[ridx];
 
   return __vgicr_mmio_write(vcpu, roffset, val, mmio);
 }
 
-struct vgic *new_vgic(struct vm *vm) {
+struct vgic *new_vgic(struct node *node) {
   struct vgic *vgic = allocvgic();
   vgic->spi_max = gic_max_spi();
   vgic->nspis = vgic->spi_max - 31;
@@ -562,8 +562,8 @@ struct vgic *new_vgic(struct vm *vm) {
 
   vmm_log("nspis %d sizeof nspi %d\n", vgic->nspis, sizeof(struct vgic_irq) * vgic->nspis);
 
-  pagetrap(vm, GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
-  pagetrap(vm, GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
+  pagetrap(node, GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
+  pagetrap(node, GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
 
   return vgic;
 }
@@ -588,7 +588,7 @@ struct vgic_cpu *new_vgic_cpu(int vcpuid) {
 
 void vgic_init() {
   vmm_log("vgicinit");
-  for(struct vgic *vgic = vgics; vgic < &vgics[VM_MAX]; vgic++) {
+  for(struct vgic *vgic = vgics; vgic < &vgics[NODE_MAX]; vgic++) {
     spinlock_init(&vgic->lock);
   }
 

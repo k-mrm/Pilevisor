@@ -7,7 +7,7 @@
 #include "spinlock.h"
 
 struct vcpu;
-struct vm;
+struct node;
 
 struct vgic_irq {
   u8 priority;  /* ipriorityr */
@@ -35,7 +35,7 @@ struct vgic_cpu {
 };
 
 void vgic_irq_enter(struct vcpu *vcpu);
-struct vgic *new_vgic(struct vm *);
+struct vgic *new_vgic(struct node *);
 struct vgic_cpu *new_vgic_cpu(int vcpuid);
 int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp);
 void vgic_restore_state(struct vgic_cpu *vgic);

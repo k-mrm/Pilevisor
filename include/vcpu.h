@@ -42,13 +42,14 @@ struct vcpu {
     u64 cntfrq_el0;
   } sys;
 
+  struct gic_state gic;
+
   const char *name;
 
   enum vcpu_state state;
 
   struct cpu_features features;
 
-  struct gic_state gic;
   struct vgic_cpu *vgic;
 
   struct node *node;
@@ -56,7 +57,7 @@ struct vcpu {
   int cpuid;
 };
 
-struct vcpu *new_vcpu(struct node *node, int vcpuid, u64 entry);
+struct vcpu *new_vcpu(struct node *node, int vcpuid);
 void free_vcpu(struct vcpu *vcpu);
 
 void vcpu_ready(struct vcpu *vcpu);

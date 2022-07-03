@@ -57,7 +57,6 @@ struct vcpu *new_vcpu(struct node *node, int vcpuid) {
   vcpu->vgic = new_vgic_cpu(vcpuid);
 
   vcpu->reg.spsr = 0x3c5;   /* EL1 */
-  vcpu->reg.elr = entry;
 
   vcpu->sys.mpidr_el1 = vcpuid; /* TODO: affinity */
   vcpu->sys.midr_el1 = 0x410fd081;  /* cortex-a72 */
@@ -66,8 +65,8 @@ struct vcpu *new_vcpu(struct node *node, int vcpuid) {
 
   if(vcpuid == 0) {
     /* linux https://www.kernel.org/doc/Documentation/arm64/booting.txt */
-    vcpu->reg.x[0] = vm->fdt;       /* fdt address */
-    vcpu->reg.x[4] = entry;         /* entry point */
+    vcpu->reg.x[0] = node->fdt_base;    /* fdt address */
+    vcpu->reg.x[4] = node->entrypoint;  /* entry point */
   }
 
   vcpu_features_init(vcpu);
@@ -100,7 +99,7 @@ static void switch_vcpu(struct vcpu *vcpu) {
 
   vcpu->state = RUNNING;
 
-  write_sysreg(vttbr_el2, vcpu->vm->vttbr);
+  write_sysreg(vttbr_el2, vcpu->node->vttbr);
   tlb_flush();
   restore_sysreg(vcpu);
   gic_restore_state(&vcpu->gic);

@@ -9,6 +9,8 @@
 #include "mmio.h"
 #include "node.h"
 
+struct node global;
+
 void pagetrap(struct node *node, u64 ipa, u64 size,
               int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
               int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *)) {
@@ -24,7 +26,7 @@ void pagetrap(struct node *node, u64 ipa, u64 size,
 }
 
 void node_init(struct vmconfig *vmcfg) {
-  struct node *node = me();
+  struct node *node = &global;
 
   struct guest *guest = vmcfg->guest_img;
   struct guest *fdt = vmcfg->fdt_img;
@@ -46,12 +48,15 @@ void node_init(struct vmconfig *vmcfg) {
     panic("img_size > nallocate");
   if(vmcfg->nallocate % PAGESIZE != 0)
     panic("invalid mem size");
-  if(vmcfg->nvcpu > VCPU_MAX_PER_NODE)
+  if(vmcfg->nvcpu > VCPU_PER_NODE_MAX)
     panic("too many vcpu");
 
-  /* set fdt/initrd ipa */
+  node->ctl = &global_nodectl;
+
+  /* set initrd/fdt/entrypoint ipa */
   node->initrd_base = initrd? 0x44000000 : 0;
   node->fdt_base = fdt? 0x44400000 : 0;
+  node->entrypoint = vmcfg->entrypoint;
 
   node->nvcpu = vmcfg->nvcpu;
 
@@ -59,6 +64,7 @@ void node_init(struct vmconfig *vmcfg) {
   if(!vttbr)
     panic("vttbr");
 
+  /* TODO: commonize */
   u64 p, cpsize;
   for(p = 0; p < 0x80000; p += PAGESIZE) {
     char *page = kalloc();
@@ -116,8 +122,8 @@ void node_init(struct vmconfig *vmcfg) {
 
   spinlock_init(&node->lock);
 
-  node->ctl.initcore(node);
+  node->ctl->initcore(node);
 
-  node->ctl.start(node);
+  node->ctl->start(node);
   // vcpu_ready(node->vcpus[0]);
 }

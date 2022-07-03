@@ -55,9 +55,9 @@ void vm_irq_handler() {
 
   // vmm_log("cpu%d: vm_irq_handler %d\n", cpuid(), iar);
   
-  /* hook virtio's interrupt */
   if(pirq == 48) {
-    virtio_dev_intr(vcpu); 
+    /* virtio-net interrupt */
+    ;
   }
 
   gic_guest_eoi(pirq, 1);
@@ -91,7 +91,7 @@ int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   u64 elr;
   read_sysreg(elr, elr_el2);
 
-  enum mmio_accsize accsz;
+  enum maccsize accsz;
   switch(sas) {
     case 0: accsz = ACC_BYTE; break;
     case 1: accsz = ACC_HALFWORD; break;

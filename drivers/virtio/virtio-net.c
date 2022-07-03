@@ -1,9 +1,10 @@
 #include "pci.h"
-#include "virtio.h"
 #include "log.h"
 #include "kalloc.h"
 #include "lib.h"
+#include "virtio.h"
 #include "virtio-mmio.h"
+#include "virtio-net.h"
 
 struct virtio_net netdev;
 

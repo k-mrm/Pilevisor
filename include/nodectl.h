@@ -10,4 +10,6 @@ struct nodectl {
   void (*start)(struct node *);
 };
 
+extern struct nodectl global_nodectl;
+
 #endif

@@ -26,8 +26,5 @@ struct vmconfig {
   struct vmmap_entry *vmmap;
 };
 
-void pagetrap(struct vm *vm, u64 va, u64 size,
-              int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
-              int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *));
 
 #endif

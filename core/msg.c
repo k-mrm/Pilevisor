@@ -35,7 +35,7 @@ static int send_init_request(struct node *node, struct msg *msg) {
   u8 buf[64] = {0};
 
   msg_pack_eth_header(node, msg, buf);
-  virtio_net_send(node->nic, buf, 64);
+  // virtio_net_send(node->nic, buf, 64);
 
   return 0;
 }
@@ -76,7 +76,7 @@ static int send_init_reply(struct node *node, struct msg *msg) {
   memcpy(body, rep->mac, sizeof(u8)*6);
 
   vmm_log("dst_bits: %d", msg->dst_bits);
-  virtio_net_send(node->nic, buf, 64);
+  // virtio_net_send(node->nic, buf, 64);
 
   return 0;
 }
@@ -87,8 +87,10 @@ static int recv_init_reply(struct node *node, u8 *buf) {
 
   u8 remote_mac[6];
   memcpy(remote_mac, buf+6, sizeof(u8)*6);
+  /*
   if(node0_register_remote_node(node, remote_mac) < 0)
     panic("register sippai");
+    */
 
   vmm_log("sub-node's mac %m", remote_mac);
 
@@ -116,7 +118,7 @@ static int send_read_request(struct node *node, struct msg *msg) {
   u8 *body = msg_pack_eth_header(node, msg, buf);
   memcpy(body, &rmsg->ipa, sizeof(rmsg->ipa));
 
-  virtio_net_send(node->nic, buf, 64);
+  // virtio_net_send(node->nic, buf, 64);
 
   return 0;
 }
@@ -130,7 +132,7 @@ static int recv_read_request(struct node *node, u8 *buf) {
   memcpy(&ipa, body, sizeof(ipa));
 
   /* TODO: use at instruction */
-  pa = ipa2pa(node->vsm.vttbr, ipa);
+  pa = ipa2pa(node->vttbr, ipa);
 
   vmm_log("ipa: read @%p\n", ipa);
 
@@ -167,7 +169,7 @@ static int send_read_reply(struct node *node, struct msg *msg) {
   u8 *body = msg_pack_eth_header(node, msg, buf);
   memcpy(body, rmsg->page, 1024);
 
-  virtio_net_send(node->nic, buf, 1088);
+  // virtio_net_send(node->nic, buf, 1088);
 
   return 0;
 }
@@ -181,7 +183,7 @@ void read_reply_init(struct read_reply *rmsg, u8 dst, u8 *page) {
 
 
 void msg_recv_intr(u8 *buf) {
-  struct node *node = node_me();
+  struct node *node = &global;
 
   if(buf[12] != 0x19)
     return;

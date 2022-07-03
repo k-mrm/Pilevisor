@@ -39,9 +39,11 @@ struct node {
   u64 fdt_base;
   /* internal physical address of vm's initrd file (for Linux) */
   u64 initrd_base;
+  /* internal physical address of vm's entrypoint */
+  u64 entrypoint;
 
   /* node control dispatcher */
-  struct nodectl ctl;
+  struct nodectl *ctl;
 
   /* remote node */
   struct rnode_desc {
@@ -52,5 +54,11 @@ struct node {
 };
 
 void node_init(struct vmconfig *vmcfg);
+
+void pagetrap(struct node *node, u64 va, u64 size,
+              int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
+              int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *));
+
+extern struct node global;
 
 #endif

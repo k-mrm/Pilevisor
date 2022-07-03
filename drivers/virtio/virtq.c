@@ -3,6 +3,7 @@
 #include "kalloc.h"
 #include "lib.h"
 #include "virtio.h"
+#include "virtio-mmio.h"
 
 static void desc_init(struct virtq *vq) {
   for(int i = 0; i < NQUEUE; i++) {
@@ -24,12 +25,12 @@ int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
   if(qmax < NQUEUE)
     panic("queue?");
 
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_LOW, LO(vq->desc));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_HIGH, HI(vq->desc));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_LOW, LO(vq->avail));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_HIGH, HI(vq->avail));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_LOW, LO(vq->used));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_HIGH, HI(vq->used));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_LOW, LO((u64)vq->desc));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_HIGH, HI((u64)vq->desc));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_LOW, LO((u64)vq->avail));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_HIGH, HI((u64)vq->avail));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_LOW, LO((u64)vq->used));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_HIGH, HI((u64)vq->used));
 
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_READY, 1);
 

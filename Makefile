@@ -27,6 +27,7 @@ S = sub
 COREOBJS = $(patsubst %.c,%.o,$(wildcard $(C)/*.c))
 COREOBJS += $(patsubst %.S,%.o,$(wildcard $(C)/*.S))
 DRVOBJS = $(patsubst %.c,%.o,$(wildcard $(D)/*.c))
+DRVOBJS += $(patsubst %.c,%.o,$(wildcard $(D)/virtio/*.c))
 
 MOBJS = $(patsubst %.c,%.o,$(wildcard $(M)/*.c))
 SOBJS = $(patsubst %.c,%.o,$(wildcard $(S)/*.c))

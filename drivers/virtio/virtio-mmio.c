@@ -4,6 +4,7 @@
 #include "kalloc.h"
 #include "lib.h"
 #include "virtio.h"
+#include "virtio-mmio.h"
 
 int virtio_mmio_dev_init(void *base, int intid) {
   if(vtmmio_read(base, VIRTIO_MMIO_MAGICVALUE) != VIRTIO_MAGIC ||

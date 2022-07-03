@@ -3,18 +3,12 @@
 
 #include "types.h"
 #include "vcpu.h"
-
-enum mmio_accsize {
-  ACC_BYTE = 1<<0,
-  ACC_HALFWORD = 1<<1,
-  ACC_WORD = 1<<2,
-  ACC_DOUBLEWORD = 1<<3,
-};
+#include "memory.h"
 
 struct mmio_access {
   u64 ipa;
   u64 pc;
-  enum mmio_accsize accsize;
+  enum maccsize accsize;
   int wnr: 1;
 };
 
@@ -27,7 +21,7 @@ struct mmio_info {
 };
 
 int mmio_emulate(struct vcpu *vcpu, int rn, struct mmio_access *mmio);
-int mmio_reg_handler(struct vm *vm, u64 ipa, u64 size,
+int mmio_reg_handler(struct node *node, u64 ipa, u64 size,
                      int (*read)(struct vcpu *, u64, u64 *, struct mmio_access *),
                      int (*write)(struct vcpu *, u64, u64, struct mmio_access *));
 

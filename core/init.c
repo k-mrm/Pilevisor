@@ -64,14 +64,12 @@ int vmm_init_cpu0() {
     .guest_img = &linux_img,
     .fdt_img = &virt_dtb,
     .initrd_img = &rootfs_img,
-    .nvcpu = 8,
+    .nvcpu = 4,
     .nallocate = 128 * 1024 * 1024,
     .entrypoint = 0x40080000,
   };
 
-  create_vm(&vmcfg);
-
-  enter_vcpu();
+  node_init(&vmcfg);
 
   panic("unreachable");
 }
