@@ -228,7 +228,7 @@ static void gic_setup_spi(u32 irq) {
 }
 
 static void hyp_intr_setup() {
-  // gic_setup_spi(33);
+  gic_setup_spi(48);
 }
 
 static void gicc_init(void) {

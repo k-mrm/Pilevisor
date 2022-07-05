@@ -15,7 +15,7 @@ static void virtio_pci_rng_req(struct virtio_pci_dev *vdev, u64 *rnd) {
   struct virtq *vq = &vdev->virtq;
   *rnd = 0;
 
-  int d = alloc_desc(vq);
+  int d = virtq_alloc_desc(vq);
 
   vq->desc[d].addr = (u64)rnd;
   vq->desc[d].len = sizeof(u64);
@@ -31,7 +31,7 @@ static void virtio_pci_rng_req(struct virtio_pci_dev *vdev, u64 *rnd) {
   while(*rnd == 0)
     ;
 
-  free_desc(vq, d);
+  virtq_free_desc(vq, d);
 }
 
 static int virtio_pci_rng_init(struct virtio_pci_dev *vdev) {

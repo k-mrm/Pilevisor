@@ -126,6 +126,9 @@ void node_init(struct vmconfig *vmcfg) {
 
   spinlock_init(&node->lock);
 
+  intr_enable();
+  virtio_net_send_test();
+
   node->ctl->initcore(node);
 
   node->ctl->start(node);

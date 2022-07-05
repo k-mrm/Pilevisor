@@ -19,6 +19,8 @@ static void desc_init(struct virtq *vq) {
 
 /* mmio only */
 int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
+  vq->qsel = qsel;
+
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_SEL, qsel);
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_NUM, NQUEUE);
   int qmax = vtmmio_read(base, VIRTIO_MMIO_QUEUE_NUM_MAX);
@@ -37,7 +39,7 @@ int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
   return 0;
 }
 
-int alloc_desc(struct virtq *vq) {
+int virtq_alloc_desc(struct virtq *vq) {
   if(vq->nfree == 0)
     panic("virtq kokatu");
 
@@ -50,7 +52,7 @@ int alloc_desc(struct virtq *vq) {
   return d;
 }
 
-void free_desc(struct virtq *vq, u16 n) {
+void virtq_free_desc(struct virtq *vq, u16 n) {
   u16 head = n;
   int empty = 0;
 

@@ -6,6 +6,8 @@
 #include "virtio.h"
 #include "virtio-mmio.h"
 
+int virtio_net_init(void *base, int intid);
+
 int virtio_mmio_dev_init(void *base, int intid) {
   if(vtmmio_read(base, VIRTIO_MMIO_MAGICVALUE) != VIRTIO_MAGIC ||
      vtmmio_read(base, VIRTIO_MMIO_VERSION) != 2) {

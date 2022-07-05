@@ -32,6 +32,9 @@ void hyp_irq_handler() {
     case 33:
       uartintr();
       break;
+    case 48:
+      virtio_net_intr();
+      break;
     case 1023:
       vmm_warn("sprious interrupt");
       return;
@@ -57,7 +60,7 @@ void vm_irq_handler() {
   
   if(pirq == 48) {
     /* virtio-net interrupt */
-    ;
+    virtio_net_intr();
   }
 
   gic_guest_eoi(pirq, 1);
