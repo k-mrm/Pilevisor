@@ -91,48 +91,6 @@ err:
   panic("fetch failed");
 }
 
-void vsm_init(struct vsmctl *vsm, u64 entry, u64 ram_start_gpa, u64 ram_size, u64 img_start, u64 img_size) {
-  u64 *vttbr = kalloc();
-  if(!vttbr)
-    panic("no mem");
-  if(ram_size <= img_size)
-    panic("ramsize");
-
-  /* mapping code */
-  u64 p, cpsize;
-  for(p = 0; p < img_size; p += PAGESIZE) {
-    char *page = kalloc();
-    if(!page)
-      panic("nomem");
-
-    if(img_size - p > PAGESIZE)
-      cpsize = PAGESIZE;
-    else
-      cpsize = img_size - p;
-
-    memcpy(page, (char *)img_start+p, cpsize);
-    pagemap(vttbr, entry+p, (u64)page, PAGESIZE, S2PTE_NORMAL);
-  }
-
-  if(entry + p <= ram_start_gpa)
-    p = 0;
-
-  /* mapping ram */
-  for(int i = 0; p < ram_size; p += PAGESIZE, i++) {
-    char *page = kalloc();
-    if(!page)
-      panic("nomem");
-    if(i == 0) {
-      for(int i = 0; i < PAGESIZE; i++)
-        page[i] = i % 0x100;
-    }
-
-    // printf("%p:%p ", ram_start_gpa+p, page);
-    pagemap(vttbr, ram_start_gpa+p, (u64)page, PAGESIZE, S2PTE_NORMAL);
-  }
-
-  vsm->local.start = ram_start_gpa;
-  vsm->local.size = ram_size;
-
-  vsm->vttbr = vttbr;
+void vsm_init(struct vsmctl *vsm) {
+  ;
 }

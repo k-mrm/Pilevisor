@@ -10,12 +10,12 @@ static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci *vpsci) {
   u64 contextid = vpsci->x3;
   vmm_log("vcpu%d on: entrypoint %p\n", target_cpu, ep_addr);
 
-  if(target_cpu >= vcpu->vm->nvcpu) {
+  if(target_cpu >= vcpu->node->nvcpu) {
     vmm_warn("vcpu%d wakeup failed\n", target_cpu);
     return -1;
   }
 
-  struct vcpu *target = vcpu->vm->vcpus[target_cpu];
+  struct vcpu *target = vcpu->node->vcpus[target_cpu];
   target->reg.elr = ep_addr;
 
   vcpu_ready(target);

@@ -105,6 +105,6 @@ dtb:
 
 clean:
 	make -C guest clean
-	$(RM) $(COMMONOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d
+	$(RM) $(COREOBJS) $(DRVOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d
 
 .PHONY: dev-main dev-sub clean dts dtb
