@@ -30,12 +30,12 @@ static u8 *msg_pack_eth_header(struct node *node, struct msg *msg, u8 *buf) {
 
 static int send_init_request(struct node *node, struct msg *msg) {
   struct init_msg *imsg = (struct init_msg *)msg;
-  vmm_log("send_init_msg\n");
+  vmm_log("send_init_request!!!!!!!\n");
   /* send code */
   u8 buf[64] = {0};
 
   msg_pack_eth_header(node, msg, buf);
-  // virtio_net_send(node->nic, buf, 64);
+  virtio_net_tx(node->nic, buf, 64);
 
   return 0;
 }
@@ -118,7 +118,7 @@ static int send_read_request(struct node *node, struct msg *msg) {
   u8 *body = msg_pack_eth_header(node, msg, buf);
   memcpy(body, &rmsg->ipa, sizeof(rmsg->ipa));
 
-  // virtio_net_send(node->nic, buf, 64);
+  virtio_net_tx(node->nic, buf, 64);
 
   return 0;
 }

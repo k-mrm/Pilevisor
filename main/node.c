@@ -28,6 +28,8 @@ static void node0_initcore(struct node *node0) {
   for(int i = 0; i < node0->nvcpu; i++) {
     node0->vcpus[i] = new_vcpu(node0, i);
   }
+
+  vcpu_ready(node0->vcpus[0]);
 }
 
 static void node0_start(struct node *node0) {

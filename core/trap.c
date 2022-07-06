@@ -39,7 +39,7 @@ void hyp_irq_handler() {
       vmm_warn("sprious interrupt");
       return;
     default:
-      break;
+      panic("?");
   }
 
   gic_host_eoi(irq, 1);

@@ -76,12 +76,6 @@ struct vcpu *new_vcpu(struct node *node, int vcpuid) {
   return vcpu;
 }
 
-void free_vcpu(struct vcpu *vcpu) {
-  vcpu->state = UNUSED;
-
-  memset(vcpu, 0, sizeof(*vcpu));
-}
-
 void vcpu_ready(struct vcpu *vcpu) {
   vmm_log("vcpu ready %d\n", vcpu->cpuid);
 
@@ -91,7 +85,6 @@ void vcpu_ready(struct vcpu *vcpu) {
 void trapret(void);
 
 static void switch_vcpu(struct vcpu *vcpu) {
-  cur_pcpu()->vcpu = vcpu;
   write_sysreg(tpidr_el2, vcpu);
 
   if(vcpu->cpuid != cpuid())
@@ -118,11 +111,10 @@ static void switch_vcpu(struct vcpu *vcpu) {
 
 void enter_vcpu() {
   int id = cpuid();
-
   struct vcpu *vcpu = &vcpus[id];
 
-  if(vcpu->state != READY)
-    panic("uninitalized vcpu");
+  while(vcpu->state != READY)
+    wfi();
 
   vmm_log("cpu%d: entering vcpu%d\n", id, vcpu->cpuid);
 

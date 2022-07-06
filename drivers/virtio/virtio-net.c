@@ -32,11 +32,10 @@ void virtio_net_tx(struct virtio_net *nic, u8 *buf, u64 size) {
   nic->tx.desc[d0].len = sizeof(struct virtio_net_hdr) + size;
   nic->tx.desc[d0].addr = (u64)hdr;
   nic->tx.desc[d0].flags = 0;
-
-  printf("cccc %d %d %p\n", nic->tx.qsel, nic->tx.desc[d0].len, nic->tx.desc[d0].addr);
   for(int i = 0; i < 90; i++) {
     printf("%02x ", ((u8 *)hdr)[i]);
   }
+  printf("cccc %d %d %p\n", nic->tx.qsel, nic->tx.desc[d0].len, nic->tx.desc[d0].addr);
 
   nic->tx.avail->ring[nic->tx.avail->idx % NQUEUE] = d0;
   dsb(sy);
@@ -61,7 +60,9 @@ static void rxintr(struct virtio_net *nic, u16 idx) {
   u32 d = nic->rx.used->ring[idx].id;
   u8 *buf = (u8 *)(nic->rx.desc[d].addr + sizeof(struct virtio_net_hdr));
 
-  printf("rxintr %p\n", buf);
+  printf("rxintr %p %d %d\n", buf, idx, nic->rx.used->ring[idx].len);
+
+  msg_recv_intr(buf);
 
   nic->rx.avail->ring[nic->rx.avail->idx % NQUEUE] = d;
   dsb(sy);
@@ -71,7 +72,7 @@ static void rxintr(struct virtio_net *nic, u16 idx) {
 static void txintr(struct virtio_net *nic, u16 idx) {
   u32 d = nic->tx.avail->ring[idx];
 
-  printf("tx intr!!\n");
+  printf("tx intr!! %d\n", nic->tx.desc[d].len);
 
   kfree((void*)nic->tx.desc[d].addr);
 
@@ -80,21 +81,27 @@ static void txintr(struct virtio_net *nic, u16 idx) {
 
 void virtio_net_intr() {
   printf("netintr\n");
-
   struct node *node = &global;
   struct virtio_net *nic = node->nic;
 
+  printf("1: dev->rx->seen_used: %d\n", nic->rx.last_used_idx);
+  printf("1: dev->rx->used->idx: %d\n", nic->rx.used->idx);
+
   u32 status = vtmmio_read(nic->base, VIRTIO_MMIO_INTERRUPT_STATUS);
+  printf("virtio_net intr %d\n", status);
   vtmmio_write(nic->base, VIRTIO_MMIO_INTERRUPT_ACK, status);
+  // 
 
   while(nic->rx.last_used_idx != nic->rx.used->idx) {
     rxintr(nic, nic->rx.last_used_idx);
     nic->rx.last_used_idx++;
+    dsb(sy);
   }
 
   while(nic->tx.last_used_idx != nic->tx.used->idx) {
     txintr(nic, nic->tx.last_used_idx);
     nic->tx.last_used_idx++;
+    dsb(sy);
   }
 }
 
@@ -122,7 +129,6 @@ int virtio_net_init(void *base, int intid) {
   feat &= ~(1 << VIRTIO_NET_F_HOST_ECN);
   feat &= ~(1 << VIRTIO_NET_F_HOST_UFO);
   feat &= ~(1 << VIRTIO_NET_F_MRG_RXBUF);
-  feat &= ~(1 << VIRTIO_NET_F_STATUS);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_VQ);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_RX);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_VLAN);

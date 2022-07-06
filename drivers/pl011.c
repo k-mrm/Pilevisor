@@ -51,7 +51,6 @@ void uartintr() {
       if(c < 0)
         break;
     }
-    vcpu_dump(cur_vcpu());
   }
 
   *R(ICR) = (1<<4);

@@ -77,6 +77,8 @@ void virtq_init(struct virtq *vq) {
   vq->used = kalloc();
 
   vq->nfree = NQUEUE;
+  vq->last_used_idx = 0;
+  vq->qsel = 0;
 
   desc_init(vq);
 }
