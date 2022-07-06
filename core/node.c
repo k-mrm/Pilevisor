@@ -132,4 +132,6 @@ void node_init(struct vmconfig *vmcfg) {
   node->ctl->initcore(node);
 
   node->ctl->start(node);
+
+  /* never return here */
 }
