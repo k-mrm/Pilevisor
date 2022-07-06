@@ -8,6 +8,7 @@
 static void subnode_initcore(struct node *node) {
   vmm_log("nodeN: initcore\n");
 
+  /*
   intr_enable();
   virtio_net_send_test();
   u32 d;
@@ -25,6 +26,7 @@ static void subnode_initcore(struct node *node) {
   virtio_net_send_test();
   virtio_net_send_test();
   virtio_net_send_test();
+  */
 
   node->nodeid = 1;
 

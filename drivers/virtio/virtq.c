@@ -39,7 +39,7 @@ int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
   return 0;
 }
 
-int virtq_alloc_desc(struct virtq *vq) {
+u16 virtq_alloc_desc(struct virtq *vq) {
   if(vq->nfree == 0)
     panic("virtq kokatu");
 
@@ -75,6 +75,7 @@ void virtq_init(struct virtq *vq) {
   vq->desc = kalloc();
   vq->avail = kalloc();
   vq->used = kalloc();
+  printf("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
 
   vq->nfree = NQUEUE;
   vq->last_used_idx = 0;

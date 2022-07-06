@@ -59,7 +59,7 @@ struct virtq {
 #define VIRTIO_DEV_BLK    0x2
 
 int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel);
-int virtq_alloc_desc(struct virtq *vq);
+u16 virtq_alloc_desc(struct virtq *vq);
 void virtq_free_desc(struct virtq *vq, u16 n);
 void virtq_init(struct virtq *vq);
 
