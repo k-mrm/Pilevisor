@@ -126,8 +126,6 @@ void node_init(struct vmconfig *vmcfg) {
   virtio_net_get_mac(node->nic, node->mac);
   vmm_log("node mac %m\n", node->mac);
 
-  nodedump(node);
-
   spinlock_init(&node->lock);
 
   intr_enable();
@@ -136,7 +134,6 @@ void node_init(struct vmconfig *vmcfg) {
   virtio_net_send_test();
   virtio_net_send_test();
 
-  nodedump(node);
   printf("aaa %p %p\n", node->ctl->initcore, node->ctl->start);
   node->ctl->initcore(node);
 

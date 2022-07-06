@@ -23,9 +23,6 @@ void hyp_sync_handler() {
 
 void uartintr(void);
 void hyp_irq_handler() {
-  printf("hypirq currrent ssssssssp %p\n", r_sp());
-  nodedump(&global);
-
   u32 iar = gic_read_iar();
   u32 irq = iar & 0x3ff;
 
