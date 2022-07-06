@@ -27,13 +27,8 @@ struct node {
   struct vgic *vgic;
 
   /* network interface card */
-  struct virtio_net *nic;
   u8 mac[6];
-
-  struct mmio_info *pmap;
-  int npmap;
-
-  spinlock_t lock;
+  struct virtio_net *nic;
 
   /* internal physical address of vm's device tree file (for Linux) */
   u64 fdt_base;
@@ -41,6 +36,10 @@ struct node {
   u64 initrd_base;
   /* internal physical address of vm's entrypoint */
   u64 entrypoint;
+
+  spinlock_t lock;
+  struct mmio_info *pmap;
+  int npmap;
 
   /* node control dispatcher */
   struct nodectl *ctl;

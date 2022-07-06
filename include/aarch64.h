@@ -49,6 +49,12 @@ static inline u64 vttbr_ipa2pa(u64 ipa) {
   return par;
 }
 
+static inline u64 r_sp() {
+  u64 x;
+  asm volatile("mov %0, sp" : "=r"(x));
+  return x;
+}
+
 static inline void tlb_flush() {
   dsb(ishst);
   asm volatile("tlbi vmalls12e1");

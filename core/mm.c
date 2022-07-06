@@ -67,7 +67,7 @@ void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len) {
   while(len > 0) {
     u64 pa = ipa2pa(pgt, to_ipa);
     if(pa == 0)
-      panic("copy_to_guest pa == 0");
+      panic("copy_to_guest pa == 0 to_ipa: %p", to_ipa);
     u64 poff = to_ipa & (PAGESIZE-1);
     u64 n = PAGESIZE - poff;
     if(n > len)
@@ -85,7 +85,7 @@ void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len) {
   while(len > 0) {
     u64 pa = ipa2pa(pgt, from_ipa);
     if(pa == 0)
-      panic("copy_from_guest pa == 0");
+      panic("copy_from_guest pa == 0 from_ipa: %p", from_ipa);
     u64 poff = from_ipa & (PAGESIZE-1);
     u64 n = PAGESIZE - poff;
     if(n > len)

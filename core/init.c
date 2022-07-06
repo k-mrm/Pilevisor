@@ -21,7 +21,7 @@ extern struct guest rootfs_img;
 void _start(void);
 void vectable();
 
-__attribute__((aligned(16))) char _stack[4096*NCPU];
+__attribute__((aligned(4096))) char _stack[4096*NCPU];
 
 volatile static int cpu0_ready = 0;
 
@@ -46,7 +46,7 @@ int vmm_init_secondary() {
   panic("unreachable");
 }
 
-int vmm_init_cpu0() {
+int vmm_init_cpu0(void *sp) {
   uart_init();
   vmm_log("vmm booting...\n");
   kalloc_init();
@@ -62,23 +62,7 @@ int vmm_init_cpu0() {
   virtio_mmio_init();
   hcr_setup();
 
-  intr_enable();
-  virtio_net_send_test();
-  u32 d;
-  read_sysreg(d, daif);
-  printf("enabled? %p\n", d);
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
+  printf("spppppppppp %p %p\n", sp, _stack);
 
   struct vmconfig vmcfg = {
     .guest_img = &linux_img,
