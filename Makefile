@@ -79,7 +79,8 @@ dev-main: poc-main
 	sudo ip tuntap add dev tap$(TAP_NUM) mode tap
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
-	$(QEMU) $(QEMUOPTS) poc-main -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	$(QEMU) $(QEMUOPTS) poc-main -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
+	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
@@ -89,12 +90,21 @@ dev-sub: poc-sub
 	sudo ip tuntap add dev tap$(TAP_NUM) mode tap
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
-	$(QEMU) $(QEMUOPTS) poc-sub -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	$(QEMU) $(QEMUOPTS) poc-sub -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
+	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
-gdb: poc-main
-	$(QEMU) -S -gdb tcp::1234 $(QEMUOPTS) poc-main
+gdb-main: poc-main
+	sudo ip link add br4poc type bridge || true
+	sudo ip link set br4poc up || true
+	sudo ip tuntap add dev tap$(TAP_NUM) mode tap
+	sudo ip link set dev tap$(TAP_NUM) master br4poc
+	sudo ip link set tap$(TAP_NUM) up
+	$(QEMU) -S -gdb tcp::1234 $(QEMUOPTS) poc-main -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
+	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	sudo ip link set tap$(TAP_NUM) down
+	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
 dts:
 	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 128

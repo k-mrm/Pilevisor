@@ -62,6 +62,24 @@ int vmm_init_cpu0() {
   virtio_mmio_init();
   hcr_setup();
 
+  intr_enable();
+  virtio_net_send_test();
+  u32 d;
+  read_sysreg(d, daif);
+  printf("enabled? %p\n", d);
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+  virtio_net_send_test();
+
   struct vmconfig vmcfg = {
     .guest_img = &linux_img,
     .fdt_img = &virt_dtb,

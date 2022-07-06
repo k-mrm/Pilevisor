@@ -7,27 +7,6 @@
 
 static void subnode_initcore(struct node *node) {
   vmm_log("nodeN: initcore\n");
-
-  /*
-  intr_enable();
-  virtio_net_send_test();
-  u32 d;
-  read_sysreg(d, daif);
-  printf("enabled? %p\n", d);
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  */
-
   node->nodeid = 1;
 
   for(int i = 0; i < node->nvcpu; i++) {

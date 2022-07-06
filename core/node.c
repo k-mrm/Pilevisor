@@ -126,6 +126,7 @@ void node_init(struct vmconfig *vmcfg) {
 
   spinlock_init(&node->lock);
 
+  printf("aaa %p %p\n", node->ctl->initcore, node->ctl->start);
   node->ctl->initcore(node);
 
   node->ctl->start(node);
