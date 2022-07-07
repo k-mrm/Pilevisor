@@ -27,24 +27,25 @@ void virtio_net_tx(struct virtio_net *nic, u8 *buf, u64 size) {
   hdr->csum_offset = 0;
   hdr->num_buffers = 1;
 
-  u8 *packet = (u8 *)hdr + sizeof(struct virtio_net_hdr);
+  u8 *packet = (u8 *)hdr + sizeof(struct virtio_net_hdr) - 2;
   memcpy(packet, buf, size);
 
   nic->tx->desc[d0].len = sizeof(struct virtio_net_hdr) + size;
   nic->tx->desc[d0].addr = (u64)hdr;
   nic->tx->desc[d0].flags = 0;
-  /*
+
   for(int i = 0; i < size; i++) {
     printf("%x ", ((u8 *)hdr)[i]);
-  } */
-  printf("cccc %d %d %p\n", d0, nic->tx->desc[d0].len, nic->tx->desc[d0].addr);
+  }
+  printf("sizeof(struct virtio_net_hdr) %d ", sizeof(struct virtio_net_hdr));
+  printf("cccc %d %d %d %p\n", d0, size, nic->tx->desc[d0].len, nic->tx->desc[d0].addr);
 
   nic->tx->avail->ring[nic->tx->avail->idx % NQUEUE] = d0;
   dsb(sy);
   nic->tx->avail->idx += 1;
   dsb(sy);
 
-  vtmmio_write(nic->base, VIRTIO_MMIO_QUEUE_NOTIFY, 1);
+  vtmmio_write(nic->base, VIRTIO_MMIO_QUEUE_NOTIFY, nic->tx->qsel);
 }
 
 static void fill_recv_queue(struct virtq *rxq) {
@@ -78,7 +79,7 @@ static void txintr(struct virtio_net *nic, u16 idx) {
 
   u8 *buf = nic->tx->desc[d].addr;
 
-  printf("tx intr!! idx %d d %d len %d\n", idx, d, nic->tx->desc[d].len);
+  printf("tx intr!! idx %d d %d len %d %p\n", idx, d, nic->tx->desc[d].len, buf);
   /*
   for(int i = 0; i < nic->tx.desc[d].len; i++)
     printf("%x ", buf[i]);

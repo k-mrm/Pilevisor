@@ -61,7 +61,7 @@ struct virtio_net_hdr {
   u16 csum_start;   /* Position to start checksumming from */
   u16 csum_offset;  /* Offset after that to place checksum */
   u16 num_buffers;  /* Number of merged rx buffers */
-};
+} __attribute__((packed));
 
 extern struct virtio_net netdev;
 
