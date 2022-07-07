@@ -27,7 +27,8 @@ void virtio_net_tx(struct virtio_net *nic, u8 *buf, u64 size) {
   hdr->csum_offset = 0;
   hdr->num_buffers = 1;
 
-  u8 *packet = (u8 *)hdr + sizeof(struct virtio_net_hdr) - 2;
+  u8 *packet = (u8 *)hdr + sizeof(struct virtio_net_hdr);
+  printf("ppppppppppppppppp %p", packet);
   memcpy(packet, buf, size);
 
   nic->tx->desc[d0].len = sizeof(struct virtio_net_hdr) + size;
@@ -147,7 +148,7 @@ int virtio_net_init(void *base, int intid) {
   feat &= ~(1 << VIRTIO_NET_F_HOST_TSO6);
   feat &= ~(1 << VIRTIO_NET_F_HOST_ECN);
   feat &= ~(1 << VIRTIO_NET_F_HOST_UFO);
-  feat &= ~(1 << VIRTIO_NET_F_MRG_RXBUF);
+  // feat &= ~(1 << VIRTIO_NET_F_MRG_RXBUF);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_VQ);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_RX);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_VLAN);
@@ -155,7 +156,7 @@ int virtio_net_init(void *base, int intid) {
   feat &= ~(1 << VIRTIO_NET_F_GUEST_ANNOUNCE);
   feat &= ~(1 << VIRTIO_NET_F_MQ);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_MAC_ADDR);
-  vtmmio_write(base, VIRTIO_MMIO_DRIVER_FEATURES, 0x10021);
+  vtmmio_write(base, VIRTIO_MMIO_DRIVER_FEATURES, feat & 0x1ffff);
 
   u32 status = vtmmio_read(base, VIRTIO_MMIO_STATUS);
   vtmmio_write(base, VIRTIO_MMIO_STATUS, status | DEV_STATUS_FEATURES_OK);
