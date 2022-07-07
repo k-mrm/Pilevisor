@@ -15,7 +15,7 @@ void virtio_net_get_mac(struct virtio_net *nic, u8 *mac) {
 }
 
 void virtio_net_tx(struct virtio_net *nic, u8 *buf, u64 size) {
-  u16 d0 = virtq_alloc_desc(&nic->tx);
+  u16 d0 = virtq_alloc_desc(nic->tx);
 
   struct virtio_net_hdr *hdr = kalloc();
 
@@ -30,20 +30,21 @@ void virtio_net_tx(struct virtio_net *nic, u8 *buf, u64 size) {
   u8 *packet = (u8 *)hdr + sizeof(struct virtio_net_hdr);
   memcpy(packet, buf, size);
 
-  nic->tx.desc[d0].len = sizeof(struct virtio_net_hdr) + size;
-  nic->tx.desc[d0].addr = (u64)hdr;
-  nic->tx.desc[d0].flags = 0;
+  nic->tx->desc[d0].len = sizeof(struct virtio_net_hdr) + size;
+  nic->tx->desc[d0].addr = (u64)hdr;
+  nic->tx->desc[d0].flags = 0;
+  /*
   for(int i = 0; i < size; i++) {
-    printf("%02x ", ((u8 *)hdr)[i]);
-  }
-  printf("cccc %d %d %p\n", d0, nic->tx.desc[d0].len, nic->tx.desc[d0].addr);
+    printf("%x ", ((u8 *)hdr)[i]);
+  } */
+  printf("cccc %d %d %p\n", d0, nic->tx->desc[d0].len, nic->tx->desc[d0].addr);
 
-  nic->tx.avail->ring[nic->tx.avail->idx % NQUEUE] = d0;
+  nic->tx->avail->ring[nic->tx->avail->idx % NQUEUE] = d0;
   dsb(sy);
-  nic->tx.avail->idx += 1;
+  nic->tx->avail->idx += 1;
   dsb(sy);
 
-  vtmmio_write(nic->base, VIRTIO_MMIO_QUEUE_NOTIFY, nic->tx.qsel);
+  vtmmio_write(nic->base, VIRTIO_MMIO_QUEUE_NOTIFY, 1);
 }
 
 static void fill_recv_queue(struct virtq *rxq) {
@@ -59,33 +60,33 @@ static void fill_recv_queue(struct virtq *rxq) {
 }
 
 static void rxintr(struct virtio_net *nic, u16 idx) {
-  u16 d = nic->rx.used->ring[idx].id;
-  u8 *buf = (u8 *)nic->rx.desc[d].addr + sizeof(struct virtio_net_hdr);
-  u32 len = nic->rx.used->ring[idx].len;
+  u16 d = nic->rx->used->ring[idx].id;
+  u8 *buf = (u8 *)nic->rx->desc[d].addr + sizeof(struct virtio_net_hdr);
+  u32 len = nic->rx->used->ring[idx].len;
 
   printf("rxintr %p %d %d\n", buf, idx, len);
 
   msg_recv_intr(buf);
 
-  nic->rx.avail->ring[nic->rx.avail->idx % NQUEUE] = d;
+  nic->rx->avail->ring[nic->rx->avail->idx % NQUEUE] = d;
   dsb(sy);
-  nic->rx.avail->idx += 1;
+  nic->rx->avail->idx += 1;
 }
 
 static void txintr(struct virtio_net *nic, u16 idx) {
-  u16 d = nic->tx.avail->ring[idx];
+  u16 d = nic->tx->avail->ring[idx];
 
-  u8 *buf = nic->tx.desc[d].addr;
+  u8 *buf = nic->tx->desc[d].addr;
 
-  printf("tx intr!! idx %d d %d len %d\n", idx, d, nic->tx.desc[d].len);
+  printf("tx intr!! idx %d d %d len %d\n", idx, d, nic->tx->desc[d].len);
+  /*
+  for(int i = 0; i < nic->tx.desc[d].len; i++)
+    printf("%x ", buf[i]);
+    */
 
-  for(int i = 0; i < nic->tx.desc[d].len; i++) {
-    printf("%02x ", buf[i]);
-  }
+  kfree((void*)nic->tx->desc[d].addr);
 
-  kfree((void*)nic->tx.desc[d].addr);
-
-  virtq_free_desc(&nic->tx, d);
+  virtq_free_desc(nic->tx, d);
 }
 
 void virtio_net_intr() {
@@ -108,15 +109,16 @@ void virtio_net_intr() {
   printf("virtio_net intr %d\n", status);
   vtmmio_write(nic->base, VIRTIO_MMIO_INTERRUPT_ACK, status);
 
+  /*
   while(nic->rx.last_used_idx != nic->rx.used->idx) {
     rxintr(nic, nic->rx.last_used_idx % NQUEUE);
     nic->rx.last_used_idx++;
     dsb(sy);
-  }
+  } */
 
-  while(nic->tx.last_used_idx != nic->tx.used->idx) {
-    txintr(nic, nic->tx.last_used_idx % NQUEUE);
-    nic->tx.last_used_idx++;
+  while(nic->tx->last_used_idx != nic->tx->used->idx) {
+    txintr(nic, nic->tx->last_used_idx % NQUEUE);
+    nic->tx->last_used_idx++;
     dsb(sy);
   }
 }
@@ -162,13 +164,13 @@ int virtio_net_init(void *base, int intid) {
     return -1;
   }
 
-  virtq_init(&netdev.tx);
-  virtq_init(&netdev.rx);
+  netdev.tx = virtq_create();
+  netdev.rx = virtq_create();
 
-  virtq_reg_to_dev(base, &netdev.rx, 0);
-  virtq_reg_to_dev(base, &netdev.tx, 1);
+  virtq_reg_to_dev(base, netdev.rx, 0);
+  virtq_reg_to_dev(base, netdev.tx, 1);
 
-  fill_recv_queue(&netdev.rx);
+  // fill_recv_queue(&netdev.rx);
 
   /* initialize done */
   status = vtmmio_read(base, VIRTIO_MMIO_STATUS);

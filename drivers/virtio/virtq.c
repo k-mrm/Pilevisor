@@ -14,8 +14,8 @@ static void desc_init(struct virtq *vq) {
   }
 }
 
-#define LO(addr)  (u32)((addr) & 0xffffffff)
-#define HI(addr)  (u32)(((addr) >> 32) & 0xffffffff)
+#define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
+#define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)
 
 /* mmio only */
 int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
@@ -24,15 +24,16 @@ int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_SEL, qsel);
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_NUM, NQUEUE);
   int qmax = vtmmio_read(base, VIRTIO_MMIO_QUEUE_NUM_MAX);
+  printf("virtq  max %d\n", qmax);
   if(qmax < NQUEUE)
     panic("queue?");
 
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_LOW, LO((u64)vq->desc));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_HIGH, HI((u64)vq->desc));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_LOW, LO((u64)vq->avail));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_HIGH, HI((u64)vq->avail));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_LOW, LO((u64)vq->used));
-  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_HIGH, HI((u64)vq->used));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_LOW, LO(vq->desc));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DESC_HIGH, HI(vq->desc));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_LOW, LO(vq->avail));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DRIVER_HIGH, HI(vq->avail));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_LOW, LO(vq->used));
+  vtmmio_write(base, VIRTIO_MMIO_QUEUE_DEVICE_HIGH, HI(vq->used));
 
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_READY, 1);
 
@@ -53,24 +54,13 @@ u16 virtq_alloc_desc(struct virtq *vq) {
 }
 
 void virtq_free_desc(struct virtq *vq, u16 n) {
-  u16 head = n;
-  int empty = 0;
-
-  if(vq->nfree == 0)
-    empty = 1;
-
-  while(vq->nfree++, (vq->desc[n].flags & VIRTQ_DESC_F_NEXT)) {
-    n = vq->desc[n].next;
-  }
-
-  vq->desc[n].flags = VIRTQ_DESC_F_NEXT;
-  if(!empty)
-    vq->desc[n].next = vq->free_head;
-  vq->free_head = head;
+  vq->desc[n].next = vq->free_head;
+  vq->free_head = n;
+  vq->nfree++;  /* TODO: chain? */
 }
 
-void virtq_init(struct virtq *vq) {
-  memset(vq, 0, sizeof(*vq));
+struct virtq *virtq_create() {
+  struct virtq *vq = kalloc();
 
   vq->desc = kalloc();
   vq->avail = kalloc();
@@ -78,8 +68,11 @@ void virtq_init(struct virtq *vq) {
   printf("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
 
   vq->nfree = NQUEUE;
+  vq->free_head = 0;
   vq->last_used_idx = 0;
   vq->qsel = 0;
 
   desc_init(vq);
+
+  return vq;
 }

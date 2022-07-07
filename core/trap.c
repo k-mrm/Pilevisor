@@ -26,8 +26,6 @@ void hyp_irq_handler() {
   u32 iar = gic_read_iar();
   u32 irq = iar & 0x3ff;
 
-  vmm_log("hyp_irq_handler %d\n", iar);
-
   switch(irq) {
     case 33:
       uartintr();

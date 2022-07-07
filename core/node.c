@@ -60,8 +60,6 @@ void node_init(struct vmconfig *vmcfg) {
 
   node->nvcpu = vmcfg->nvcpu;
 
-  nodedump(node);
-
   u64 *vttbr = kalloc();
   if(!vttbr)
     panic("vttbr");
@@ -134,7 +132,6 @@ void node_init(struct vmconfig *vmcfg) {
   virtio_net_send_test();
   virtio_net_send_test();
 
-  printf("aaa %p %p\n", node->ctl->initcore, node->ctl->start);
   node->ctl->initcore(node);
 
   node->ctl->start(node);
@@ -143,10 +140,10 @@ void node_init(struct vmconfig *vmcfg) {
 }
 
 void nodedump(struct node *node) {
-  printf("================== node %p ================\n", node);
+  printf("================== node  ================\n");
   printf("nvcpu %4d nodeid %4d\n", node->nvcpu, node->nodeid);
   printf("nic %p mac %m\n", node->nic, node->mac);
   printf("fdt %p entrypoint %p\n", node->fdt_base, node->entrypoint);
   printf("ctl %p\n", node->ctl);
-  printf("===========================================\n");
+  printf("=========================================\n");
 }

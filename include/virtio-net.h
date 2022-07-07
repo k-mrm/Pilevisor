@@ -42,8 +42,8 @@ struct virtio_net {
   void *base;
   struct virtio_net_config *cfg;
   int intid;
-  struct virtq tx;
-  struct virtq rx;
+  struct virtq *tx;
+  struct virtq *rx;
 };
 
 struct virtio_net_hdr {

@@ -46,7 +46,7 @@ int vmm_init_secondary() {
   panic("unreachable");
 }
 
-int vmm_init_cpu0(void *sp) {
+int vmm_init_cpu0() {
   uart_init();
   vmm_log("vmm booting...\n");
   kalloc_init();
@@ -61,8 +61,6 @@ int vmm_init_cpu0(void *sp) {
   // pci_init();
   virtio_mmio_init();
   hcr_setup();
-
-  printf("spppppppppp %p %p\n", sp, _stack);
 
   struct vmconfig vmcfg = {
     .guest_img = &linux_img,

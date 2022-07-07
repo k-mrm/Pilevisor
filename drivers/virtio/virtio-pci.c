@@ -55,7 +55,7 @@ static int virtio_pci_rng_init(struct virtio_pci_dev *vdev) {
   vtcfg->device_status = status;
   isb();
 
-  virtq_init(&vdev->virtq);
+  // virtq_init(&vdev->virtq);
 
   vtcfg->queue_select = 0;
   vtcfg->queue_size = 1; 
