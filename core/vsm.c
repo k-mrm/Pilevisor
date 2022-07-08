@@ -10,12 +10,12 @@
 #include "msg.h"
 
 static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
-  if(page_ipa & PAGESIZE)
+  vmm_log("request remote fetch!!!!: %p\n", page_ipa);
+
+  if(page_ipa % PAGESIZE)
     panic("align error");
 
   struct vsmctl *vsm = &node->vsm;
-
-  vmm_log("request remote fetch!!!!: %p\n", page_ipa);
 
   vsm->readbuf = buf;
   vsm->finished = 0;
@@ -52,7 +52,7 @@ int vsm_access(struct node *node, u64 ipa, u64 *reg, enum maccsize accsz, bool w
 
   /* FIXME */
   /* access remote memory */
-  if(0x40000000+256*1024 <= ipa && ipa <= 0x40000000+256*1024+256*1024) {
+  if(0x40000000+128*1024*1024 <= ipa && ipa <= 0x40000000+128*1024*1024+128*1024*1024) {
     buf = kalloc();
     u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
     if(vsm_fetch_page(node, 1, page_ipa, buf) < 0)
@@ -79,6 +79,7 @@ int vsm_access(struct node *node, u64 ipa, u64 *reg, enum maccsize accsz, bool w
 
     vmm_log("read ipa %p : %p\n", ipa, *reg);
   } else {
+    panic("write");
     return -1;
   }
 
@@ -91,6 +92,16 @@ err:
   panic("fetch failed");
 }
 
-void vsm_init(struct vsmctl *vsm) {
-  ;
+void vsm_init(struct node *node) {
+  if(node->nodeid == 0)
+    return;
+
+  u64 start = 0x40000000+128*1024*1024;
+  for(u64 p = 0; p < 128*1024*1024; p += PAGESIZE) {
+    char *page = kalloc();
+    if(!page)
+      panic("ram");
+
+    pagemap(node->vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  }
 }

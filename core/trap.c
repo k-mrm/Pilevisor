@@ -110,12 +110,15 @@ int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     .wnr = wnr,
   };
 
-  if(mmio_emulate(vcpu, r, &mmio) < 0) {
-    vmm_warn("dabort ipa: iss: %p ipa: %p va: %p\n", iss, ipa, far);
-    return -1;
-  }
+  vmm_warn("dabort ipa: %p va: %p elr: %p\n", ipa, far, elr);
 
-  return 0;
+  if(vsm_access(vcpu->node, ipa, &vcpu->reg.x[r], accsz, wnr) >= 0)
+    return 0;
+  if(mmio_emulate(vcpu, r, &mmio) >= 0)
+    return 0;
+
+  vmm_warn("dabort ipa: %p va: %p elr: %p\n", ipa, far, elr);
+  return -1;
 }
 
 static void vpsci_handler(struct vcpu *vcpu) {

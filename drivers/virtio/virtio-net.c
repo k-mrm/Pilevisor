@@ -28,18 +28,17 @@ void virtio_net_tx(struct virtio_net *nic, u8 *buf, u64 size) {
   hdr->num_buffers = 1;
 
   u8 *packet = (u8 *)hdr + sizeof(struct virtio_net_hdr);
-  printf("ppppppppppppppppp %p", packet);
+  // printf("ppppppppppppppppp %p", packet);
   memcpy(packet, buf, size);
 
   nic->tx->desc[d0].len = sizeof(struct virtio_net_hdr) + size;
   nic->tx->desc[d0].addr = (u64)hdr;
   nic->tx->desc[d0].flags = 0;
 
-  for(int i = 0; i < size; i++) {
-    printf("%x ", ((u8 *)hdr)[i]);
-  }
+  /*
   printf("sizeof(struct virtio_net_hdr) %d ", sizeof(struct virtio_net_hdr));
   printf("cccc %d %d %d %p\n", d0, size, nic->tx->desc[d0].len, nic->tx->desc[d0].addr);
+  */
 
   nic->tx->avail->ring[nic->tx->avail->idx % NQUEUE] = d0;
   dsb(sy);
@@ -66,7 +65,7 @@ static void rxintr(struct virtio_net *nic, u16 idx) {
   u8 *buf = (u8 *)nic->rx->desc[d].addr + sizeof(struct virtio_net_hdr);
   u32 len = nic->rx->used->ring[idx].len;
 
-  printf("rxintr %p %d %d\n", buf, idx, len);
+  // printf("rxintr %p %d %d\n", buf, idx, len);
 
   msg_recv_intr(buf);
 
@@ -80,11 +79,7 @@ static void txintr(struct virtio_net *nic, u16 idx) {
 
   u8 *buf = nic->tx->desc[d].addr;
 
-  printf("tx intr!! idx %d d %d len %d %p\n", idx, d, nic->tx->desc[d].len, buf);
-  /*
-  for(int i = 0; i < nic->tx.desc[d].len; i++)
-    printf("%x ", buf[i]);
-    */
+  // printf("tx intr!! idx %d d %d len %d %p\n", idx, d, nic->tx->desc[d].len, buf);
 
   kfree((void*)nic->tx->desc[d].addr);
 
@@ -108,15 +103,13 @@ void virtio_net_intr() {
   */
 
   u32 status = vtmmio_read(nic->base, VIRTIO_MMIO_INTERRUPT_STATUS);
-  printf("virtio_net intr %d\n", status);
   vtmmio_write(nic->base, VIRTIO_MMIO_INTERRUPT_ACK, status);
 
-  /*
-  while(nic->rx.last_used_idx != nic->rx.used->idx) {
-    rxintr(nic, nic->rx.last_used_idx % NQUEUE);
-    nic->rx.last_used_idx++;
+  while(nic->rx->last_used_idx != nic->rx->used->idx) {
+    rxintr(nic, nic->rx->last_used_idx % NQUEUE);
+    nic->rx->last_used_idx++;
     dsb(sy);
-  } */
+  }
 
   while(nic->tx->last_used_idx != nic->tx->used->idx) {
     txintr(nic, nic->tx->last_used_idx % NQUEUE);
@@ -148,7 +141,6 @@ int virtio_net_init(void *base, int intid) {
   feat &= ~(1 << VIRTIO_NET_F_HOST_TSO6);
   feat &= ~(1 << VIRTIO_NET_F_HOST_ECN);
   feat &= ~(1 << VIRTIO_NET_F_HOST_UFO);
-  // feat &= ~(1 << VIRTIO_NET_F_MRG_RXBUF);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_VQ);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_RX);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_VLAN);
@@ -172,7 +164,7 @@ int virtio_net_init(void *base, int intid) {
   virtq_reg_to_dev(base, netdev.rx, 0);
   virtq_reg_to_dev(base, netdev.tx, 1);
 
-  // fill_recv_queue(&netdev.rx);
+  fill_recv_queue(netdev.rx);
 
   /* initialize done */
   status = vtmmio_read(base, VIRTIO_MMIO_STATUS);

@@ -118,6 +118,8 @@ void enter_vcpu() {
 
   vmm_log("cpu%d: entering vcpu%d\n", id, vcpu->cpuid);
 
+  vcpu->reg.elr = vcpu->node->entrypoint;
+
   switch_vcpu(vcpu);
 }
 

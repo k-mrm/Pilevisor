@@ -1,8 +1,10 @@
 #include "types.h"
+#include "param.h"
 #include "vcpu.h"
 #include "node.h"
 #include "nodectl.h"
 #include "msg.h"
+#include "lib.h"
 
 /* main node (node0) controller */
 
@@ -16,6 +18,8 @@ static int node0_init_broadcast(struct node *node0) {
   intr_enable();
   while(!node0->remote[1].enabled)
     wfi();
+
+  printf("node1 ok\n");
 
   return 0;
 }
@@ -40,7 +44,22 @@ static void node0_start(struct node *node0) {
   enter_vcpu();
 }
 
+static int node0_register_remote(struct node *node0, u8 *remote_mac) {
+  u8 idx = ++node0->nremote;
+  if(idx > NODE_MAX) 
+    panic("remote node");
+
+  struct rnode_desc *rnode = &node0->remote[idx];
+
+  memcpy(rnode->mac, remote_mac, sizeof(u8)*6);
+
+  rnode->enabled = 1;
+
+  return 0;
+}
+
 struct nodectl global_nodectl = {
   .initcore = node0_initcore,
   .start = node0_start,
+  .register_remote_node = node0_register_remote,
 };

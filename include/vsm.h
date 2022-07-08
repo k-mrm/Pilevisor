@@ -16,7 +16,7 @@ struct vsmctl {
   u8 finished;
 };
 
-void vsm_init(struct vsmctl *vsm);
+void vsm_init(struct node *node);
 int vsm_access(struct node *node, u64 ipa, u64 *reg, enum maccsize accsz, bool wr);
 
 #endif

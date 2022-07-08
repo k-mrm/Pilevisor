@@ -110,6 +110,7 @@ void node_init(struct vmconfig *vmcfg) {
   pagemap(vttbr, UARTBASE, UARTBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
   pagemap(vttbr, GPIOBASE, GPIOBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
   pagemap(vttbr, RTCBASE, RTCBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
+  pagemap(vttbr, VIRTIO0, VIRTIO0, 0x4000, S2PTE_DEVICE|S2PTE_RW);
   pagemap(vttbr, PCIE_ECAM_BASE, PCIE_ECAM_BASE, 256*1024*1024,
           S2PTE_DEVICE|S2PTE_RW);
   pagemap(vttbr, PCIE_MMIO_BASE, PCIE_MMIO_BASE, 0x2eff0000, S2PTE_DEVICE|S2PTE_RW);
@@ -124,13 +125,9 @@ void node_init(struct vmconfig *vmcfg) {
   virtio_net_get_mac(node->nic, node->mac);
   vmm_log("node mac %m\n", node->mac);
 
-  spinlock_init(&node->lock);
+  vsm_init(node);
 
-  intr_enable();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
-  virtio_net_send_test();
+  spinlock_init(&node->lock);
 
   node->ctl->initcore(node);
 
