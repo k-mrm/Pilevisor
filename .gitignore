@@ -5,6 +5,7 @@
 *.dts
 *.dtb
 *.gdb
+*.log
 
 tags
 guest/hello/hello
