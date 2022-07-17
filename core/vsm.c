@@ -7,19 +7,22 @@
 #include "log.h"
 #include "lib.h"
 #include "node.h"
+#include "vcpu.h"
 #include "msg.h"
 
-static int vsm_fetch_page_dummy(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
+static u64 vsm_fetch_page_dummy(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
   if(page_ipa % PAGESIZE)
     panic("align error");
 
   struct vsmctl *vsm = &node->vsm;
 
   u64 pa = ipa2pa(vsm->dummypgt, page_ipa);
+  if(!pa)
+    panic("non pa");
 
   memcpy(buf, (u8 *)pa, PAGESIZE);
 
-  return 0;
+  return pa;
 }
 
 static int vsm_writeback(struct node *node, u64 page_ipa, char *buf) {
@@ -29,8 +32,20 @@ static int vsm_writeback(struct node *node, u64 page_ipa, char *buf) {
   struct vsmctl *vsm = &node->vsm;
 
   u64 pa = ipa2pa(vsm->dummypgt, page_ipa);
+  if(!pa)
+    panic("non pa");
 
   memcpy((u8 *)pa, buf, PAGESIZE);
+
+  return 0;
+}
+
+int vsm_fetch_pagetable(struct node *node, u64 page_ipa) {
+  char *pgt = kalloc();
+
+  vsm_fetch_page_dummy(node, 1, page_ipa, pgt);
+
+  pagemap(node->vttbr, page_ipa, pgt, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
 
   return 0;
 }
@@ -63,57 +78,68 @@ static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *bu
 }
 
 
-int vsm_access(struct node *node, u64 ipa, u64 *reg, enum maccsize accsz, bool wr) {
-  struct vsmctl *vsm = &node->vsm;
+int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r,
+               enum maccsize accsz, bool wr) {
   char *buf;
+  struct vsmctl *vsm = &node->vsm;
 
   /* FIXME */
   /* access remote memory */
   if(0x40000000+128*1024*1024 <= ipa && ipa <= 0x40000000+128*1024*1024+128*1024*1024) {
     buf = kalloc();
     u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
-    if(vsm_fetch_page_dummy(node, 1, page_ipa, buf) < 0)
-      goto err;
+    u64 pa = vsm_fetch_page_dummy(node, 1, page_ipa, buf);
 
     u32 offset = ipa & (PAGESIZE-1);
 
     if(wr) {
+      u64 reg = (r == 31)? 0 : vcpu->reg.x[r];
+
       switch(accsz) {
         case ACC_BYTE:
-          *(u8 *)(buf + offset) = *reg;
+          *(u8 *)(buf + offset) = (u8)reg;
           break;
         case ACC_HALFWORD:
-          *(u16 *)(buf + offset) = *reg;
+          *(u16 *)(buf + offset) = (u16)reg;
           break;
         case ACC_WORD:
-          *(u32 *)(buf + offset) = *reg;
+          *(u32 *)(buf + offset) = (u32)reg;
           break;
         case ACC_DOUBLEWORD:
-          *(u64 *)(buf + offset) = *reg;
+          *(u64 *)(buf + offset) = (u64)reg;
           break;
         default:
           goto err;
       }
-      // vmm_log("write ipa %p : %p\n", ipa, *reg);
+
       vsm_writeback(node, page_ipa, buf);
+
+      /*
+      if(pa == 0x51d7a000) {
+        u64 elr;
+        read_sysreg(elr, elr_el2);
+        vmm_log("write ipa %p : %p accbyte %d %p reg %d %p\n", ipa, *(u8 *)reg, accsz * 8, elr, r, vcpu->reg.x[30]);
+      } */
     } else {
+      if(r == 31)
+        panic("write to xzr");
+
       switch(accsz) {
         case ACC_BYTE:
-          *reg = *(u8 *)(buf + offset); 
+          vcpu->reg.x[r] = *(u8 *)(buf + offset); 
           break;
         case ACC_HALFWORD:
-          *reg = *(u16 *)(buf + offset);
+          vcpu->reg.x[r] = *(u16 *)(buf + offset);
           break;
         case ACC_WORD:
-          *reg = *(u32 *)(buf + offset);
+          vcpu->reg.x[r] = *(u32 *)(buf + offset);
           break;
         case ACC_DOUBLEWORD:
-          *reg = *(u64 *)(buf + offset);
+          vcpu->reg.x[r] = *(u64 *)(buf + offset);
           break;
         default:
           goto err;
       }
-      // vmm_log("read ipa %p : %p\n", ipa, *reg);
     }
 
   } else {

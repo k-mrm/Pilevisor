@@ -5,6 +5,7 @@
 #include "param.h"
 #include "memory.h"
 
+struct vcpu;
 struct node;
 
 struct vsmctl {
@@ -19,6 +20,7 @@ struct vsmctl {
 };
 
 void vsm_init(struct node *node);
-int vsm_access(struct node *node, u64 ipa, u64 *reg, enum maccsize accsz, bool wr);
+int vsm_fetch_pagetable(struct node *node, u64 page_ipa);
+int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r, enum maccsize accsz, bool wr);
 
 #endif

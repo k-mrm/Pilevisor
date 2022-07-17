@@ -69,25 +69,55 @@ void vm_irq_handler() {
   isb();
 }
 
-static u64 faulting_ipa(u64 vaddr) {
+static u64 faulting_ipa_page() {
   u64 hpfar;
   read_sysreg(hpfar, hpfar_el2);
 
   u64 ipa_page = (hpfar & HPFAR_FIPA_MASK) << 8;
 
-  return ipa_page | (vaddr & (PAGESIZE-1));
+  return ipa_page;
 }
 
-int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
-  u64 ipa = faulting_ipa(far);
-
-  bool wnr = (iss >> 6) & 0x1;
-  int sas = (iss >> 22) & 0x3;
-  int r = (iss >> 16) & 0x1f;
-  int fnv = (iss >> 10) & 0x1;
+static int vm_iabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
+  bool fnv = (iss >> 10) & 0x1;
+  bool s1ptw = (iss >> 7) & 0x1;
 
   if(fnv)
     panic("fnv");
+
+  if(s1ptw) {
+    /* fetch pagetable */
+    u64 pgt_ipa = faulting_ipa_page();
+    printf("pgt ipa %p\n", pgt_ipa);
+    vsm_fetch_pagetable(vcpu->node, pgt_ipa);
+
+    return 0;
+  }
+
+  vcpu->reg.elr += 4;
+
+  return -1;
+}
+
+static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
+  int sas = (iss >> 22) & 0x3;
+  int r = (iss >> 16) & 0x1f;
+  int fnv = (iss >> 10) & 0x1;
+  bool s1ptw = (iss >> 7) & 0x1;
+  bool wnr = (iss >> 6) & 0x1;
+
+  if(fnv)
+    panic("fnv");
+
+
+  if(s1ptw) {
+    /* fetch pagetable */
+    u64 pgt_ipa = faulting_ipa_page();
+    printf("pgt ipa %p\n", pgt_ipa);
+    vsm_fetch_pagetable(vcpu->node, pgt_ipa);
+
+    return 0;
+  }
 
   u64 elr;
   read_sysreg(elr, elr_el2);
@@ -101,6 +131,8 @@ int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     default: panic("?");
   }
 
+  u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
+
   // vmm_log("dabort ipa %p %p %s %d byte r%d\n", ipa, elr, wnr? "write" : "read", 8 * accsz, r);
 
   struct mmio_access mmio = {
@@ -110,9 +142,10 @@ int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     .wnr = wnr,
   };
 
-  // vmm_log("dabort ipa: %p va: %p elr: %p %s\n", ipa, far, elr, wnr? "write" : "read");
+  vcpu->reg.elr += 4;
 
-  if(vsm_access(vcpu->node, ipa, &vcpu->reg.x[r], accsz, wnr) >= 0)
+  // vmm_log("dabort ipa: %p va: %p elr: %p %s\n", ipa, far, elr, wnr? "write" : "read");
+  if(vsm_access(vcpu, vcpu->node, ipa, r, accsz, wnr) >= 0)
     return 0;
   if(mmio_emulate(vcpu, r, &mmio) >= 0)
     return 0;
@@ -161,6 +194,14 @@ static void dabort_iss_dump(u64 iss) {
   printf("DFSC : %x\n", iss & 0x3f);
 }
 
+static void iabort_iss_dump(u64 iss) {
+  printf("SET  : %d\n", (iss >> 11) & 0x3);
+  printf("FnV  : %d\n", (iss >> 10) & 0x1);
+  printf("EA   : %d\n", (iss >> 9) & 0x1);
+  printf("S1PTW: %d\n", (iss >> 7) & 0x1);
+  printf("IFSC : %x\n", iss & 0x3f);
+}
+
 int vsysreg_emulate(struct vcpu *vcpu, u64 iss);
 void vm_sync_handler() {
   struct vcpu *vcpu;
@@ -194,20 +235,21 @@ void vm_sync_handler() {
         panic("unknown msr/mrs access %p", iss);
 
       vcpu->reg.elr += 4;
+
       break;
-    case 0x20: {
-      u64 ipa = faulting_ipa(far);
-      printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
-      panic("instruction abort: %p", ipa);
+    case 0x20:    /* instruction abort */
+      if(vm_iabort_handler(vcpu, iss, far) < 0) {
+        printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
+        iabort_iss_dump(iss);
+      }
+
       break;
-    }    /* instruction abort */
     case 0x24:    /* trap EL0/1 data abort */
       if(vm_dabort_handler(vcpu, iss, far) < 0) {
         dabort_iss_dump(iss);
         panic("unexcepted dabort");
       }
 
-      vcpu->reg.elr += 4;
       break;
     default:
       vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
