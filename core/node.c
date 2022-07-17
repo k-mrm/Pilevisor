@@ -122,8 +122,7 @@ void node_init(struct vmconfig *vmcfg) {
   node->vgic = new_vgic(node);
 
   node->nic = &netdev;
-  virtio_net_get_mac(node->nic, node->mac);
-  vmm_log("node mac %m\n", node->mac);
+  vmm_log("node mac %m\n", node->nic->mac);
 
   vsm_init(node);
 
@@ -139,7 +138,7 @@ void node_init(struct vmconfig *vmcfg) {
 void nodedump(struct node *node) {
   printf("================== node  ================\n");
   printf("nvcpu %4d nodeid %4d\n", node->nvcpu, node->nodeid);
-  printf("nic %p mac %m\n", node->nic, node->mac);
+  printf("nic %p mac %m\n", node->nic, node->nic->mac);
   printf("fdt %p entrypoint %p\n", node->fdt_base, node->entrypoint);
   printf("ctl %p\n", node->ctl);
   printf("=========================================\n");

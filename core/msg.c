@@ -2,7 +2,7 @@
 #include "lib.h"
 #include "log.h"
 #include "node.h"
-#include "virtio.h"
+#include "net.h"
 #include "pcpu.h"
 #include "mm.h"
 
@@ -20,7 +20,7 @@ static u8 *msg_pack_eth_header(struct node *node, struct msg *msg, u8 *buf) {
   }
 
   /* src mac address */
-  memcpy(buf+6, node->mac, sizeof(u8)*6);
+  memcpy(buf+6, node->nic->mac, sizeof(u8)*6);
   buf[12] = 0x19;
   buf[13] = msg->type;
 
@@ -35,7 +35,7 @@ static int send_init_request(struct node *node, struct msg *msg) {
   u8 buf[64] = {0};
 
   msg_pack_eth_header(node, msg, buf);
-  virtio_net_tx(node->nic, buf, 64);
+  node->nic->ops->xmit(node->nic, buf, 64);
 
   return 0;
 }
@@ -46,13 +46,12 @@ static int recv_init_request(struct node *node, u8 *buf) {
     panic("node0 recv init msg");
 
   memcpy(node->remote[0].mac, buf+6, sizeof(u8)*6);
-  u8 *m = node->remote[0].mac;
-  vmm_log("node0 mac address: %m\n", m);
-  m = node->mac;
-  vmm_log("me mac address: %m\n", m);
+
+  vmm_log("node0 mac address: %m\n", node->remote[0].mac);
+  vmm_log("me mac address: %m\n", node->nic->mac);
 
   struct init_reply msg;
-  init_reply_init(&msg, node->mac);
+  init_reply_init(&msg, node->nic->mac);
   msg.msg.send(node, (struct msg *)&msg);
 
   return 0;
@@ -76,7 +75,7 @@ static int send_init_reply(struct node *node, struct msg *msg) {
   memcpy(body, rep->mac, sizeof(u8)*6);
 
   vmm_log("dst_bits: %d", msg->dst_bits);
-  virtio_net_tx(node->nic, buf, 64);
+  node->nic->ops->xmit(node->nic, buf, 64);
 
   return 0;
 }
@@ -116,7 +115,7 @@ static int send_read_request(struct node *node, struct msg *msg) {
   u8 *body = msg_pack_eth_header(node, msg, buf);
   memcpy(body, &rmsg->ipa, sizeof(rmsg->ipa));
 
-  virtio_net_tx(node->nic, buf, 64);
+  node->nic->ops->xmit(node->nic, buf, 64);
 
   return 0;
 }
@@ -167,7 +166,7 @@ static int send_read_reply(struct node *node, struct msg *msg) {
   u8 *body = msg_pack_eth_header(node, msg, buf);
   memcpy(body, rmsg->page, 1024);
 
-  virtio_net_tx(node->nic, buf, 1088);
+  node->nic->ops->xmit(node->nic, buf, 1088);
 
   return 0;
 }

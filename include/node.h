@@ -7,7 +7,7 @@
 #include "spinlock.h"
 #include "guest.h"
 #include "vm.h"
-#include "virtio-net.h"
+#include "net.h"
 #include "vsm.h"
 #include "nodectl.h"
 
@@ -27,8 +27,7 @@ struct node {
   struct vgic *vgic;
 
   /* network interface card */
-  u8 mac[6];
-  struct virtio_net *nic;
+  struct nic *nic;
 
   /* internal physical address of vm's device tree file (for Linux) */
   u64 fdt_base;

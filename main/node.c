@@ -10,7 +10,7 @@
 
 static int node0_init_broadcast(struct node *node0) {
   struct init_msg msg;
-  init_msg_init(&msg, node0->mac);
+  init_msg_init(&msg, node0->nic->mac);
 
   /* send msg */
   msg.msg.send(node0, (struct msg *)&msg);
@@ -39,7 +39,7 @@ static void node0_initcore(struct node *node0) {
 static void node0_start(struct node *node0) {
   vmm_log("node0: start\n");
 
-  node0_init_broadcast(node0);
+  // node0_init_broadcast(node0);
 
   enter_vcpu();
 }

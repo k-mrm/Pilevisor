@@ -63,6 +63,4 @@ struct virtio_net_hdr {
   u16 num_buffers;  /* Number of merged rx buffers */
 } __attribute__((packed));
 
-extern struct virtio_net netdev;
-
 #endif

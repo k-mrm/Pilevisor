@@ -110,7 +110,7 @@ int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     .wnr = wnr,
   };
 
-  vmm_warn("dabort ipa: %p va: %p elr: %p\n", ipa, far, elr);
+  // vmm_log("dabort ipa: %p va: %p elr: %p %s\n", ipa, far, elr, wnr? "write" : "read");
 
   if(vsm_access(vcpu->node, ipa, &vcpu->reg.x[r], accsz, wnr) >= 0)
     return 0;
@@ -195,6 +195,12 @@ void vm_sync_handler() {
 
       vcpu->reg.elr += 4;
       break;
+    case 0x20: {
+      u64 ipa = faulting_ipa(far);
+      printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
+      panic("instruction abort: %p", ipa);
+      break;
+    }    /* instruction abort */
     case 0x24:    /* trap EL0/1 data abort */
       if(vm_dabort_handler(vcpu, iss, far) < 0) {
         dabort_iss_dump(iss);

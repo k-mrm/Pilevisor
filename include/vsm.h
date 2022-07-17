@@ -10,6 +10,8 @@ struct node;
 struct vsmctl {
   struct node_vrange local;
   struct node_vrange remotes[NODE_MAX];
+
+  u64 *dummypgt;
   
   /* read request/reply buffer */
   char *readbuf;
