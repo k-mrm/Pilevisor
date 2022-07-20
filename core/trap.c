@@ -88,7 +88,7 @@ static int vm_iabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   if(s1ptw) {
     /* fetch pagetable */
     u64 pgt_ipa = faulting_ipa_page();
-    printf("pgt ipa %p\n", pgt_ipa);
+    vmm_log("iabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
     vsm_fetch_pagetable(vcpu->node, pgt_ipa);
 
     return 0;
@@ -109,11 +109,11 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   if(fnv)
     panic("fnv");
 
-
   if(s1ptw) {
     /* fetch pagetable */
     u64 pgt_ipa = faulting_ipa_page();
-    printf("pgt ipa %p\n", pgt_ipa);
+    vmm_log("dabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
+    // vcpu_dump(vcpu);
     vsm_fetch_pagetable(vcpu->node, pgt_ipa);
 
     return 0;
@@ -132,8 +132,6 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   }
 
   u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
-
-  // vmm_log("dabort ipa %p %p %s %d byte r%d\n", ipa, elr, wnr? "write" : "read", 8 * accsz, r);
 
   struct mmio_access mmio = {
     .ipa = ipa,

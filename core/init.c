@@ -27,7 +27,7 @@ volatile static int cpu0_ready = 0;
 
 static void hcr_setup() {
   u64 hcr = HCR_VM | HCR_SWIO | HCR_FMO | HCR_IMO |
-            /*HCR_TWI | HCR_TWE |*/ HCR_RW | HCR_TSC | HCR_TID3;
+            HCR_RW | HCR_TSC | /* HCR_TDZ |*/ HCR_TID3;
 
   write_sysreg(hcr_el2, hcr);
 

@@ -45,7 +45,7 @@ int vsm_fetch_pagetable(struct node *node, u64 page_ipa) {
 
   vsm_fetch_page_dummy(node, 1, page_ipa, pgt);
 
-  pagemap(node->vttbr, page_ipa, pgt, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  pagemap(node->vttbr, page_ipa, (u64)pgt, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
 
   return 0;
 }
@@ -113,16 +113,16 @@ int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r,
       }
 
       vsm_writeback(node, page_ipa, buf);
-
-      /*
-      if(pa == 0x51d7a000) {
-        u64 elr;
-        read_sysreg(elr, elr_el2);
-        vmm_log("write ipa %p : %p accbyte %d %p reg %d %p\n", ipa, *(u8 *)reg, accsz * 8, elr, r, vcpu->reg.x[30]);
-      } */
     } else {
       if(r == 31)
         panic("write to xzr");
+
+      if(ipa == 0x4df7dc00) {
+        vmm_log("rrrrrrrrrrrrrrrrrr %p %p\n", ipa, *(u64 *)(buf + offset));
+        for(int i = 0; i < PAGESIZE-0xc00; i++) {
+          printf("%x ", (buf+offset)[i]);
+        }
+      }
 
       switch(accsz) {
         case ACC_BYTE:

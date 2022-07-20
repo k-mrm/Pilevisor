@@ -10,8 +10,7 @@ CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu
 CFLAGS += -I ./include/
 LDFLAGS = -nostdlib -nostartfiles
 
-#QEMUPREFIX = ~/qemu/build/
-QEMUPREFIX = 
+QEMUPREFIX = ~/qemu-6.2.0/build/
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
 GIC_VERSION = 3
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
@@ -106,12 +105,18 @@ gdb-main: poc-main
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
+linux-gdb: guest/linux/Image
+	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(NCPU) -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256 -S -gdb tcp::1234
+
+linux: guest/linux/Image
+	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(NCPU) -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
+
 dts:
 	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 128
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 256
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
 
 clean:
 	make -C guest clean

@@ -6,6 +6,8 @@
 #define arm_sysreg(op1, crn, crm, op2)  \
   s3_ ## op1 ## _ ## crn ## _ ## crm ## _ ## op2
 
+#define HFGITR_EL2    arm_sysreg(4, c1, c1, 6)
+
 #define __read_sysreg(val, reg) \
   asm volatile("mrs %0, " #reg : "=r"(val))
 #define read_sysreg(val, reg)  __read_sysreg(val, reg)
@@ -32,6 +34,7 @@
 #define HCR_TID3  (1<<18)
 #define HCR_TSC   (1<<19)
 #define HCR_TGE   (1<<27)
+#define HCR_TDZ   (1<<28)
 #define HCR_RW    (1<<31)
 
 #define HPFAR_FIPA_MASK   0xfffffffffff
