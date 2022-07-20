@@ -58,12 +58,16 @@ static bool isdigit(char c) {
   return '0' <= c && c <= '9';
 }
 
-static const char *fetch_digit(const char *fmt, int *digit) {
+static const char *fetch_digit(const char *fmt, int *digit, enum printopt *opt) {
   int n = 0, neg = 0;
+  *opt = 0;
 
   if(*fmt == '-') {
     fmt++;
     neg = 1;
+  } else if(*fmt == '0') {
+    fmt++;
+    *opt |= ZERO_PAD;
   }
 
   while(isdigit(*fmt)) {
@@ -87,22 +91,23 @@ static int vprintf(const char *fmt, va_list ap) {
   char *s;
   void *p;
   int digit = 0;
+  enum printopt opt;
 
   for(; *fmt; fmt++) {
     char c = *fmt;
     if(c == '%') {
       fmt++;
-      fmt = fetch_digit(fmt, &digit);
+      fmt = fetch_digit(fmt, &digit, &opt);
 
       switch(c = *fmt) {
         case 'd':
-          printiu64(va_arg(ap, i32), 10, true, digit, 0);
+          printiu64(va_arg(ap, i32), 10, true, digit, opt);
           break;
         case 'u':
-          printiu64(va_arg(ap, u32), 10, false, digit, 0);
+          printiu64(va_arg(ap, u32), 10, false, digit, opt);
           break;
         case 'x':
-          printiu64(va_arg(ap, u64), 16, false, digit, 0);
+          printiu64(va_arg(ap, u64), 16, false, digit, opt);
           break;
         case 'p':
           p = va_arg(ap, void *);

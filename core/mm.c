@@ -108,6 +108,19 @@ u64 ipa2pa(u64 *pgt, u64 ipa) {
   return PTE_PA(*pte) + off;
 }
 
+u64 at_uva2pa(u64 uva) {
+  u64 par;
+
+  asm volatile("at s12e1r, %0" :: "r"(uva) : "memory");
+
+  read_sysreg(par, par_el1);
+
+  if(par & 1)
+    return -1;
+  else
+    return (par & 0xfffffffff000) | (uva & 0xfff);
+}
+
 void dump_par_el1(u64 par) {
   if(par & 1) {
     printf("translation fault\n");

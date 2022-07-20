@@ -89,6 +89,7 @@ void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr);
 void pageunmap(u64 *pgt, u64 va, u64 size);
 
 u64 ipa2pa(u64 *pgt, u64 ipa);
+u64 at_uva2pa(u64 uva);
 
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);

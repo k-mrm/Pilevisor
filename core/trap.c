@@ -116,6 +116,14 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     // vcpu_dump(vcpu);
     vsm_fetch_pagetable(vcpu->node, pgt_ipa);
 
+    u64 pa = at_uva2pa(0xffff800010471ee8);
+    printf("pa %p\n", pa);
+
+    for(int i = 0; i < 0x200; i++) {
+      printf("%02x", ((char*)pa)[i]);
+      printf("%s", (i+1) % 4 == 0? " " : "");
+    }
+
     return 0;
   }
 
