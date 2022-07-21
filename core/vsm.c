@@ -22,6 +22,12 @@ static u64 vsm_fetch_page_dummy(struct node *node, u8 dst_node, u64 page_ipa, ch
 
   memcpy(buf, (u8 *)pa, PAGESIZE);
 
+  if(page_ipa == 0x4df75000) {
+    u8 *cache = kalloc();
+    memcpy(cache, buf, PAGESIZE);
+    pagemap(node->vttbr, page_ipa, (u64)cache, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  }
+
   return pa;
 }
 
@@ -95,6 +101,25 @@ int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r,
     if(wr) {
       u64 reg = (r == 31)? 0 : vcpu->reg.x[r];
 
+      /* Linux memset (dc zva) */
+      /*
+      if(vcpu->reg.elr == 0xffff800010c255ec) {
+        printf("memsetzero\n");
+        u64 line = buf + offset;
+        // zero clear by cache line size
+        for(u64 i = 0; i < 64; i++) {
+          ((u8 *)line)[i] = 0;
+        }
+        vsm_writeback(node, page_ipa, buf);
+        goto end;      
+      } */
+      if(ipa == at_uva2ipa(0xffff00000df76010)) {
+        vmm_log("wwwwwwwwwwwwwwwww %p %p %d %d %p\n", ipa, vcpu->reg.elr, accsz * 8, r, vcpu->reg.x[r]);
+        for(int i = 0; i < 0x10; i++) {
+          printf("%02x ", (buf+offset)[i]);
+        }
+      }
+
       switch(accsz) {
         case ACC_BYTE:
           *(u8 *)(buf + offset) = (u8)reg;
@@ -117,10 +142,10 @@ int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r,
       if(r == 31)
         panic("write to xzr");
 
-      if(ipa == 0x4df7dc00) {
-        vmm_log("rrrrrrrrrrrrrrrrrr %p %p\n", ipa, *(u64 *)(buf + offset));
-        for(int i = 0; i < PAGESIZE-0xc00; i++) {
-          printf("%x ", (buf+offset)[i]);
+      if(ipa == at_uva2ipa(0xffff00000df76010)) {
+        vmm_log("rrrrrrrrrrrrrrrrrr %p %p %d %d %p\n", ipa, vcpu->reg.elr, accsz * 8, r, vcpu->reg.x[r]);
+        for(int i = 0; i < PAGESIZE-0x10; i++) {
+          printf("%02x ", (buf+offset)[i]);
         }
       }
 
@@ -141,11 +166,11 @@ int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r,
           goto err;
       }
     }
-
   } else {
     return -1;
   }
 
+end:
   kfree(buf);
 
   return 0;

@@ -8,6 +8,9 @@
 #include "mmio.h"
 #include "vpsci.h"
 
+static void dabort_iss_dump(u64 iss);
+static void iabort_iss_dump(u64 iss);
+
 void hyp_sync_handler() {
   u64 esr, elr, far;
   read_sysreg(esr, esr_el2);
@@ -100,14 +103,15 @@ static int vm_iabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
 }
 
 static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
+  int isv = (iss >> 24) & 0x1;
   int sas = (iss >> 22) & 0x3;
   int r = (iss >> 16) & 0x1f;
   int fnv = (iss >> 10) & 0x1;
   bool s1ptw = (iss >> 7) & 0x1;
   bool wnr = (iss >> 6) & 0x1;
 
-  if(fnv)
-    panic("fnv");
+  if(isv)
+    panic("isv");
 
   if(s1ptw) {
     /* fetch pagetable */
@@ -116,12 +120,18 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     // vcpu_dump(vcpu);
     vsm_fetch_pagetable(vcpu->node, pgt_ipa);
 
-    u64 pa = at_uva2pa(0xffff800010471ee8);
-    printf("pa %p\n", pa);
+    u64 pa = at_uva2pa(0xffff00000df75dc8);
+    u64 ipa = at_uva2ipa(0xffff00000df75dc8);
+    printf("pa %p ipa %p\n", pa, ipa);
 
-    for(int i = 0; i < 0x200; i++) {
-      printf("%02x", ((char*)pa)[i]);
-      printf("%s", (i+1) % 4 == 0? " " : "");
+    if(ipa) {
+      u64 rp = ipa2pa(vcpu->node->vsm.dummypgt, ipa);
+      printf("rp pppp %p \n", rp);
+
+      for(int i = 0; i < 0x200; i++) {
+        printf("%02x", ((char*)rp)[i]);
+        printf("%s", (i+1) % 4 == 0? " " : "");
+      }
     }
 
     return 0;
@@ -150,7 +160,9 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
 
   vcpu->reg.elr += 4;
 
-  // vmm_log("dabort ipa: %p va: %p elr: %p %s\n", ipa, far, elr, wnr? "write" : "read");
+  if(elr == 0xffff800010471ef8)
+    panic("dabort ipa: %p va: %p elr: %p %s\n", ipa, far, elr, wnr? "write" : "read");
+
   if(vsm_access(vcpu, vcpu->node, ipa, r, accsz, wnr) >= 0)
     return 0;
   if(mmio_emulate(vcpu, r, &mmio) >= 0)

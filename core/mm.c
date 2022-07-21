@@ -115,10 +115,27 @@ u64 at_uva2pa(u64 uva) {
 
   read_sysreg(par, par_el1);
 
-  if(par & 1)
-    return -1;
-  else
+  if(par & 1) {
+    dump_par_el1(par);
+    return 0;
+  } else {
     return (par & 0xfffffffff000) | (uva & 0xfff);
+  }
+}
+
+u64 at_uva2ipa(u64 uva) {
+  u64 par;
+
+  asm volatile("at s1e1r, %0" :: "r"(uva) : "memory");
+
+  read_sysreg(par, par_el1);
+
+  if(par & 1) {
+    // dump_par_el1(par);
+    return 0;
+  } else {
+    return (par & 0xfffffffff000) | (uva & 0xfff);
+  }
 }
 
 void dump_par_el1(u64 par) {
