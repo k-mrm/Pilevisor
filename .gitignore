@@ -14,3 +14,5 @@ memos/
 *.out
 poc-main
 poc-sub
+poc-main-vsm
+poc-sub-vsm
