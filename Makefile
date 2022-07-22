@@ -10,7 +10,7 @@ CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu
 CFLAGS += -I ./include/
 LDFLAGS = -nostdlib -nostartfiles
 
-QEMUPREFIX = ~/qemu/build/
+#QEMUPREFIX = ~/qemu/build/
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
 GIC_VERSION = 3
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
@@ -66,10 +66,18 @@ poc-main: $(MAINOBJS) $(M)/memory.ld dtb guest/linux/Image guest/linux/rootfs.im
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
+poc-main-vsm: $(MAINOBJS) $(M)/memory.ld guest/vsmtest.img
+	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
+	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) hello-img.o
+
 poc-sub: $(SUBOBJS) $(S)/memory.ld dtb guest/linux/Image guest/linux/rootfs.img
 	$(LD) -r -b binary guest/linux/Image -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
+	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
+
+poc-sub-vsm: $(SUBOBJS) $(S)/memory.ld guest/vsmtest.img
+	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
 
 dev-main: poc-main
@@ -90,6 +98,28 @@ dev-sub: poc-sub
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	$(QEMU) $(QEMUOPTS) poc-sub -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
+	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	sudo ip link set tap$(TAP_NUM) down
+	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
+
+dev-main-vsm: poc-main-vsm
+	sudo ip link add br4poc type bridge || true
+	sudo ip link set br4poc up || true
+	sudo ip tuntap add dev tap$(TAP_NUM) mode tap
+	sudo ip link set dev tap$(TAP_NUM) master br4poc
+	sudo ip link set tap$(TAP_NUM) up
+	$(QEMU) $(QEMUOPTS) poc-main-vsm -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
+	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	sudo ip link set tap$(TAP_NUM) down
+	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
+
+dev-sub-vsm: poc-sub-vsm
+	sudo ip link add br4poc type bridge || true
+	sudo ip link set br4poc up || true
+	sudo ip tuntap add dev tap$(TAP_NUM) mode tap
+	sudo ip link set dev tap$(TAP_NUM) master br4poc
+	sudo ip link set tap$(TAP_NUM) up
+	$(QEMU) $(QEMUOPTS) poc-sub-vsm -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
 	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
