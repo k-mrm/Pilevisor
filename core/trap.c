@@ -165,18 +165,21 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
 
   vcpu->reg.elr += 4;
 
-  if(elr == 0xffff800010471ef8)
-    panic("dabort ipa: %p va: %p elr: %p %s\n", ipa, far, elr, wnr? "write" : "read");
 
-  int c;
-  u64 reg = vcpu->reg.x[r];
-  if(r == 31)
+  int c; u64 reg;
+  if(r == 31) {
+    reg = 0;
     c = vsm_access(vcpu, 0, ipa, accsz, wnr);
-  else
+  }
+  else {
+    reg = vcpu->reg.x[r];
     c = vsm_access(vcpu, (char *)&reg, ipa, accsz, wnr);
+  }
+
+  // printf("dabort ipa: %p va: %p elr: %p %s %d %p %d\n", ipa, far, elr, wnr? "write" : "read", r, reg, accsz);
 
   if(c >= 0) {
-    if(wnr) {
+    if(!wnr) {
       switch(accsz) {
         case ACC_BYTE:
           vcpu->reg.x[r] = (u8)reg;

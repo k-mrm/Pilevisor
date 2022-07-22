@@ -98,19 +98,6 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
     u32 offset = ipa & (PAGESIZE-1);
 
     if(wr) {
-      /* Linux memset (dc zva) */
-      /*
-      if(vcpu->reg.elr == 0xffff800010c255ec) {
-        printf("memsetzero\n");
-        u64 line = buf + offset;
-        // zero clear by cache line size
-        for(u64 i = 0; i < 64; i++) {
-          ((u8 *)line)[i] = 0;
-        }
-        vsm_writeback(node, page_ipa, buf);
-        goto end;      
-      } */
-
       if(buf)
         memcpy(tmp+offset, buf, size);
       else
@@ -118,15 +105,9 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
 
       vsm_writeback(node, page_ipa, tmp);
     } else {
-      /*
-      if(ipa == at_uva2ipa(0xffff00000df76010)) {
-        vmm_log("rrrrrrrrrrrrrrrrrr %p %p %d %d %p\n", ipa, vcpu->reg.elr, accsz * 8, r, vcpu->reg.x[r]);
-        for(int i = 0; i < PAGESIZE-0x10; i++) {
-          printf("%02x ", (buf+offset)[i]);
-        }
-      } */
       if(!buf)
         panic("?");
+
       memcpy(buf, tmp+offset, size);
     }
   } else {
