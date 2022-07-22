@@ -1,7 +1,8 @@
 #include "aarch64.h"
 #include "types.h"
 #include "vcpu.h"
-#include "printf.h"
+#include "vsm.h"
+#include "log.h"
 
 #define ADDR_WBACK    (1 << 0)
 #define ADDR_POSTIDX  (1 << 1)
@@ -32,12 +33,12 @@ static int emul_ldp_stp64(struct vcpu *vcpu, u32 inst, enum addressing ad, int l
 
   u64 reg[2] = { vcpu->reg.x[rt], vcpu->reg.x[rt2] };
   if(l) {   /* ldp */
-    vsm_access(vcpu, reg, addr, 16, 0);
+    vsm_access(vcpu, (char *)reg, addr, 16, 0);
     vcpu->reg.x[rt] = reg[0];
     vcpu->reg.x[rt2] = reg[1];
   }
   else {    /* stp */
-    vsm_access(vcpu, reg, addr, 16, 1);
+    vsm_access(vcpu, (char *)reg, addr, 16, 1);
   }
 
   if(addressing_wback(ad))
@@ -86,7 +87,7 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
         case 3:
           return emul_ldp_stp(vcpu, inst, PRE_INDEX);
       }
-    default: panic("unimplemented");
+    default: return -1;
   }
 }
 
@@ -99,9 +100,9 @@ int cpu_emulate(struct vcpu *vcpu, u32 ai) {
   int op1 = main_op1(ai);
 
   switch(op1) {
-    case 0: panic("unimplemented");
+    case 0: goto unimpl;
     case 1: panic("unallocated");
-    case 2: panic("unimplemented: sve");
+    case 2: goto unimpl;
     case 3: panic("unallocated");
     default:
       switch((op1 >> 2) & 1) {
@@ -110,14 +111,17 @@ int cpu_emulate(struct vcpu *vcpu, u32 ai) {
         case 1:
           switch(op1 & 1) {
             case 0:
-              return emul_load_store(vcpu, ai);
+              if(emul_load_store(vcpu, ai) < 0)
+                goto unimpl;
+              return 0;
             case 1:
-              panic("unimplemented");
+              goto unimpl;
           }
       }
   }
 
-  printf("cpu emulate %p %p\n", ai, vcpu->reg.elr);
+unimpl:
+  vmm_warn("cannot emulate %p %p\n", ai, vcpu->reg.elr);
 
   return -1;
 }

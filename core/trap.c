@@ -110,14 +110,6 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   bool s1ptw = (iss >> 7) & 0x1;
   bool wnr = (iss >> 6) & 0x1;
 
-  if(isv == 0) {
-    u32 *pa = (u32 *)at_uva2pa(vcpu->reg.elr);
-    u32 op = *pa;
-    int c = cpu_emulate(vcpu, op);
-    vcpu->reg.elr += 4;
-    return c;
-  }
-
   if(s1ptw) {
     /* fetch pagetable */
     u64 pgt_ipa = faulting_ipa_page();
@@ -140,6 +132,14 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     }
 
     return 0;
+  }
+
+  if(isv == 0) {
+    u32 *pa = (u32 *)at_uva2pa(vcpu->reg.elr);
+    u32 op = *pa;
+    int c = cpu_emulate(vcpu, op);
+    vcpu->reg.elr += 4;
+    return c;
   }
 
   u64 elr;

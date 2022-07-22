@@ -27,7 +27,7 @@ volatile static int cpu0_ready = 0;
 
 static void hcr_setup() {
   u64 hcr = HCR_VM | HCR_SWIO | HCR_FMO | HCR_IMO |
-            HCR_RW | HCR_TSC  | HCR_TDZ;
+            HCR_RW | HCR_TSC;
 
   write_sysreg(hcr_el2, hcr);
 
@@ -66,7 +66,7 @@ int vmm_init_cpu0() {
     .guest_img = &linux_img,
     .fdt_img = &virt_dtb,
     .initrd_img = &rootfs_img,
-    .nvcpu = 4,
+    .nvcpu = 1,
     .nallocate = 128 * 1024 * 1024,
     .entrypoint = 0x40080000,
   };

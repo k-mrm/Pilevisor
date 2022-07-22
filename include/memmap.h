@@ -14,7 +14,7 @@
 
 #define VMMBASE     0x40000000
 
-#define PHYSIZE     (512*1024*1024)     /* 256 MB */
+#define PHYSIZE     (256*1024*1024)     /* 256 MB */
 #define PHYEND      (VMMBASE+PHYSIZE)
 
 #endif

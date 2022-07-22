@@ -34,7 +34,7 @@ SOBJS = $(patsubst %.c,%.o,$(wildcard $(S)/*.c))
 MAINOBJS = $(COREOBJS) $(DRVOBJS) $(MOBJS)
 SUBOBJS = $(COREOBJS) $(DRVOBJS) $(SOBJS)
 
-QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 512
+QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 256
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic -kernel
 
@@ -112,11 +112,11 @@ linux: guest/linux/Image
 	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(NCPU) -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
 
 dts:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 128
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 128
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 128
 
 clean:
 	make -C guest clean

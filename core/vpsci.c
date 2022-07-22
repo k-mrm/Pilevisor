@@ -32,12 +32,19 @@ static i32 vpsci_migrate_info_type() {
   return psci_call(PSCI_MIGRATE_INFO_TYPE, 0, 0, 0);
 }
 
+static i32 vpsci_system_features(struct vpsci *vpsci) {
+  u32 fid = vpsci->x1;
+  return psci_call(PSCI_SYSTEM_FEATURES, fid, 0, 0);
+}
+
 u64 vpsci_emulate(struct vcpu *vcpu, struct vpsci *vpsci) {
   switch(vpsci->funcid) {
     case PSCI_VERSION:
       return vpsci_version();
     case PSCI_MIGRATE_INFO_TYPE:
       return (i64)vpsci_migrate_info_type();
+    case PSCI_SYSTEM_FEATURES:
+      return (i64)vpsci_system_features(vpsci);
     case PSCI_SYSTEM_OFF:
       /* TODO: shutdown vm */
       break;

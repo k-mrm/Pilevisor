@@ -56,6 +56,10 @@ int vsm_fetch_pagetable(struct node *node, u64 page_ipa) {
   return 0;
 }
 
+static int vsm_write(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
+  ;
+}
+
 static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
   if(page_ipa % PAGESIZE)
     panic("align error");
@@ -82,7 +86,6 @@ static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *bu
 
   return 0;
 }
-
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   char *tmp;
@@ -120,6 +123,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
 }
 
 void vsm_init(struct node *node) {
+  /*
   if(node->nodeid == 0) {
     node->vsm.dummypgt = kalloc();
     u64 start = 0x40000000+128*1024*1024;
@@ -132,8 +136,9 @@ void vsm_init(struct node *node) {
     }
 
     return;
-  }
+  } */
 
+  /*
   u64 start = 0x40000000+128*1024*1024;
   for(u64 p = 0; p < 128*1024*1024; p += PAGESIZE) {
     char *page = kalloc();
@@ -141,5 +146,5 @@ void vsm_init(struct node *node) {
       panic("ram");
 
     pagemap(node->vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
+  } */
 }
