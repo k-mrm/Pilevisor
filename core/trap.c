@@ -110,8 +110,12 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   bool s1ptw = (iss >> 7) & 0x1;
   bool wnr = (iss >> 6) & 0x1;
 
-  if(isv)
-    panic("isv");
+  if(isv == 0) {
+    u32 *pa = (u32 *)at_uva2pa(vcpu->reg.elr);
+    u32 op = *pa;
+    cpu_emulate(vcpu, op);
+    dabort_iss_dump(iss);
+  }
 
   if(s1ptw) {
     /* fetch pagetable */
