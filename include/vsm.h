@@ -21,6 +21,6 @@ struct vsmctl {
 
 void vsm_init(struct node *node);
 int vsm_fetch_pagetable(struct node *node, u64 page_ipa);
-int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r, enum maccsize accsz, bool wr);
+int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr);
 
 #endif

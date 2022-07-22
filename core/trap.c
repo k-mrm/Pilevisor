@@ -113,8 +113,9 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   if(isv == 0) {
     u32 *pa = (u32 *)at_uva2pa(vcpu->reg.elr);
     u32 op = *pa;
-    cpu_emulate(vcpu, op);
-    dabort_iss_dump(iss);
+    int c = cpu_emulate(vcpu, op);
+    vcpu->reg.elr += 4;
+    return c;
   }
 
   if(s1ptw) {
@@ -167,8 +168,33 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   if(elr == 0xffff800010471ef8)
     panic("dabort ipa: %p va: %p elr: %p %s\n", ipa, far, elr, wnr? "write" : "read");
 
-  if(vsm_access(vcpu, vcpu->node, ipa, r, accsz, wnr) >= 0)
+  int c;
+  u64 reg = vcpu->reg.x[r];
+  if(r == 31)
+    c = vsm_access(vcpu, 0, ipa, accsz, wnr);
+  else
+    c = vsm_access(vcpu, (char *)&reg, ipa, accsz, wnr);
+
+  if(c >= 0) {
+    if(wnr) {
+      switch(accsz) {
+        case ACC_BYTE:
+          vcpu->reg.x[r] = (u8)reg;
+          break;
+        case ACC_HALFWORD:
+          vcpu->reg.x[r] = (u16)reg;
+          break;
+        case ACC_WORD:
+          vcpu->reg.x[r] = (u32)reg;
+          break;
+        case ACC_DOUBLEWORD:
+          vcpu->reg.x[r] = (u64)reg;
+          break;
+      }
+    }
     return 0;
+  }
+
   if(mmio_emulate(vcpu, r, &mmio) >= 0)
     return 0;
 

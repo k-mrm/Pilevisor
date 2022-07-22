@@ -84,23 +84,20 @@ static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *bu
 }
 
 
-int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r,
-               enum maccsize accsz, bool wr) {
-  char *buf;
-  struct vsmctl *vsm = &node->vsm;
+int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
+  char *tmp;
+  struct node *node = vcpu->node;
 
   /* FIXME */
   /* access remote memory */
   if(0x40000000+128*1024*1024 <= ipa && ipa <= 0x40000000+128*1024*1024+128*1024*1024) {
-    buf = kalloc();
+    tmp = kalloc();
     u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
-    u64 pa = vsm_fetch_page_dummy(node, 1, page_ipa, buf);
+    u64 pa = vsm_fetch_page_dummy(node, 1, page_ipa, tmp);
 
     u32 offset = ipa & (PAGESIZE-1);
 
     if(wr) {
-      u64 reg = (r == 31)? 0 : vcpu->reg.x[r];
-
       /* Linux memset (dc zva) */
       /*
       if(vcpu->reg.elr == 0xffff800010c255ec) {
@@ -113,71 +110,32 @@ int vsm_access(struct vcpu *vcpu, struct node *node, u64 ipa, int r,
         vsm_writeback(node, page_ipa, buf);
         goto end;      
       } */
-      if(ipa == at_uva2ipa(0xffff00000df76010)) {
-        vmm_log("wwwwwwwwwwwwwwwww %p %p %d %d %p\n", ipa, vcpu->reg.elr, accsz * 8, r, vcpu->reg.x[r]);
-        for(int i = 0; i < 0x10; i++) {
-          printf("%02x ", (buf+offset)[i]);
-        }
-      }
 
-      switch(accsz) {
-        case ACC_BYTE:
-          *(u8 *)(buf + offset) = (u8)reg;
-          break;
-        case ACC_HALFWORD:
-          *(u16 *)(buf + offset) = (u16)reg;
-          break;
-        case ACC_WORD:
-          *(u32 *)(buf + offset) = (u32)reg;
-          break;
-        case ACC_DOUBLEWORD:
-          *(u64 *)(buf + offset) = (u64)reg;
-          break;
-        default:
-          goto err;
-      }
+      if(buf)
+        memcpy(tmp+offset, buf, size);
+      else
+        memset(tmp+offset, 0, size);
 
-      vsm_writeback(node, page_ipa, buf);
+      vsm_writeback(node, page_ipa, tmp);
     } else {
-      if(r == 31)
-        panic("write to xzr");
-
+      /*
       if(ipa == at_uva2ipa(0xffff00000df76010)) {
         vmm_log("rrrrrrrrrrrrrrrrrr %p %p %d %d %p\n", ipa, vcpu->reg.elr, accsz * 8, r, vcpu->reg.x[r]);
         for(int i = 0; i < PAGESIZE-0x10; i++) {
           printf("%02x ", (buf+offset)[i]);
         }
-      }
-
-      switch(accsz) {
-        case ACC_BYTE:
-          vcpu->reg.x[r] = *(u8 *)(buf + offset); 
-          break;
-        case ACC_HALFWORD:
-          vcpu->reg.x[r] = *(u16 *)(buf + offset);
-          break;
-        case ACC_WORD:
-          vcpu->reg.x[r] = *(u32 *)(buf + offset);
-          break;
-        case ACC_DOUBLEWORD:
-          vcpu->reg.x[r] = *(u64 *)(buf + offset);
-          break;
-        default:
-          goto err;
-      }
+      } */
+      if(!buf)
+        panic("?");
+      memcpy(buf, tmp+offset, size);
     }
   } else {
     return -1;
   }
 
-end:
-  kfree(buf);
+  kfree(tmp);
 
   return 0;
-
-err:
-  kfree(buf);
-  panic("fetch failed");
 }
 
 void vsm_init(struct node *node) {

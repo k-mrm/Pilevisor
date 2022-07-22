@@ -15,10 +15,6 @@ enum addressing {
 #define addressing_wback(ad)    ((ad) & ADDR_WBACK)
 #define addressing_postidx(ad)  ((ad) & ADDR_POSTIDX)
 
-struct arm_inst {
-  ;
-};
-
 static int emul_ldnp_stnp(struct vcpu *vcpu, u32 inst) {
   return -1;
 }
@@ -30,16 +26,24 @@ static int emul_ldp_stp64(struct vcpu *vcpu, u32 inst, enum addressing ad, int l
   int rt2 = (inst>>10) & 0x1f;
   int imm7 = (inst>>15) & 0x7f;
 
-  printf("stp/ldp 64 rt %d rt2 %d rn %d imm7 %d\n", rt, rt2, rn, imm7);
-
   u64 addr = vcpu->reg.x[rn];
-  if(!addressing_postidx(ad))
-    addr += imm7;
+  if(!addressing_postidx(ad))   /* pre-index */
+    addr += imm7 << 3;
+
+  u64 reg[2] = { vcpu->reg.x[rt], vcpu->reg.x[rt2] };
+  if(l) {   /* ldp */
+    vsm_access(vcpu, reg, addr, 16, 0);
+    vcpu->reg.x[rt] = reg[0];
+    vcpu->reg.x[rt2] = reg[1];
+  }
+  else {    /* stp */
+    vsm_access(vcpu, reg, addr, 16, 1);
+  }
 
   if(addressing_wback(ad))
     vcpu->reg.x[rn] = addr;
 
-  return -1;
+  return 0;
 }
 
 static int emul_ldp_stp(struct vcpu *vcpu, u32 inst, enum addressing ad) {
@@ -87,8 +91,6 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
 }
 
 int cpu_emulate(struct vcpu *vcpu, u32 ai) {
-  printf("cpu emulate %p %p\n", ai, vcpu->reg.elr);
-
   /* main encoding */
 #define main_op0(inst)    (((inst)>>31) & 0x1)
 #define main_op1(inst)    (((inst)>>25) & 0xf)
@@ -114,6 +116,8 @@ int cpu_emulate(struct vcpu *vcpu, u32 ai) {
           }
       }
   }
+
+  printf("cpu emulate %p %p\n", ai, vcpu->reg.elr);
 
   return -1;
 }
