@@ -62,6 +62,50 @@ static int emul_ldp_stp(struct vcpu *vcpu, u32 inst, enum addressing ad) {
   }
 }
 
+/* access (1 << size) byte */
+static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
+  int rn = (inst>>5) & 0x1f;
+  int rt = inst & 0x1f;
+  u64 addr;
+
+  if(rt == 31)
+    panic("sp");
+  else
+    addr = vcpu->reg.x[rn];
+
+  vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 0);
+
+  return 0;
+}
+
+static int emul_stxr(struct vcpu *vcpu, u32 inst, int size) {
+  int rs = (inst>>16) & 0x1f;
+  int rt2 = (inst>>10) & 0x1f;
+  int rn = (inst>>5) & 0x1f;
+  int rt = inst & 0x1f;
+
+  panic("?");
+
+  return -1;
+}
+
+static int emul_ld_st_exculsive(struct vcpu *vcpu, u32 inst) {
+  int size = (inst>>30) & 0x3;
+  int l = (inst>>22) & 0x1;
+  int o0 = (inst>>15) & 0x1;
+
+  if(o0) panic("?");
+
+  if(vcpu->reg.elr == 0xffff800010471eec) {
+    printf("ccccc %d %d %d\n", size, l, o0);
+  }
+
+  if(l)
+    return emul_ldxr(vcpu, inst, size);
+  else
+    return emul_stxr(vcpu, inst, size);
+}
+
 static int emul_load_store(struct vcpu *vcpu, u32 inst) {
 #define ls_op0(inst)      (((inst)>>28) & 0x0f)
 #define ls_op1(inst)      (((inst)>>26) & 0x01)
@@ -76,16 +120,22 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
   int op4 = ls_op4(inst);
 
   switch(op0 & 0x3) {
+    case 0:
+      switch(op1) {
+        case 0:
+          switch(op2) {
+            case 0:  return emul_ld_st_exculsive(vcpu, inst);
+            default: return -1;
+          }
+        case 1: return -1;
+      }
+    case 1: return -1;
     case 2:   /* load and store pair */
       switch(op2) {
-        case 0:
-          return emul_ldnp_stnp(vcpu, inst);
-        case 1:
-          return emul_ldp_stp(vcpu, inst, POST_INDEX);
-        case 2:
-          return emul_ldp_stp(vcpu, inst, OFFSET);
-        case 3:
-          return emul_ldp_stp(vcpu, inst, PRE_INDEX);
+        case 0: return emul_ldnp_stnp(vcpu, inst);
+        case 1: return emul_ldp_stp(vcpu, inst, POST_INDEX);
+        case 2: return emul_ldp_stp(vcpu, inst, OFFSET);
+        case 3: return emul_ldp_stp(vcpu, inst, PRE_INDEX);
       }
     default: return -1;
   }
@@ -107,7 +157,7 @@ int cpu_emulate(struct vcpu *vcpu, u32 ai) {
     default:
       switch((op1 >> 2) & 1) {
         case 0:
-          panic("??");
+          goto unimpl;
         case 1:
           switch(op1 & 1) {
             case 0:
