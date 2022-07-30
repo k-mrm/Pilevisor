@@ -38,6 +38,8 @@ QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 512
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic -kernel
 
+KERNIMG = guest/linux/Image
+
 TAP_NUM = $(shell date '+%s')
 
 MAC_H = $(shell date '+%H')
@@ -58,10 +60,10 @@ guest/hello.img: guest/hello/Makefile
 guest/vsmtest.img: guest/vsmtest/Makefile
 	make -C guest/vsmtest
 
-poc-main: $(MAINOBJS) $(M)/memory.ld dtb guest/linux/Image guest/linux/rootfs.img
+poc-main: $(MAINOBJS) $(M)/memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
-	$(LD) -r -b binary guest/linux/Image -o image.o
+	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
@@ -70,8 +72,8 @@ poc-main-vsm: $(MAINOBJS) $(M)/memory.ld guest/vsmtest.img
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) hello-img.o
 
-poc-sub: $(SUBOBJS) $(S)/memory.ld dtb guest/linux/Image guest/linux/rootfs.img
-	$(LD) -r -b binary guest/linux/Image -o image.o
+poc-sub: $(SUBOBJS) $(S)/memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
+	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
@@ -135,18 +137,18 @@ gdb-main: poc-main
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
-linux-gdb: guest/linux/Image
-	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(NCPU) -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256 -S -gdb tcp::1234
+linux-gdb: $(KERNIMG)
+	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0 nokaslr" -m 256 -S -gdb tcp::1234
 
-linux: guest/linux/Image
-	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(NCPU) -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
+linux: $(KERNIMG)
+	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0 nokaslr" -m 256
 
 dts:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel guest/linux/Image -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m 256
 
 clean:
 	make -C guest clean

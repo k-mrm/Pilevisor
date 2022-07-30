@@ -97,7 +97,8 @@ static int emul_ld_st_exculsive(struct vcpu *vcpu, u32 inst) {
   if(o0) panic("?");
 
   if(vcpu->reg.elr == 0xffff800010471eec) {
-    printf("ccccc %d %d %d\n", size, l, o0);
+    if(!l)
+      printf("ccccc %d %d %d\n", size, l, o0);
   }
 
   if(l)

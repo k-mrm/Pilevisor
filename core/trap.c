@@ -165,7 +165,6 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
 
   vcpu->reg.elr += 4;
 
-
   int c; u64 reg;
   if(r == 31) {
     reg = 0;

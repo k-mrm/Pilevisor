@@ -10,6 +10,7 @@
 tags
 guest/hello/hello
 guest/xv6/kernel
+guest/linux/
 memos/
 *.out
 poc-main
