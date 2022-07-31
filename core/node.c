@@ -55,7 +55,7 @@ void node_init(struct vmconfig *vmcfg) {
 
   /* set initrd/fdt/entrypoint ipa */
   node->initrd_base = initrd? 0x44000000 : 0;
-  node->fdt_base = fdt? 0x44400000 : 0;
+  node->fdt_base = fdt? 0x48400000 : 0;
   node->entrypoint = vmcfg->entrypoint;
 
   node->nvcpu = vmcfg->nvcpu;
@@ -66,14 +66,6 @@ void node_init(struct vmconfig *vmcfg) {
 
   /* TODO: commonize */
   u64 p, cpsize;
-  for(p = 0; p < 0x80000; p += PAGESIZE) {
-    char *page = kalloc();
-    if(!page)
-      panic("ram");
-
-    pagemap(vttbr, 0x40000000+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
-
   /* map kernel image */
   for(p = 0; p < guest->size; p += PAGESIZE) {
     char *page = kalloc();
@@ -89,7 +81,7 @@ void node_init(struct vmconfig *vmcfg) {
     pagemap(vttbr, vmcfg->entrypoint+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
   }
 
-  for(; p < vmcfg->nallocate - 0x80000; p += PAGESIZE) {
+  for(; p < vmcfg->nallocate; p += PAGESIZE) {
     char *page = kalloc();
     if(!page)
       panic("ram");

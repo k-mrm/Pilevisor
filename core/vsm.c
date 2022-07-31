@@ -127,6 +127,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
 }
 
 void vsm_init(struct node *node) {
+  /*
   if(node->nodeid == 0) {
     node->vsm.dummypgt = kalloc();
     u64 start = 0x40000000 + 128*1024*1024;
@@ -139,7 +140,7 @@ void vsm_init(struct node *node) {
     }
 
     return;
-  }
+  } */
 
   /*
   u64 start = 0x40000000+128*1024*1024;

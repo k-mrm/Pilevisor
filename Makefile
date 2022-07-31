@@ -10,7 +10,7 @@ CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu
 CFLAGS += -I ./include/
 LDFLAGS = -nostdlib -nostartfiles
 
-#QEMUPREFIX = ~/qemu/build/
+QEMUPREFIX = ~/qemu/build/
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
 GIC_VERSION = 3
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on

@@ -66,7 +66,6 @@ struct vcpu *new_vcpu(struct node *node, int vcpuid) {
   if(vcpuid == 0) {
     /* linux https://www.kernel.org/doc/Documentation/arm64/booting.txt */
     vcpu->reg.x[0] = node->fdt_base;    /* fdt address */
-    vcpu->reg.x[4] = node->entrypoint;  /* entry point */
   }
 
   vcpu_features_init(vcpu);
