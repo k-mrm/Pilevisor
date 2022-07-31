@@ -78,6 +78,7 @@
 #define GICD_CTLR_ENGRP(grp)    (1<<(grp))
 #define GICD_TYPER          (0x4)
 #define GICD_IIDR           (0x8)
+#define GICD_TYPER2         (0xc)
 #define GICD_IGROUPR(n)     (0x080 + (u64)(n) * 4)
 #define GICD_ISENABLER(n)   (0x100 + (u64)(n) * 4)
 #define GICD_ICENABLER(n)   (0x180 + (u64)(n) * 4)

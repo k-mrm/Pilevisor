@@ -202,6 +202,10 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
     case GICD_IIDR:
       *val = gicd_r(GICD_IIDR);
       goto end;
+    case GICD_TYPER2:
+      /* linux's gicv3 driver accessed GICD_TYPER2 (offset 0xc) */
+      *val = 0;
+      goto end;
     case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3: {
       u32 igrp = 0;
 
