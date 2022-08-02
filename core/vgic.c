@@ -558,6 +558,7 @@ static int vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
 static int vgits_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
   switch(offset) {
     case GITS_PIDR2:
+      /* GITS unsupported */
       *val = 0;
       return 0;
     default:

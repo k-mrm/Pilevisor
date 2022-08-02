@@ -54,7 +54,7 @@ void node_init(struct vmconfig *vmcfg) {
   node->ctl = &global_nodectl;
 
   /* set initrd/fdt/entrypoint ipa */
-  node->initrd_base = initrd? 0x44000000 : 0;
+  node->initrd_base = initrd? 0x48000000 : 0;
   node->fdt_base = fdt? 0x48400000 : 0;
   node->entrypoint = vmcfg->entrypoint;
 
