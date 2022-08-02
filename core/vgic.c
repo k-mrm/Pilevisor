@@ -520,7 +520,7 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmi
   return -1;
 
 unimplemented:
-  vmm_warn("vgicr_mmio_write: unimplemented %p\n", offset);
+  vmm_warn("vgicr_mmio_write: unimplemented %p %p\n", offset, val);
   return 0;
 readonly:
   vmm_warn("vgicr_mmio_write: readonly %p\n", offset);
@@ -555,6 +555,22 @@ static int vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
   return __vgicr_mmio_write(vcpu, roffset, val, mmio);
 }
 
+static int vgits_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
+  switch(offset) {
+    case GITS_PIDR2:
+      *val = 0;
+      return 0;
+    default:
+      vmm_log("vgits_mmio_read unknown\n");
+  }
+
+  return -1;
+}
+
+static int vgits_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_access *mmio) {
+  return -1;
+}
+
 struct vgic *new_vgic(struct node *node) {
   struct vgic *vgic = allocvgic();
   vgic->spi_max = gic_max_spi();
@@ -568,6 +584,7 @@ struct vgic *new_vgic(struct node *node) {
 
   pagetrap(node, GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
   pagetrap(node, GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
+  pagetrap(node, GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
 
   return vgic;
 }
@@ -591,7 +608,7 @@ struct vgic_cpu *new_vgic_cpu(int vcpuid) {
 }
 
 void vgic_init() {
-  vmm_log("vgicinit");
+  vmm_log("vgicinit\n");
   for(struct vgic *vgic = vgics; vgic < &vgics[NODE_MAX]; vgic++) {
     spinlock_init(&vgic->lock);
   }

@@ -91,6 +91,9 @@
 #define GICD_ICFGR(n)       (0xc00 + (u64)(n) * 4)
 #define GICD_IROUTER(n)     (0x6000 + (u64)(n) * 8)
 #define GICD_PIDR2          (0xffe8)
+#define GICD_PIDR2_ARCHREV(n)   (((n)>>4) & 0xf)
+
+#define GITS_PIDR2          (0xffe8)
 
 #define GICRBASEn(n)        (GICRBASE+(n)*0x20000)
 

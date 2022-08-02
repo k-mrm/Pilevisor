@@ -5,6 +5,7 @@
 #define RTCBASE     0x09010000
 #define GPIOBASE    0x09030000
 #define GICDBASE    0x08000000
+#define GITSBASE    0x08080000
 #define GICRBASE    0x080a0000
 #define VIRTIO0     0x0a000000
 

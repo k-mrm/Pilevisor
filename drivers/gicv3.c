@@ -247,6 +247,13 @@ static void gicc_init(void) {
 static void gicd_init(void) {
   u32 typer = gicd_r(GICD_TYPER);
   u32 lines = typer & 0x1f;
+  u32 pidr2 = gicd_r(GICD_PIDR2);
+  u32 archrev = GICD_PIDR2_ARCHREV(pidr2);
+
+  vmm_log("GICv%d found\n", archrev);
+
+  if(archrev != 0x3)
+    panic("gicv3?");
 
   for(int i = 0; i < lines; i++)
     gicd_w(GICD_IGROUPR(i), ~0);
