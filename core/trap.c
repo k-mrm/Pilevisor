@@ -12,10 +12,9 @@ static void dabort_iss_dump(u64 iss);
 static void iabort_iss_dump(u64 iss);
 
 void hyp_sync_handler() {
-  u64 esr, elr, far;
-  read_sysreg(esr, esr_el2);
-  read_sysreg(elr, elr_el2);
-  read_sysreg(far, far_el2);
+  u64 esr = read_sysreg(esr_el2);
+  u64 elr = read_sysreg(elr_el2);
+  u64 far = read_sysreg(far_el2);
   u64 ec = (esr >> 26) & 0x3f;
   u64 iss = esr & 0x1ffffff;
 
@@ -73,15 +72,13 @@ void vm_irq_handler() {
 }
 
 static u64 faulting_ipa_page() {
-  u64 hpfar;
-  read_sysreg(hpfar, hpfar_el2);
-
+  u64 hpfar = read_sysreg(hpfar_el2); 
   u64 ipa_page = (hpfar & HPFAR_FIPA_MASK) << 8;
 
   return ipa_page;
 }
 
-static int vm_iabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
+static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
   bool fnv = (iss >> 10) & 0x1;
   bool s1ptw = (iss >> 7) & 0x1;
 
@@ -102,10 +99,11 @@ static int vm_iabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
   return -1;
 }
 
-static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
+static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   int isv = (iss >> 24) & 0x1;
   int sas = (iss >> 22) & 0x3;
   int r = (iss >> 16) & 0x1f;
+  int ar = (iss >> 14) & 0x1;
   int fnv = (iss >> 10) & 0x1;
   bool s1ptw = (iss >> 7) & 0x1;
   bool wnr = (iss >> 6) & 0x1;
@@ -116,20 +114,6 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     vmm_log("dabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
     // vcpu_dump(vcpu);
     vsm_fetch_pagetable(vcpu->node, pgt_ipa);
-
-    u64 pa = at_uva2pa(0xffff00000df75dc8);
-    u64 ipa = at_uva2ipa(0xffff00000df75dc8);
-    printf("pa %p ipa %p\n", pa, ipa);
-
-    if(ipa) {
-      u64 rp = ipa2pa(vcpu->node->vsm.dummypgt, ipa);
-      printf("rp pppp %p \n", rp);
-
-      for(int i = 0; i < 0x200; i++) {
-        printf("%02x", ((char*)rp)[i]);
-        printf("%s", (i+1) % 4 == 0? " " : "");
-      }
-    }
 
     return 0;
   }
@@ -142,8 +126,7 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     return c;
   }
 
-  u64 elr;
-  read_sysreg(elr, elr_el2);
+  u64 elr = read_sysreg(elr_el2);
 
   enum maccsize accsz;
   switch(sas) {
@@ -165,6 +148,9 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
 
   vcpu->reg.elr += 4;
 
+  if(ar == 1)
+    panic("acqrel");
+
   int c; u64 reg;
   if(r == 31) {
     reg = 0;
@@ -175,7 +161,10 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
     c = vsm_access(vcpu, (char *)&reg, ipa, accsz, wnr);
   }
 
-  // printf("dabort ipa: %p va: %p elr: %p %s %d %p %d\n", ipa, far, elr, wnr? "write" : "read", r, reg, accsz);
+  if(elr == 0xffffffc0082c1244) {
+    printf("dabort ipa: %p va: %p elr: %p %s %d %p %d\n", ipa, far, elr, wnr? "write" : "read", r, reg, accsz);
+    dabort_iss_dump(iss);
+  }
 
   if(c >= 0) {
     if(!wnr) {
@@ -194,6 +183,7 @@ static int vm_dabort_handler(struct vcpu *vcpu, u64 iss, u64 far) {
           break;
       }
     }
+
     return 0;
   }
 
@@ -254,14 +244,12 @@ static void iabort_iss_dump(u64 iss) {
 
 int vsysreg_emulate(struct vcpu *vcpu, u64 iss);
 void vm_sync_handler() {
-  struct vcpu *vcpu;
-  read_sysreg(vcpu, tpidr_el2);
+  struct vcpu *vcpu = (struct vcpu *)read_sysreg(tpidr_el2);
 
   // vmm_log("el0/1 sync!\n");
-  u64 esr, elr, far;
-  read_sysreg(esr, esr_el2);
-  read_sysreg(elr, elr_el2);
-  read_sysreg(far, far_el2);
+  u64 esr = read_sysreg(esr_el2);
+  u64 elr = read_sysreg(elr_el2);
+  u64 far = read_sysreg(far_el2);
   u64 ec = (esr >> 26) & 0x3f;
   u64 iss = esr & 0x1ffffff;
 
@@ -288,14 +276,15 @@ void vm_sync_handler() {
 
       break;
     case 0x20:    /* instruction abort */
-      if(vm_iabort_handler(vcpu, iss, far) < 0) {
+      if(vm_iabort(vcpu, iss, far) < 0) {
         printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
         iabort_iss_dump(iss);
+        panic("iabort");
       }
 
       break;
     case 0x24:    /* trap EL0/1 data abort */
-      if(vm_dabort_handler(vcpu, iss, far) < 0) {
+      if(vm_dabort(vcpu, iss, far) < 0) {
         dabort_iss_dump(iss);
         panic("unexcepted dabort");
       }

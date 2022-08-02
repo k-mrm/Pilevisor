@@ -73,9 +73,7 @@ static inline bool vcpu_running(struct vcpu *vcpu) {
 }
 
 static inline struct vcpu *cur_vcpu() {
-  struct vcpu *vcpu;
-  read_sysreg(vcpu, tpidr_el2);
-  return vcpu;
+  return (struct vcpu *)read_sysreg(tpidr_el2);
 }
 
 #endif

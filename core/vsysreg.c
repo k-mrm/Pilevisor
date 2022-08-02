@@ -74,9 +74,9 @@ int vsysreg_emulate(struct vcpu *vcpu, u64 iss) {
 #define handle_sysreg_ro(sreg) __handle_sysreg_ro(sreg)
 #define __handle_sysreg_ro(sreg) \
   case ISS_ ## sreg:  \
-    if(wr) return -1; \
-    read_sysreg(tmp, sreg);  \
-    vcpu->reg.x[rt] = tmp;  \
+    if(wr)  \
+      return -1;  \
+    vcpu->reg.x[rt] = read_sysreg(sreg);  \
     return 0;
 
   switch(iss) {
@@ -114,14 +114,12 @@ int vsysreg_emulate(struct vcpu *vcpu, u64 iss) {
     case ISS_ID_AA64ZFR0_EL1:
       if(wr)
         return -1;
-      read_sysreg(tmp, ID_AA64ZFR0_EL1);
-      vcpu->reg.x[rt] = tmp;
+      vcpu->reg.x[rt] = read_sysreg(ID_AA64ZFR0_EL1);
       return 0;
     case ISS_ID_AA64MMFR2_EL1:
       if(wr)
         return -1;
-      read_sysreg(tmp, ID_AA64MMFR2_EL1);
-      vcpu->reg.x[rt] = tmp;
+      vcpu->reg.x[rt] = read_sysreg(ID_AA64MMFR2_EL1);
       return 0;
 
     case ISS_ICC_SGI1R_EL1:

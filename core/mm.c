@@ -113,7 +113,7 @@ u64 at_uva2pa(u64 uva) {
 
   asm volatile("at s12e1r, %0" :: "r"(uva) : "memory");
 
-  read_sysreg(par, par_el1);
+  par = read_sysreg(par_el1);
 
   if(par & 1) {
     dump_par_el1(par);
@@ -128,7 +128,7 @@ u64 at_uva2ipa(u64 uva) {
 
   asm volatile("at s1e1r, %0" :: "r"(uva) : "memory");
 
-  read_sysreg(par, par_el1);
+  par = read_sysreg(par_el1);
 
   if(par & 1) {
     // dump_par_el1(par);
@@ -150,8 +150,7 @@ void dump_par_el1(u64 par) {
 } 
 
 void s2mmu_init(void) {
-  u64 mmf;
-  read_sysreg(mmf, id_aa64mmfr0_el1);
+  u64 mmf = read_sysreg(id_aa64mmfr0_el1);
   printf("id_aa64mmfr0_el1.parange = %p\n", mmf & 0xf);
 
   u64 vtcr = VTCR_T0SZ(20) | VTCR_SH0(0) | VTCR_SL0(2) |

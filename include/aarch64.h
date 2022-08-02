@@ -8,9 +8,9 @@
 
 #define HFGITR_EL2    arm_sysreg(4, c1, c1, 6)
 
-#define __read_sysreg(val, reg) \
-  asm volatile("mrs %0, " #reg : "=r"(val))
-#define read_sysreg(val, reg)  __read_sysreg(val, reg)
+#define __read_sysreg(reg) \
+  ({u64 val; asm volatile("mrs %0, " #reg : "=r"(val)); val;})
+#define read_sysreg(reg)  __read_sysreg(reg)
 
 #define __write_sysreg(reg, val)  \
   asm volatile("msr " #reg ", %0" : : "r"(val))
@@ -40,16 +40,13 @@
 #define HPFAR_FIPA_MASK   0xfffffffffff
 
 static inline int cpuid() {
-  int mpidr;
-  read_sysreg(mpidr, mpidr_el1);
+  int mpidr = read_sysreg(mpidr_el1);
   return mpidr & 0xf;
 }
 
 static inline u64 vttbr_ipa2pa(u64 ipa) {
-  u64 par;
   asm volatile("at s12e1r, %0" :: "r"(ipa) : "memory");
-  read_sysreg(par, par_el1);
-  return par;
+  return read_sysreg(par_el1);
 }
 
 static inline u64 r_sp() {

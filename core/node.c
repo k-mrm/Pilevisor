@@ -89,7 +89,22 @@ void node_init(struct vmconfig *vmcfg) {
     pagemap(vttbr, vmcfg->entrypoint+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
   }
 
-  vmm_log("entrypoint+p %p\n", vmcfg->entrypoint+p);
+  vmm_log("Node0 mapped [%p - %p]\n", vmcfg->entrypoint, vmcfg->entrypoint+p);
+
+  for(int i = 0; i < initrd->size; i += PAGESIZE) {
+    char *page = kalloc();
+    if(!page)
+      panic("ram");
+
+    pagemap(vttbr, node->initrd_base+i, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  }
+  for(int i = 0; i < fdt->size; i += PAGESIZE) {
+    char *page = kalloc();
+    if(!page)
+      panic("ram");
+
+    pagemap(vttbr, node->fdt_base+i, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  }
 
   /* map initrd image */
   if(initrd)

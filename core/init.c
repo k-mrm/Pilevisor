@@ -67,7 +67,7 @@ int vmm_init_cpu0() {
     .fdt_img = &virt_dtb,
     .initrd_img = &rootfs_img,
     .nvcpu = 1,
-    .nallocate = 256 * 1024 * 1024,
+    .nallocate = 128 * 1024 * 1024,
     .entrypoint = 0x40000000,
   };
 

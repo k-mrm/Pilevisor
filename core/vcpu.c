@@ -35,8 +35,7 @@ static struct vcpu *allocvcpu() {
 }
 
 static void vcpu_features_init(struct vcpu *vcpu) {
-  u64 pfr0;
-  read_sysreg(pfr0, ID_PFR0_EL1);
+  u64 pfr0 = read_sysreg(ID_PFR0_EL1);
 
   vmm_log("pfr0 %p\n", pfr0);
   /* test: Disable EL2 */
@@ -123,19 +122,19 @@ void enter_vcpu() {
 }
 
 static void save_sysreg(struct vcpu *vcpu) {
-  read_sysreg(vcpu->sys.spsr_el1, spsr_el1);
-  read_sysreg(vcpu->sys.elr_el1, elr_el1);
-  read_sysreg(vcpu->sys.mpidr_el1, mpidr_el1);
-  read_sysreg(vcpu->sys.midr_el1, midr_el1);
-  read_sysreg(vcpu->sys.sp_el0, sp_el0);
-  read_sysreg(vcpu->sys.sp_el1, sp_el1);
-  read_sysreg(vcpu->sys.ttbr0_el1, ttbr0_el1);
-  read_sysreg(vcpu->sys.ttbr1_el1, ttbr1_el1);
-  read_sysreg(vcpu->sys.tcr_el1, tcr_el1);
-  read_sysreg(vcpu->sys.vbar_el1, vbar_el1);
-  read_sysreg(vcpu->sys.sctlr_el1, sctlr_el1);
-  read_sysreg(vcpu->sys.cntv_ctl_el0, cntv_ctl_el0);
-  read_sysreg(vcpu->sys.cntv_tval_el0, cntv_tval_el0);
+  vcpu->sys.spsr_el1 = read_sysreg(spsr_el1);
+  vcpu->sys.elr_el1 = read_sysreg(elr_el1);
+  vcpu->sys.mpidr_el1 = read_sysreg( mpidr_el1);
+  vcpu->sys.midr_el1 = read_sysreg(midr_el1);
+  vcpu->sys.sp_el0 = read_sysreg(sp_el0);
+  vcpu->sys.sp_el1 = read_sysreg(sp_el1);
+  vcpu->sys.ttbr0_el1 = read_sysreg(ttbr0_el1);
+  vcpu->sys.ttbr1_el1 = read_sysreg(ttbr1_el1);
+  vcpu->sys.tcr_el1 = read_sysreg(tcr_el1);
+  vcpu->sys.vbar_el1 = read_sysreg(vbar_el1);
+  vcpu->sys.sctlr_el1 = read_sysreg(sctlr_el1);
+  vcpu->sys.cntv_ctl_el0 = read_sysreg(cntv_ctl_el0);
+  vcpu->sys.cntv_tval_el0 = read_sysreg(cntv_tval_el0);
 }
 
 static void restore_sysreg(struct vcpu *vcpu) {

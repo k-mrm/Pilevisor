@@ -15,26 +15,24 @@ u64 gic_read_lr(int n) {
 
   u64 val;
   switch(n) {
-    case 0:   read_sysreg(val, ich_lr0_el2); break;
-    case 1:   read_sysreg(val, ich_lr1_el2); break;
-    case 2:   read_sysreg(val, ich_lr2_el2); break;
-    case 3:   read_sysreg(val, ich_lr3_el2); break;
-    case 4:   read_sysreg(val, ich_lr4_el2); break;
-    case 5:   read_sysreg(val, ich_lr5_el2); break;
-    case 6:   read_sysreg(val, ich_lr6_el2); break;
-    case 7:   read_sysreg(val, ich_lr7_el2); break;
-    case 8:   read_sysreg(val, ich_lr8_el2); break;
-    case 9:   read_sysreg(val, ich_lr9_el2); break;
-    case 10:  read_sysreg(val, ich_lr10_el2); break;
-    case 11:  read_sysreg(val, ich_lr11_el2); break;
-    case 12:  read_sysreg(val, ich_lr12_el2); break;
-    case 13:  read_sysreg(val, ich_lr13_el2); break;
-    case 14:  read_sysreg(val, ich_lr14_el2); break;
-    case 15:  read_sysreg(val, ich_lr15_el2); break;
+    case 0:   return read_sysreg(ich_lr0_el2);
+    case 1:   return read_sysreg(ich_lr1_el2);
+    case 2:   return read_sysreg(ich_lr2_el2);
+    case 3:   return read_sysreg(ich_lr3_el2);
+    case 4:   return read_sysreg(ich_lr4_el2);
+    case 5:   return read_sysreg(ich_lr5_el2);
+    case 6:   return read_sysreg(ich_lr6_el2);
+    case 7:   return read_sysreg(ich_lr7_el2);
+    case 8:   return read_sysreg(ich_lr8_el2);
+    case 9:   return read_sysreg(ich_lr9_el2);
+    case 10:  return read_sysreg(ich_lr10_el2);
+    case 11:  return read_sysreg(ich_lr11_el2);
+    case 12:  return read_sysreg(ich_lr12_el2);
+    case 13:  return read_sysreg(ich_lr13_el2);
+    case 14:  return read_sysreg(ich_lr14_el2);
+    case 15:  return read_sysreg(ich_lr15_el2);
     default:  panic("?");
   }
-
-  return val;
 }
 
 void gic_write_lr(int n, u64 val) {
@@ -85,22 +83,22 @@ static void gic_restore_lr(struct gic_state *gic) {
 
 static void gic_save_lr(struct gic_state *gic) {
   switch(gic_lr_max-1) {
-    case 15:  read_sysreg(gic->lr[15], ich_lr15_el2); __fallthrough;
-    case 14:  read_sysreg(gic->lr[14], ich_lr14_el2); __fallthrough;
-    case 13:  read_sysreg(gic->lr[13], ich_lr13_el2); __fallthrough;
-    case 12:  read_sysreg(gic->lr[12], ich_lr12_el2); __fallthrough;
-    case 11:  read_sysreg(gic->lr[11], ich_lr11_el2); __fallthrough;
-    case 10:  read_sysreg(gic->lr[10], ich_lr10_el2); __fallthrough;
-    case 9:   read_sysreg(gic->lr[9], ich_lr9_el2); __fallthrough;
-    case 8:   read_sysreg(gic->lr[8], ich_lr8_el2); __fallthrough;
-    case 7:   read_sysreg(gic->lr[7], ich_lr7_el2); __fallthrough;
-    case 6:   read_sysreg(gic->lr[6], ich_lr6_el2); __fallthrough;
-    case 5:   read_sysreg(gic->lr[5], ich_lr5_el2); __fallthrough;
-    case 4:   read_sysreg(gic->lr[4], ich_lr4_el2); __fallthrough;
-    case 3:   read_sysreg(gic->lr[3], ich_lr3_el2); __fallthrough;
-    case 2:   read_sysreg(gic->lr[2], ich_lr2_el2); __fallthrough;
-    case 1:   read_sysreg(gic->lr[1], ich_lr1_el2); __fallthrough;
-    case 0:   read_sysreg(gic->lr[0], ich_lr0_el2);
+    case 15:  gic->lr[15] = read_sysreg(ich_lr15_el2); __fallthrough;
+    case 14:  gic->lr[14] = read_sysreg(ich_lr14_el2); __fallthrough;
+    case 13:  gic->lr[13] = read_sysreg(ich_lr13_el2); __fallthrough;
+    case 12:  gic->lr[12] = read_sysreg(ich_lr12_el2); __fallthrough;
+    case 11:  gic->lr[11] = read_sysreg(ich_lr11_el2); __fallthrough;
+    case 10:  gic->lr[10] = read_sysreg(ich_lr10_el2); __fallthrough;
+    case 9:   gic->lr[9] = read_sysreg(ich_lr9_el2); __fallthrough;
+    case 8:   gic->lr[8] = read_sysreg(ich_lr8_el2); __fallthrough;
+    case 7:   gic->lr[7] = read_sysreg(ich_lr7_el2); __fallthrough;
+    case 6:   gic->lr[6] = read_sysreg(ich_lr6_el2); __fallthrough;
+    case 5:   gic->lr[5] = read_sysreg(ich_lr5_el2); __fallthrough;
+    case 4:   gic->lr[4] = read_sysreg(ich_lr4_el2); __fallthrough;
+    case 3:   gic->lr[3] = read_sysreg(ich_lr3_el2); __fallthrough;
+    case 2:   gic->lr[2] = read_sysreg(ich_lr2_el2); __fallthrough;
+    case 1:   gic->lr[1] = read_sysreg(ich_lr1_el2); __fallthrough;
+    case 0:   gic->lr[0] = read_sysreg(ich_lr0_el2);
   }
 }
 
@@ -114,9 +112,7 @@ static bool gic_irq_pending(u32 irq) {
 }
 
 u32 gic_read_iar() {
-  u32 i;
-  read_sysreg(i, icc_iar1_el1);
-  return i;
+  return read_sysreg(icc_iar1_el1);
 }
 
 static void gic_eoi(u32 iar, int grp) {
@@ -187,29 +183,27 @@ void gic_set_target(u32 irq, u8 target) {
 }
 
 void gic_init_state(struct gic_state *gic) {
-  read_sysreg(gic->vmcr, ich_vmcr_el2);
+  gic->vmcr = read_sysreg(ich_vmcr_el2);
 }
 
 void gic_restore_state(struct gic_state *gic) {
   write_sysreg(ich_vmcr_el2, gic->vmcr);
 
-  u32 sre;
-  read_sysreg(sre, icc_sre_el1);
+  u32 sre = read_sysreg(icc_sre_el1);
   write_sysreg(icc_sre_el1, sre | gic->sre_el1);
 
   gic_restore_lr(gic);
 }
 
 void gic_save_state(struct gic_state *gic) {
-  read_sysreg(gic->vmcr, ich_vmcr_el2);
-  read_sysreg(gic->sre_el1, icc_sre_el1);
+  gic->vmcr = read_sysreg(ich_vmcr_el2);
+  gic->sre_el1 = read_sysreg(icc_sre_el1);
 
   gic_save_lr(gic);
 }
 
 static int gic_max_listregs() {
-  u64 i;
-  read_sysreg(i, ich_vtr_el2);
+  u64 i = read_sysreg(ich_vtr_el2);
   return (i & 0x1f) + 1;
 }
 
@@ -266,13 +260,12 @@ static void gicd_init(void) {
 static void gicr_init(int cpuid) {
   gicr_w32(cpuid, GICR_CTLR, 0);
 
-  u32 sre;
-  read_sysreg(sre, icc_sre_el2);
+  u32 sre = read_sysreg(icc_sre_el2);
   write_sysreg(icc_sre_el2, sre | (1 << 3) | 1);
 
   isb();
 
-  read_sysreg(sre, icc_sre_el1);
+  sre = read_sysreg(icc_sre_el1);
   write_sysreg(icc_sre_el1, sre | 1);
 
   gicr_w32(cpuid, GICR_IGROUPR0, ~0);
