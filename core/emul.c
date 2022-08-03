@@ -83,15 +83,12 @@ static int emul_ldst_pair(struct vcpu *vcpu, u32 inst, enum addressing ad) {
 
 /* access (1 << size) byte */
 static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
-  int rt = inst & 0x1f;
   u64 ipa = vcpu->dabt.fault_ipa;
+  u64 page = ipa & ~(u64)(PAGESIZE-1);
 
-  u64 val = 0;
-  if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
-    return -1;
-  vcpu->reg.x[rt] = val;
+  vsm_fetch_and_cache_dummy(vcpu->node, page);
 
-  return 0;
+  return 1;
 }
 
 static int emul_stxr(struct vcpu *vcpu, u32 inst, int size) {

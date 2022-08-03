@@ -42,6 +42,8 @@ static int vsm_writeback(struct node *node, u64 page_ipa, char *buf) {
 
 int vsm_fetch_pagetable(struct node *node, u64 page_ipa) {
   char *pgt = kalloc();
+  if(!pgt)
+    panic("mem");
 
   vsm_fetch_page_dummy(node, 1, page_ipa, pgt);
 
@@ -50,8 +52,16 @@ int vsm_fetch_pagetable(struct node *node, u64 page_ipa) {
   return 0;
 }
 
-static int vsm_write(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
-  ;
+int vsm_fetch_and_cache_dummy(struct node *node, u64 page_ipa) {
+  char *page = kalloc();
+  if(!page)
+    panic("mem");
+
+  vsm_fetch_page_dummy(node, 1, page_ipa, page);
+
+  pagemap(node->vttbr, page_ipa, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+
+  return 0;
 }
 
 static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {

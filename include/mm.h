@@ -87,9 +87,9 @@
 struct dabort_info {
   u64 fault_ipa;
   bool isv;
-  bool write;
-  int reg;
-  int accbyte;
+  bool write;   /* when isv == 1 */
+  int reg;      /* when isv == 1 */
+  int accbyte;  /* when isv == 1 */
 };
 
 u64 *pagewalk(u64 *pgt, u64 va, int alloc);

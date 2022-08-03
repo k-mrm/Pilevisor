@@ -112,7 +112,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     vmm_log("dabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
     vsm_fetch_pagetable(vcpu->node, pgt_ipa);
 
-    return 0;
+    return 1;
   }
 
   u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
@@ -127,15 +127,12 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   /* emulation instruction */
   int c = cpu_emulate(vcpu, op);
 
-  if(vcpu->reg.elr == 0xffffffc0082a6444) {
-    u64 fipa = at_uva2ipa(far);
-    u64 pa = ipa2pa(vcpu->node->vsm.dummypgt, fipa);
-    printf("dabort va: %p %c %p elr: %p %s %d %p %p\n", far, *(char*)pa, *(char*)pa, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[30], vcpu->reg.x[2]);
+  if(vcpu->reg.elr == 0xffffffc00810f9a0) {
+    printf("dabort va: %p elr: %p %s %d %p %p\n", far, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[30], vcpu->reg.x[0]);
   }
 
-
-  if(c == 0)
-    return 1;
+  if(c >= 0)
+    return c;
 
   enum maccsize accsz;
   switch(sas) {
@@ -154,7 +151,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   };
 
   if(mmio_emulate(vcpu, r, &mmio) >= 0)
-    return 1;
+    return 0;
 
   printf("dabort ipa: %p va: %p elr: %p %s %d %d\n", ipa, far, vcpu->reg.elr, wnr? "write" : "read", r, accsz);
 
@@ -252,13 +249,13 @@ void vm_sync_handler() {
 
       break;
     case 0x24: {  /* trap EL0/1 data abort */
-      int next;
-      if((next = vm_dabort(vcpu, iss, far)) < 0) {
+      int redo;
+      if((redo = vm_dabort(vcpu, iss, far)) < 0) {
         dabort_iss_dump(iss);
         panic("unexcepted dabort");
       }
 
-      if(next)
+      if(!redo)
         vcpu->reg.elr += 4;
 
       break;
