@@ -117,11 +117,22 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
   vcpu->dabt.fault_ipa = ipa;
+  vcpu->dabt.isv = isv;
+  vcpu->dabt.write = wnr;
+  vcpu->dabt.reg = r;
+  vcpu->dabt.accbyte = 1 << sas;
 
   u32 op = *(u32 *)at_uva2pa(vcpu->reg.elr);
 
   /* emulation instruction */
   int c = cpu_emulate(vcpu, op);
+
+  if(vcpu->reg.elr == 0xffffffc0082a6444) {
+    u64 fipa = at_uva2ipa(far);
+    u64 pa = ipa2pa(vcpu->node->vsm.dummypgt, fipa);
+    printf("dabort va: %p %c %p elr: %p %s %d %p %p\n", far, *(char*)pa, *(char*)pa, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[30], vcpu->reg.x[2]);
+  }
+
 
   if(c == 0)
     return 1;

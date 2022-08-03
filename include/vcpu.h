@@ -43,14 +43,11 @@ struct vcpu {
     u64 cntfrq_el0;
   } sys;
 
-  struct gic_state gic;
-
+  struct cpu_features features;
   const char *name;
-
   enum vcpu_state state;
 
-  struct cpu_features features;
-
+  struct gic_state gic;
   struct vgic_cpu *vgic;
 
   struct node *node;

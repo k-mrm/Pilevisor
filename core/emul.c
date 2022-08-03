@@ -14,6 +14,17 @@ enum addressing {
   POST_INDEX = ADDR_WBACK | ADDR_POSTIDX,
 };
 
+enum regext {
+  EXT_UXTB = 0,
+  EXT_UXTH = 1,
+  EXT_UXTW = 2,
+  EXT_UXTX = 3,
+  EXT_SXTB = 4,
+  EXT_SXTH = 5,
+  EXT_SXTW = 6, 
+  EXT_SXTX = 7,
+};
+
 #define addressing_wback(ad)    ((ad) & ADDR_WBACK)
 #define addressing_postidx(ad)  ((ad) & ADDR_POSTIDX)
 
@@ -75,8 +86,10 @@ static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
   int rt = inst & 0x1f;
   u64 ipa = vcpu->dabt.fault_ipa;
 
-  if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 0) < 0)
+  u64 val = 0;
+  if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
     return -1;
+  vcpu->reg.x[rt] = val;
 
   return 0;
 }
@@ -106,13 +119,43 @@ static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
     return emul_stxr(vcpu, inst, size);
 }
 
-static int emul_ldrstr_roffset(struct vcpu *vcpu) {
-  panic("ldrstr_roffset");
+static int emul_ldrstr_roffset(struct vcpu *vcpu, int rt, int size, bool load) {
+  u64 ipa = vcpu->dabt.fault_ipa;
+  int c;
+
+  if(load) {
+    u64 val = 0;
+    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
+      return -1;
+    vcpu->reg.x[rt] = val;
+  } else {
+    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 1) < 0)
+      return -1;
+  }
+
+  return 0;
+}
+
+static int emul_ldst_roffset(struct vcpu *vcpu, u32 inst) {
+  int rt = inst & 0x1f;
+  int rn = (inst >> 5) & 0x1f;
+  int s = (inst >> 12) & 0x1;
+  int option = (inst >> 13) & 0x7;
+  int rm = (inst >> 16) & 0x1f;
+  int opc = (inst >> 22) & 0x3;
+  int v = (inst >> 26) & 0x1;
+  int size = (inst >> 30) & 0x3;
+  bool load = opc != 0;
+
+  if(v)
+    panic("vector");
+
+  return emul_ldrstr_roffset(vcpu, rt, size, load);
 }
 
 /* emulate ldr* str* */
 static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
-                            int size, bool load, enum addressing ad) {
+                           int size, bool load, enum addressing ad) {
   u64 addr;
   u64 ipa = vcpu->dabt.fault_ipa;
 
@@ -125,8 +168,10 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
     addr += imm;
 
   if(load) {
-    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 0) < 0)
+    u64 val = 0;
+    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
       return -1;
+    vcpu->reg.x[rt] = val;
   } else {
     if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 1) < 0)
       return -1;
@@ -152,11 +197,10 @@ static int emul_ldst_reg_imm9(struct vcpu *vcpu, u32 inst, enum addressing ad) {
   int opc = (inst >> 22) & 0x3; 
   int v = (inst >> 26) & 0x1;
   int size = (inst >> 30) & 0x3;
+  bool load = (opc & 1) != 0;
 
   if(v)
     panic("vector unsupported");
-
-  bool load = (opc & 1) != 0;
 
   return emul_ldrstr_imm(vcpu, rt, rn, imm9, size, load, ad);
 }
@@ -172,9 +216,30 @@ static int emul_ldst_reg_uimm(struct vcpu *vcpu, u32 inst) {
   if(v)
     panic("vector unsupported");
 
-  bool load = (opc & 1) != 0;
+  bool load = opc != 0;
 
   return emul_ldrstr_imm(vcpu, rt, rn, imm12, size, load, OFFSET);
+}
+
+static int emul_ldst_reg_unscaled(struct vcpu *vcpu) {
+  u64 ipa = vcpu->dabt.fault_ipa;
+  if(!vcpu->dabt.isv)
+    panic("isv");
+  bool wr = vcpu->dabt.write;
+  int reg = vcpu->dabt.reg;
+  int accbyte = vcpu->dabt.accbyte;
+
+  if(wr) {
+    if(vsm_access(vcpu, (char *)&vcpu->reg.x[reg], ipa, accbyte, 1) < 0)
+      return -1;
+  } else {
+    u64 val = 0;
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 0) < 0)
+      return -1;
+    vcpu->reg.x[reg] = val;
+  }
+
+  return 0;
 }
 
 static int emul_load_store(struct vcpu *vcpu, u32 inst) {
@@ -208,7 +273,7 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
           switch((op3 >> 5) & 0x1) {
             case 0:
               switch(op4) {
-                case 0: panic("ldst unscaled");
+                case 0: return emul_ldst_reg_unscaled(vcpu);
                 case 1: return emul_ldst_reg_imm9(vcpu, inst, POST_INDEX);
                 case 2: panic("ldst unprivileged");
                 case 3: return emul_ldst_reg_imm9(vcpu, inst, PRE_INDEX);
@@ -218,7 +283,7 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
                 case 0:
                   panic("atomic");
                 case 2:
-                  return emul_ldrstr_roffset(vcpu);
+                  return emul_ldst_roffset(vcpu, inst);
                 case 1: case 3:
                   panic("emul_ldst_pac");
               }
