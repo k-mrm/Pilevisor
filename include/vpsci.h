@@ -5,13 +5,13 @@
 #include "vcpu.h"
 #include "psci.h"
 
-struct vpsci {
+struct vpsci_argv {
   u32 funcid;
   u64 x1;
   u64 x2;
   u64 x3;
 };
 
-u64 vpsci_emulate(struct vcpu *vcpu, struct vpsci *vpsci);
+u64 vpsci_emulate(struct vcpu *vcpu, struct vpsci_argv *vpsci);
 
 #endif

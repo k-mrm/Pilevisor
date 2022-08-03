@@ -21,36 +21,40 @@ static int emul_ldnp_stnp(struct vcpu *vcpu, u32 inst) {
 }
 
 /* stp/ldp <Xt1>, <Xt2>, [<Xn>] */
-static int emul_ldp_stp64(struct vcpu *vcpu, u32 inst, enum addressing ad, int l) {
+static int emul_ldp_stp64(struct vcpu *vcpu, u32 inst, enum addressing ad, int load) {
   int rt = inst & 0x1f;
-  int rn = (inst>>5) & 0x1f;
-  int rt2 = (inst>>10) & 0x1f;
-  int imm7 = (inst>>15) & 0x7f;
+  int rn = (inst >> 5) & 0x1f;
+  int rt2 = (inst >> 10) & 0x1f;
+  int imm7 = (inst >> 15) & 0x7f;
 
   u64 addr = vcpu->reg.x[rn];
   if(!addressing_postidx(ad))   /* pre-index */
     addr += imm7 << 3;
 
+  int c;
   u64 reg[2] = { vcpu->reg.x[rt], vcpu->reg.x[rt2] };
-  if(l) {   /* ldp */
-    vsm_access(vcpu, (char *)reg, addr, 16, 0);
+  if(load) {   /* ldp */
+    if(vsm_access(vcpu, (char *)reg, addr, 16, 0) < 0)
+      return -1;
     vcpu->reg.x[rt] = reg[0];
     vcpu->reg.x[rt2] = reg[1];
-  }
-  else {    /* stp */
-    vsm_access(vcpu, (char *)reg, addr, 16, 1);
+  } else {    /* stp */
+    if(vsm_access(vcpu, (char *)reg, addr, 16, 1) < 0)
+      return -1;
   }
 
+  if(addressing_postidx(ad))
+    addr += imm7 << 3;
   if(addressing_wback(ad))
     vcpu->reg.x[rn] = addr;
 
   return 0;
 }
 
-static int emul_ldp_stp(struct vcpu *vcpu, u32 inst, enum addressing ad) {
-  int opc = (inst>>30) & 0x3;
-  int v = (inst>>26) & 0x1;
-  int l = (inst>>22) & 0x1;
+static int emul_ldst_pair(struct vcpu *vcpu, u32 inst, enum addressing ad) {
+  int opc = (inst >> 30) & 0x3;
+  int v = (inst >> 26) & 0x1;
+  int l = (inst >> 22) & 0x1;
 
   switch(opc) {
     case 2:
@@ -64,7 +68,7 @@ static int emul_ldp_stp(struct vcpu *vcpu, u32 inst, enum addressing ad) {
 
 /* access (1 << size) byte */
 static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
-  int rn = (inst>>5) & 0x1f;
+  int rn = (inst >> 5) & 0x1f;
   int rt = inst & 0x1f;
   u64 addr;
 
@@ -73,33 +77,30 @@ static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
   else
     addr = vcpu->reg.x[rn];
 
-  vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 0);
+  if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 0) < 0)
+    return -1;
 
   return 0;
 }
 
 static int emul_stxr(struct vcpu *vcpu, u32 inst, int size) {
-  int rs = (inst>>16) & 0x1f;
-  int rt2 = (inst>>10) & 0x1f;
-  int rn = (inst>>5) & 0x1f;
+  int rs = (inst >> 16) & 0x1f;
+  int rt2 = (inst >> 10) & 0x1f;
+  int rn = (inst >> 5) & 0x1f;
   int rt = inst & 0x1f;
 
-  panic("?");
+  panic("stxr?");
 
   return -1;
 }
 
-static int emul_ld_st_exculsive(struct vcpu *vcpu, u32 inst) {
-  int size = (inst>>30) & 0x3;
-  int l = (inst>>22) & 0x1;
-  int o0 = (inst>>15) & 0x1;
+static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
+  int size = (inst >> 30) & 0x3;
+  int l = (inst >> 22) & 0x1;
+  int o0 = (inst >> 15) & 0x1;
 
-  if(o0) panic("?");
-
-  if(vcpu->reg.elr == 0xffff800010471eec) {
-    if(!l)
-      printf("ccccc %d %d %d\n", size, l, o0);
-  }
+  if(o0)
+    panic("?");
 
   if(l)
     return emul_ldxr(vcpu, inst, size);
@@ -107,25 +108,83 @@ static int emul_ld_st_exculsive(struct vcpu *vcpu, u32 inst) {
     return emul_stxr(vcpu, inst, size);
 }
 
-static int emul_load_store(struct vcpu *vcpu, u32 inst) {
-#define ls_op0(inst)      (((inst)>>28) & 0x0f)
-#define ls_op1(inst)      (((inst)>>26) & 0x01)
-#define ls_op2(inst)      (((inst)>>23) & 0x03)
-#define ls_op3(inst)      (((inst)>>16) & 0x3f)
-#define ls_op4(inst)      (((inst)>>10) & 0x03)
+static int emul_ldrstr_roffset(struct vcpu *vcpu) {
+  panic("ldrstr_roffset");
+}
 
-  int op0 = ls_op0(inst);
-  int op1 = ls_op1(inst);
-  int op2 = ls_op2(inst);
-  int op3 = ls_op3(inst);
-  int op4 = ls_op4(inst);
+/* emulate ldr* str* */
+static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
+                            int size, bool load, enum addressing ad) {
+  u64 addr = vcpu->reg.x[rn];
+
+  if(!addressing_postidx(ad))   /* pre-index */
+    addr += imm;
+
+  if(load) {
+    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 0) < 0)
+      return -1;
+  } else {
+    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 1) < 0)
+      return -1;
+  }
+
+  if(addressing_postidx(ad))    /* post-index */
+    addr += imm;
+  if(addressing_wback(ad))      /* writeback */
+    vcpu->reg.x[rn] = addr;
+
+  return 0;
+}
+
+/* load/store register imm9
+ *  - immediate post-indexed
+ *  - immediate pre-indexed
+ */
+static int emul_ldst_reg_imm9(struct vcpu *vcpu, u32 inst, enum addressing ad) {
+  int rt = inst & 0x1f;
+  int rn = (inst >> 5) & 0x1f;
+  int imm9 = (inst >> 12) & 0x1ff;
+  int opc = (inst >> 22) & 0x3; 
+  int v = (inst >> 26) & 0x1;
+  int size = (inst >> 30) & 0x3;
+
+  if(v)
+    panic("vector unsupported");
+
+  bool load = (opc & 1) != 0;
+
+  return emul_ldrstr_imm(vcpu, rt, rn, imm9, size, load, ad);
+}
+
+static int emul_ldst_reg_uimm(struct vcpu *vcpu, u32 inst) {
+  int rt = inst & 0x1f;
+  int rn = (inst >> 5) & 0x1f;
+  int imm12 = (inst >> 10) & 0xfff;
+  int opc = (inst >> 22) & 0x3; 
+  int v = (inst >> 26) & 0x1;
+  int size = (inst >> 30) & 0x3;
+
+  if(v)
+    panic("vector unsupported");
+
+  bool load = (opc & 1) != 0;
+
+  return emul_ldrstr_imm(vcpu, rt, rn, imm12, size, load, OFFSET);
+}
+
+static int emul_load_store(struct vcpu *vcpu, u32 inst) {
+  int op0 = (inst >> 28) & 0x0f;
+  int op1 = (inst >> 26) & 0x01;
+  int op2 = (inst >> 23) & 0x03;
+  int op3 = (inst >> 16) & 0x3f;
+  int op4 = (inst >> 10) & 0x03;
 
   switch(op0 & 0x3) {
     case 0:
       switch(op1) {
         case 0:
           switch(op2) {
-            case 0:  return emul_ld_st_exculsive(vcpu, inst);
+            case 0:  return emul_ldst_excl(vcpu, inst);
             default: return -1;
           }
         case 1: return -1;
@@ -134,41 +193,64 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
     case 2:   /* load and store pair */
       switch(op2) {
         case 0: return emul_ldnp_stnp(vcpu, inst);
-        case 1: return emul_ldp_stp(vcpu, inst, POST_INDEX);
-        case 2: return emul_ldp_stp(vcpu, inst, OFFSET);
-        case 3: return emul_ldp_stp(vcpu, inst, PRE_INDEX);
+        case 1: return emul_ldst_pair(vcpu, inst, POST_INDEX);
+        case 2: return emul_ldst_pair(vcpu, inst, OFFSET);
+        case 3: return emul_ldst_pair(vcpu, inst, PRE_INDEX);
       }
-    default: return -1;
+    case 3:
+      switch((op2 >> 1) & 0x1) {
+        case 0:
+          switch((op3 >> 5) & 0x1) {
+            case 0:
+              switch(op4) {
+                case 0: panic("ldst unscaled");
+                case 1: return emul_ldst_reg_imm9(vcpu, inst, POST_INDEX);
+                case 2: panic("ldst unprivileged");
+                case 3: return emul_ldst_reg_imm9(vcpu, inst, PRE_INDEX);
+              }
+            case 1:
+              switch(op4) {
+                case 0:
+                  panic("atomic");
+                case 2:
+                  return emul_ldrstr_roffset(vcpu);
+                case 1: case 3:
+                  panic("emul_ldst_pac");
+              }
+          }
+        case 1:
+          return emul_ldst_reg_uimm(vcpu, inst);
+      }
+    default:  return -1;
   }
 }
 
 int cpu_emulate(struct vcpu *vcpu, u32 ai) {
   /* main encoding */
-#define main_op0(inst)    (((inst)>>31) & 0x1)
-#define main_op1(inst)    (((inst)>>25) & 0xf)
+#define main_op0(inst)    (((inst) >> 31) & 0x1)
+#define main_op1(inst)    (((inst) >> 25) & 0xf)
 
   int op0 = main_op0(ai);
   int op1 = main_op1(ai);
 
   switch(op1) {
-    case 0: goto unimpl;
-    case 1: panic("unallocated");
-    case 2: goto unimpl;
-    case 3: panic("unallocated");
-    default:
-      switch((op1 >> 2) & 1) {
-        case 0:
-          goto unimpl;
-        case 1:
-          switch(op1 & 1) {
-            case 0:
-              if(emul_load_store(vcpu, ai) < 0)
-                goto unimpl;
-              return 0;
-            case 1:
-              goto unimpl;
-          }
-      }
+    case 0x0:
+      goto unimpl;
+    case 0x1:
+      panic("unallocated");
+    case 0x2:
+      goto unimpl;
+    case 0x3:
+      panic("unallocated");
+    case 0x8: case 0x9:
+      panic("data ?");
+    case 0xa: case 0xb:
+      panic("branch ?");
+    case 0x4: case 0x6: case 0xc: case 0xe:   /* load and stores */
+      return emul_load_store(vcpu, ai);
+    case 0x5: case 0xd:
+    case 0x7: case 0xf:
+      panic("data ?");
   }
 
 unimpl:

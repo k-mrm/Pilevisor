@@ -22,12 +22,6 @@ static u64 vsm_fetch_page_dummy(struct node *node, u8 dst_node, u64 page_ipa, ch
 
   memcpy(buf, (u8 *)pa, PAGESIZE);
 
-  if(page_ipa == 0x4df75000) {
-    u8 *cache = kalloc();
-    memcpy(cache, buf, PAGESIZE);
-    pagemap(node->vttbr, page_ipa, (u64)cache, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
-
   return pa;
 }
 
@@ -141,7 +135,7 @@ void vsm_init(struct node *node) {
       pagemap(node->vsm.dummypgt, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
     }
 
-    vmm_log("Node0 dummy mapped [%p - %p]", start, start + p);
+    vmm_log("dummy Node1 mapped [%p - %p]\n", start, start + p);
   }
 
   return;

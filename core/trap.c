@@ -108,25 +108,29 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   bool s1ptw = (iss >> 7) & 0x1;
   bool wnr = (iss >> 6) & 0x1;
 
+  if(fnv)
+    panic("fnv");
+  if(ar)
+    panic("acqrel");
+
   if(s1ptw) {
     /* fetch pagetable */
     u64 pgt_ipa = faulting_ipa_page();
     vmm_log("dabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
-    // vcpu_dump(vcpu);
     vsm_fetch_pagetable(vcpu->node, pgt_ipa);
 
     return 0;
   }
 
-  if(isv == 0) {
-    u32 *pa = (u32 *)at_uva2pa(vcpu->reg.elr);
-    u32 op = *pa;
-    int c = cpu_emulate(vcpu, op);
-    vcpu->reg.elr += 4;
-    return c;
-  }
+  u32 op = *(u32 *)at_uva2pa(vcpu->reg.elr);
 
-  u64 elr = read_sysreg(elr_el2);
+  /* emulation instruction */
+  int c = cpu_emulate(vcpu, op);
+
+  if(c == 0)
+    return 1;
+
+  u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
 
   enum maccsize accsz;
   switch(sas) {
@@ -137,72 +141,28 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     default: panic("?");
   }
 
-  u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
-
   struct mmio_access mmio = {
     .ipa = ipa,
-    .pc = elr,
+    .pc = vcpu->reg.elr,
     .accsize = accsz,
     .wnr = wnr,
   };
 
-  vcpu->reg.elr += 4;
-
-  if(ar == 1)
-    panic("acqrel");
-
-  int c; u64 reg;
-  if(r == 31) {
-    reg = 0;
-    c = vsm_access(vcpu, 0, ipa, accsz, wnr);
-  }
-  else {
-    reg = vcpu->reg.x[r];
-    c = vsm_access(vcpu, (char *)&reg, ipa, accsz, wnr);
-  }
-
-  if(elr == 0xffffffc0082c1244) {
-    printf("dabort ipa: %p va: %p elr: %p %s %d %p %d\n", ipa, far, elr, wnr? "write" : "read", r, reg, accsz);
-    dabort_iss_dump(iss);
-  }
-
-  if(c >= 0) {
-    if(!wnr) {
-      switch(accsz) {
-        case ACC_BYTE:
-          vcpu->reg.x[r] = (u8)reg;
-          break;
-        case ACC_HALFWORD:
-          vcpu->reg.x[r] = (u16)reg;
-          break;
-        case ACC_WORD:
-          vcpu->reg.x[r] = (u32)reg;
-          break;
-        case ACC_DOUBLEWORD:
-          vcpu->reg.x[r] = (u64)reg;
-          break;
-      }
-    }
-
-    return 0;
-  }
-
   if(mmio_emulate(vcpu, r, &mmio) >= 0)
-    return 0;
+    return 1;
 
-  vmm_warn("dabort ipa: %p va: %p elr: %p\n", ipa, far, elr);
   return -1;
 }
 
 static void vpsci_handler(struct vcpu *vcpu) {
-  struct vpsci vpsci = {
+  struct vpsci_argv argv = {
     .funcid = (u32)vcpu->reg.x[0],
     .x1 = vcpu->reg.x[1],
     .x2 = vcpu->reg.x[2],
     .x3 = vcpu->reg.x[3],
   };
 
-  u64 ret = vpsci_emulate(vcpu, &vpsci);
+  u64 ret = vpsci_emulate(vcpu, &argv);
   vmm_log("vpsci return %p\n", ret);
 
   vcpu->reg.x[0] = ret;
@@ -243,6 +203,7 @@ static void iabort_iss_dump(u64 iss) {
 }
 
 int vsysreg_emulate(struct vcpu *vcpu, u64 iss);
+
 void vm_sync_handler() {
   struct vcpu *vcpu = (struct vcpu *)read_sysreg(tpidr_el2);
 
@@ -283,14 +244,18 @@ void vm_sync_handler() {
       }
 
       break;
-    case 0x24:    /* trap EL0/1 data abort */
-      if(vm_dabort(vcpu, iss, far) < 0) {
+    case 0x24: {  /* trap EL0/1 data abort */
+      int next;
+      if((next = vm_dabort(vcpu, iss, far)) < 0) {
         dabort_iss_dump(iss);
         panic("unexcepted dabort");
       }
 
+      if(next)
+        vcpu->reg.elr += 4;
+
       break;
-    default:
+    }    default:
       vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
       panic("unknown sync");
   }

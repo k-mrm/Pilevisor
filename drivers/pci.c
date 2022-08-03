@@ -58,7 +58,7 @@ static void pci_func_enable(struct pci_dev *dev) {
       dev->reg_addr[i] = addr;
       dev->reg_size[i] = size;
 
-      vmm_log("happy typhoon %p %p %dbit\n", addr, size, mem64? 64 : 32);
+      vmm_log("happy typhoon %p %p %dbit\n", addr, size, mem64 ? 64 : 32);
     } else {  // PCI_BAR_TYPE(oldv) == PCI_BAR_TYPE_IO
       /* TODO */
     }
