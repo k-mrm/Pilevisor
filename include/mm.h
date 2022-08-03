@@ -84,6 +84,10 @@
 #define AI_DEVICE_nGnRnE  0x0
 #define AI_NORMAL_NC      0x44
 
+struct dabort_info {
+  u64 fault_ipa;
+};
+
 u64 *pagewalk(u64 *pgt, u64 va, int alloc);
 void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr);
 void pageunmap(u64 *pgt, u64 va, u64 size);
@@ -96,5 +100,7 @@ void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
 
 void s2mmu_init(void);
+
+u64 faulting_ipa_page(void);
 
 #endif

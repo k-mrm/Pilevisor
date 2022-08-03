@@ -7,6 +7,7 @@
 #include "vgic.h"
 #include "gic.h"
 #include "aarch64.h"
+#include "mm.h"
 
 enum vcpu_state {
   UNUSED,
@@ -55,6 +56,9 @@ struct vcpu {
   struct node *node;
 
   int cpuid;
+
+  /* when dabort occurs on vCPU, informations will save here */
+  struct dabort_info dabt;
 };
 
 struct vcpu *new_vcpu(struct node *node, int vcpuid);

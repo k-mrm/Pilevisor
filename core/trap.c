@@ -71,13 +71,6 @@ void vm_irq_handler() {
   isb();
 }
 
-static u64 faulting_ipa_page() {
-  u64 hpfar = read_sysreg(hpfar_el2); 
-  u64 ipa_page = (hpfar & HPFAR_FIPA_MASK) << 8;
-
-  return ipa_page;
-}
-
 static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
   bool fnv = (iss >> 10) & 0x1;
   bool s1ptw = (iss >> 7) & 0x1;
@@ -122,6 +115,9 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     return 0;
   }
 
+  u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
+  vcpu->dabt.fault_ipa = ipa;
+
   u32 op = *(u32 *)at_uva2pa(vcpu->reg.elr);
 
   /* emulation instruction */
@@ -129,8 +125,6 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   if(c == 0)
     return 1;
-
-  u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
 
   enum maccsize accsz;
   switch(sas) {
@@ -150,6 +144,8 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   if(mmio_emulate(vcpu, r, &mmio) >= 0)
     return 1;
+
+  printf("dabort ipa: %p va: %p elr: %p %s %d %d\n", ipa, far, vcpu->reg.elr, wnr? "write" : "read", r, accsz);
 
   return -1;
 }
@@ -255,7 +251,8 @@ void vm_sync_handler() {
         vcpu->reg.elr += 4;
 
       break;
-    }    default:
+    }
+    default:
       vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
       panic("unknown sync");
   }

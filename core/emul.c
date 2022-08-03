@@ -2,6 +2,7 @@
 #include "types.h"
 #include "vcpu.h"
 #include "vsm.h"
+#include "mm.h"
 #include "log.h"
 
 #define ADDR_WBACK    (1 << 0)
@@ -26,27 +27,30 @@ static int emul_ldp_stp64(struct vcpu *vcpu, u32 inst, enum addressing ad, int l
   int rn = (inst >> 5) & 0x1f;
   int rt2 = (inst >> 10) & 0x1f;
   int imm7 = (inst >> 15) & 0x7f;
+  int offset = imm7 << 3;
 
   u64 addr = vcpu->reg.x[rn];
-  if(!addressing_postidx(ad))   /* pre-index */
-    addr += imm7 << 3;
+  u64 ipa = vcpu->dabt.fault_ipa;
 
-  int c;
+  if(!addressing_postidx(ad))   /* pre-index */
+    addr += offset;
+
   u64 reg[2] = { vcpu->reg.x[rt], vcpu->reg.x[rt2] };
   if(load) {   /* ldp */
-    if(vsm_access(vcpu, (char *)reg, addr, 16, 0) < 0)
+    if(vsm_access(vcpu, (char *)reg, ipa, 16, 0) < 0)
       return -1;
     vcpu->reg.x[rt] = reg[0];
     vcpu->reg.x[rt2] = reg[1];
   } else {    /* stp */
-    if(vsm_access(vcpu, (char *)reg, addr, 16, 1) < 0)
+    if(vsm_access(vcpu, (char *)reg, ipa, 16, 1) < 0)
       return -1;
   }
 
-  if(addressing_postidx(ad))
-    addr += imm7 << 3;
-  if(addressing_wback(ad))
+  if(addressing_wback(ad)) {
+    if(addressing_postidx(ad))
+      addr += offset;
     vcpu->reg.x[rn] = addr;
+  }
 
   return 0;
 }
@@ -68,16 +72,10 @@ static int emul_ldst_pair(struct vcpu *vcpu, u32 inst, enum addressing ad) {
 
 /* access (1 << size) byte */
 static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
-  int rn = (inst >> 5) & 0x1f;
   int rt = inst & 0x1f;
-  u64 addr;
+  u64 ipa = vcpu->dabt.fault_ipa;
 
-  if(rt == 31)
-    panic("sp");
-  else
-    addr = vcpu->reg.x[rn];
-
-  if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 0) < 0)
+  if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 0) < 0)
     return -1;
 
   return 0;
@@ -115,23 +113,30 @@ static int emul_ldrstr_roffset(struct vcpu *vcpu) {
 /* emulate ldr* str* */
 static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
                             int size, bool load, enum addressing ad) {
-  u64 addr = vcpu->reg.x[rn];
+  u64 addr;
+  u64 ipa = vcpu->dabt.fault_ipa;
+
+  if(rn == 31)
+    panic("sp");
+  else
+    addr = vcpu->reg.x[rn];
 
   if(!addressing_postidx(ad))   /* pre-index */
     addr += imm;
 
   if(load) {
-    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 0) < 0)
+    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 0) < 0)
       return -1;
   } else {
-    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], addr, 1 << size, 1) < 0)
+    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 1) < 0)
       return -1;
   }
 
-  if(addressing_postidx(ad))    /* post-index */
-    addr += imm;
-  if(addressing_wback(ad))      /* writeback */
+  if(addressing_wback(ad)) {      /* writeback */
+    if(addressing_postidx(ad))    /* post-index */
+      addr += imm;
     vcpu->reg.x[rn] = addr;
+  }
 
   return 0;
 }

@@ -149,6 +149,13 @@ void dump_par_el1(u64 par) {
   }
 } 
 
+u64 faulting_ipa_page() {
+  u64 hpfar = read_sysreg(hpfar_el2); 
+  u64 ipa_page = (hpfar & HPFAR_FIPA_MASK) << 8;
+
+  return ipa_page & ~(PAGESIZE-1);
+}
+
 void s2mmu_init(void) {
   u64 mmf = read_sysreg(id_aa64mmfr0_el1);
   printf("id_aa64mmfr0_el1.parange = %p\n", mmf & 0xf);
