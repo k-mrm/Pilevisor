@@ -170,7 +170,7 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
   if(!wr)
     return -1;
 
-  u64 sgir = vcpu->reg.x[rt];
+  u64 sgir = vcpu_x(vcpu, rt);
   u16 targetlist = ICC_SGI1R_TargetList(sgir); 
   u8 intid = ICC_SGI1R_INTID(sgir);
 

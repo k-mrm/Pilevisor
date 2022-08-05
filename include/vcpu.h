@@ -77,4 +77,22 @@ static inline struct vcpu *cur_vcpu() {
   return (struct vcpu *)read_sysreg(tpidr_el2);
 }
 
+/* read general-purpose register */
+static inline u64 vcpu_x(struct vcpu *vcpu, int r) {
+  return r == 31 ? 0 : vcpu->reg.x[r];
+}
+
+static inline u32 vcpu_w(struct vcpu *vcpu, int r) {
+  return r == 31 ? 0 : (u32)vcpu->reg.x[r];
+}
+
+/* write to general-purpose register */
+static inline void vcpu_set_x(struct vcpu *vcpu, int r, u64 v) {
+  vcpu->reg.x[r] = v;
+}
+
+static inline void vcpu_set_w(struct vcpu *vcpu, int r, u32 v) {
+  vcpu->reg.x[r] = v;
+}
+
 #endif
