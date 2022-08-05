@@ -6,8 +6,7 @@
 #include "vcpu.h"
 #include "mmio.h"
 #include "kalloc.h"
-
-#define BIT(n)  (1<<(n))
+#include "lib.h"
 
 static struct vgic vgics[NODE_MAX];
 static struct vgic_cpu vgic_cpus[VCPU_MAX];
