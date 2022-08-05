@@ -55,7 +55,10 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
     addr += offset;
 
   if(datasize == 32) {
-    u32 reg[2] = { (u32)vcpu->reg.x[rt], (u32)vcpu->reg.x[rt2] };
+    u32 rtval = rt == 31 ? 0 : (u32)vcpu->reg.x[rt];
+    u32 rt2val = rt2 == 31 ? 0 : (u32)vcpu->reg.x[rt2];
+
+    u32 reg[2] = { rtval, rt2val };
 
     if(load) {   /* ldp */
       if(vsm_access(vcpu, (char *)reg, ipa, 8, 0) < 0)
@@ -67,7 +70,10 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
         return -1;
     }
   } else if(datasize == 64) {
-    u64 reg[2] = { vcpu->reg.x[rt], vcpu->reg.x[rt2] };
+    u64 rtval = rt == 31 ? 0 : vcpu->reg.x[rt];
+    u64 rt2val = rt2 == 31 ? 0 : vcpu->reg.x[rt2];
+
+    u64 reg[2] = { rtval, rt2val };
 
     if(load) {   /* ldp */
       if(vsm_access(vcpu, (char *)reg, ipa, 16, 0) < 0)
@@ -149,12 +155,13 @@ static int emul_ldrstr_roffset(struct vcpu *vcpu, int rt, int size, bool load) {
   int c;
 
   if(load) {
-    u64 val = 0;
+    u64 val;
     if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
       return -1;
     vcpu->reg.x[rt] = val;
   } else {
-    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 1) < 0)
+    u64 val = rt == 31 ? 0 : vcpu->reg.x[rt]; 
+    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 1) < 0)
       return -1;
   }
 
@@ -198,7 +205,9 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
       return -1;
     vcpu->reg.x[rt] = val;
   } else {
-    if(vsm_access(vcpu, (char *)&vcpu->reg.x[rt], ipa, 1 << size, 1) < 0)
+    u64 val = rt == 31 ? 0 : vcpu->reg.x[rt];
+
+    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 1) < 0)
       return -1;
   }
 
@@ -255,7 +264,13 @@ static int emul_ldst_reg_unscaled(struct vcpu *vcpu) {
   int accbyte = vcpu->dabt.accbyte;
 
   if(wr) {
-    if(vsm_access(vcpu, (char *)&vcpu->reg.x[reg], ipa, accbyte, 1) < 0)
+    u64 val;
+    if(reg == 31)
+      val = 0;
+    else
+      val = vcpu->reg.x[reg];
+
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
       return -1;
   } else {
     u64 val = 0;
@@ -320,13 +335,10 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
   }
 }
 
-int cpu_emulate(struct vcpu *vcpu, u32 ai) {
+int cpu_emulate(struct vcpu *vcpu, u32 inst) {
   /* main encoding */
-#define main_op0(inst)    (((inst) >> 31) & 0x1)
-#define main_op1(inst)    (((inst) >> 25) & 0xf)
-
-  int op0 = main_op0(ai);
-  int op1 = main_op1(ai);
+  int op0 = (inst >> 31) & 0x1;
+  int op1 = (inst >> 25) & 0xf;
 
   switch(op1) {
     case 0x0:
@@ -342,14 +354,14 @@ int cpu_emulate(struct vcpu *vcpu, u32 ai) {
     case 0xa: case 0xb:
       panic("branch ?");
     case 0x4: case 0x6: case 0xc: case 0xe:   /* load and stores */
-      return emul_load_store(vcpu, ai);
+      return emul_load_store(vcpu, inst);
     case 0x5: case 0xd:
     case 0x7: case 0xf:
       panic("data ?");
   }
 
 unimpl:
-  vmm_warn("cannot emulate %p %p\n", ai, vcpu->reg.elr);
+  vmm_warn("cannot emulate %p %p\n", inst, vcpu->reg.elr);
 
   return -1;
 }

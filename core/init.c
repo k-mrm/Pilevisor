@@ -52,9 +52,9 @@ int vmm_init_cpu0() {
   kalloc_init();
   pcpu_init();
   write_sysreg(vbar_el2, (u64)vectable);
-  vgic_init();
   gic_init();
   gic_init_cpu(0);
+  vgic_init();
   vtimer_init();
   vcpu_init();
   s2mmu_init();

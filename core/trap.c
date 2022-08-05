@@ -127,9 +127,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   /* emulation instruction */
   int c = cpu_emulate(vcpu, op);
 
-  if(vcpu->reg.elr == 0xffffffc00810f9a0) {
-    printf("dabort va: %p elr: %p %s %d %p %p\n", far, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[30], vcpu->reg.x[0]);
-  }
+  // printf("dabort va: %p ipa %p elr: %p %s %d %p\n", far, ipa, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[r]);
 
   if(c >= 0)
     return c;
