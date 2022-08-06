@@ -155,7 +155,7 @@ static int emul_ldrstr_roffset(struct vcpu *vcpu, int rt, int size, bool load) {
   int c;
 
   if(load) {
-    u64 val;
+    u64 val = 0;
     if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
       return -1;
     vcpu->reg.x[rt] = val;

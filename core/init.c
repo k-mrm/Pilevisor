@@ -68,7 +68,7 @@ int vmm_init_cpu0() {
     .initrd_img = &rootfs_img,
     .nvcpu = 1,
     .nallocate = 128 * 1024 * 1024,
-    .entrypoint = 0x40000000,
+    .entrypoint = 0x40200000,
   };
 
   node_init(&vmcfg);
