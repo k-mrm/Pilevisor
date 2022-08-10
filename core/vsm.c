@@ -57,9 +57,13 @@ int vsm_fetch_and_cache_dummy(struct node *node, u64 page_ipa) {
   if(!page)
     panic("mem");
 
+  struct vcpu *vcpu = node->vcpus[0];
+
   vsm_fetch_page_dummy(node, 1, page_ipa, page);
 
   pagemap(node->vttbr, page_ipa, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  
+  vmm_log("dummy cache %p elr %p va %p\n", page_ipa, vcpu->reg.elr, vcpu->dabt.fault_va);
 
   return 0;
 }

@@ -86,6 +86,7 @@
 
 struct dabort_info {
   u64 fault_ipa;
+  u64 fault_va;
   bool isv;
   bool write;   /* when isv == 1 */
   int reg;      /* when isv == 1 */

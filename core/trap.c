@@ -39,7 +39,7 @@ void hyp_irq_handler() {
       vmm_warn("sprious interrupt");
       return;
     default:
-      panic("?");
+      panic("unknown interrupt");
   }
 
   gic_host_eoi(irq, 1);
@@ -116,6 +116,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   }
 
   u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
+  vcpu->dabt.fault_va = far;
   vcpu->dabt.fault_ipa = ipa;
   vcpu->dabt.isv = isv;
   vcpu->dabt.write = wnr;
@@ -127,7 +128,8 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   /* emulation instruction */
   int c = cpu_emulate(vcpu, op);
 
-  // printf("dabort va: %p ipa %p elr: %p %s %d %p\n", far, ipa, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[r]);
+  if(far == 0xfffffffe00020008)
+    printf("dabort va: %p ipa %p elr: %p %s %d %p\n", far, ipa, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[r]);
 
   if(c >= 0)
     return c;
@@ -138,7 +140,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     case 1: accsz = ACC_HALFWORD; break;
     case 2: accsz = ACC_WORD; break;
     case 3: accsz = ACC_DOUBLEWORD; break;
-    default: panic("?");
+    default: panic("unreachable");
   }
 
   struct mmio_access mmio = {

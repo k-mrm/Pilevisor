@@ -51,6 +51,9 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
 
   u64 ipa = vcpu->dabt.fault_ipa;
 
+  if(vcpu->dabt.fault_va == 0xfffffffe00020008)
+    printf("kichaaaaaaaaaaaaaaaaaaaaaaa\n");
+
   if(!addressing_postidx(ad))   /* pre-index */
     addr += offset;
 
@@ -86,6 +89,12 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
     }
   } else {
     panic("unreachable");
+  }
+
+  if(vcpu->dabt.fault_va == 0xfffffffe00020008) {
+    u64 ipa = vcpu->dabt.fault_ipa;
+    u64 pa = ipa2pa(vcpu->node->vsm.dummypgt, ipa) & ~(u64)(PAGESIZE-1);
+    printf("%s rt %d %p rn %d %p rt2 %d %p %p %p\n", load ? "ldp" : "stp", rt, vcpu_x(vcpu, rt), rn, vcpu_x(vcpu, rn), rt2, vcpu_x(vcpu, rt2), ipa, pa);
   }
 
   if(addressing_wback(ad)) {
@@ -141,8 +150,9 @@ static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
   int l = (inst >> 22) & 0x1;
   int o0 = (inst >> 15) & 0x1;
 
-  if(o0)
-    panic("?");
+  /* TODO: o0? */
+  // if(o0)
+  //   panic("o0");
 
   if(l)
     return emul_ldxr(vcpu, inst, size);
@@ -227,7 +237,7 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
 static int emul_ldst_reg_imm9(struct vcpu *vcpu, u32 inst, enum addressing ad) {
   int rt = inst & 0x1f;
   int rn = (inst >> 5) & 0x1f;
-  int imm9 = (inst >> 12) & 0x1ff;
+  int imm9 = (int)(inst << (32 - 12 - 9)) >> (32 - 9);
   int opc = (inst >> 22) & 0x3; 
   int v = (inst >> 26) & 0x1;
   int size = (inst >> 30) & 0x3;
