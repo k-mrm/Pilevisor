@@ -104,7 +104,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(fnv)
     panic("fnv");
   if(ar)
-    panic("acqrel");
+    vmm_warn("acqrel\n");
 
   if(s1ptw) {
     /* fetch pagetable */
@@ -127,9 +127,6 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   /* emulation instruction */
   int c = cpu_emulate(vcpu, op);
-
-  if(far == 0xfffffffe00020008)
-    printf("dabort va: %p ipa %p elr: %p %s %d %p\n", far, ipa, vcpu->reg.elr, wnr? "write" : "read", r, vcpu->reg.x[r]);
 
   if(c >= 0)
     return c;

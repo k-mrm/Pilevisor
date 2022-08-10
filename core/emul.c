@@ -51,9 +51,6 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
 
   u64 ipa = vcpu->dabt.fault_ipa;
 
-  if(vcpu->dabt.fault_va == 0xfffffffe00020008)
-    printf("kichaaaaaaaaaaaaaaaaaaaaaaa\n");
-
   if(!addressing_postidx(ad))   /* pre-index */
     addr += offset;
 
@@ -89,12 +86,6 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
     }
   } else {
     panic("unreachable");
-  }
-
-  if(vcpu->dabt.fault_va == 0xfffffffe00020008) {
-    u64 ipa = vcpu->dabt.fault_ipa;
-    u64 pa = ipa2pa(vcpu->node->vsm.dummypgt, ipa) & ~(u64)(PAGESIZE-1);
-    printf("%s rt %d %p rn %d %p rt2 %d %p %p %p\n", load ? "ldp" : "stp", rt, vcpu_x(vcpu, rt), rn, vcpu_x(vcpu, rn), rt2, vcpu_x(vcpu, rt2), ipa, pa);
   }
 
   if(addressing_wback(ad)) {
@@ -288,6 +279,39 @@ static int emul_ldst_reg_unscaled(struct vcpu *vcpu) {
   return 0;
 }
 
+static int emul_ldar_stlr(struct vcpu *vcpu, int size, int rn, int rt, bool load) {
+  u64 ipa = vcpu->dabt.fault_ipa;
+  int accbyte = 1 << size;
+
+  if(load) {
+    u64 val = 0;
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 0) < 0)
+      return -1;
+    vcpu->reg.x[rt] = val;
+  } else {
+    u64 val = vcpu_x(vcpu, rt);
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
+      return -1;
+  }
+
+  return 0;
+}
+
+static int emul_ldst_ordered(struct vcpu *vcpu, u32 inst) {
+  int size = (inst >> 30) & 0x3;
+  int l = (inst >> 22) & 0x1;
+  int rs = (inst >> 16) & 0x1f;
+  int o0 = (inst >> 15) & 0x1;
+  int rt2 = (inst >> 10) & 0x1f;
+  int rn = (inst >> 5) & 0x1f;
+  int rt = inst & 0x1f;
+
+  if(!o0)
+    panic("!o0");
+
+  return emul_ldar_stlr(vcpu, size, rn, rt, l);
+}
+
 static int emul_load_store(struct vcpu *vcpu, u32 inst) {
   int op0 = (inst >> 28) & 0x0f;
   int op1 = (inst >> 26) & 0x01;
@@ -300,12 +324,19 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
       switch(op1) {
         case 0:
           switch(op2) {
-            case 0:  return emul_ldst_excl(vcpu, inst);
-            default: return -1;
+            case 0:
+              return emul_ldst_excl(vcpu, inst);
+            case 1:
+              switch((op3 >> 5) & 0x1) {
+                case 0: return emul_ldst_ordered(vcpu, inst);
+                case 1: goto unimpl;
+              }
+            case 2: case 3:
+              goto unimpl;
           }
-        case 1: return -1;
+        case 1: goto unimpl;
       }
-    case 1: return -1;
+    case 1: goto unimpl;
     case 2:   /* load and store pair */
       switch(op2) {
         case 0: return emul_ldnp_stnp(vcpu, inst);
@@ -339,6 +370,10 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
       }
     default:  return -1;
   }
+
+unimpl:
+  vmm_warn("cannot emulate %p %p\n", inst, vcpu->reg.elr);
+  return -1;
 }
 
 int cpu_emulate(struct vcpu *vcpu, u32 inst) {
@@ -368,6 +403,5 @@ int cpu_emulate(struct vcpu *vcpu, u32 inst) {
 
 unimpl:
   vmm_warn("cannot emulate %p %p\n", inst, vcpu->reg.elr);
-
   return -1;
 }
