@@ -25,8 +25,9 @@ void pagetrap(struct node *node, u64 ipa, u64 size,
   tlb_flush();
 }
 
-void node_init(struct vmconfig *vmcfg) {
+void node_init(struct nodeconfig *ndcfg) {
   struct node *node = &global;
+  struct vmconfig *vmcfg = ndcfg->vmcfg;
 
   struct guest *guest = vmcfg->guest_img;
   struct guest *fdt = vmcfg->fdt_img;
@@ -35,20 +36,24 @@ void node_init(struct vmconfig *vmcfg) {
   if(!guest)
     panic("guest img required");
 
-  vmm_log("create vm `%s`\n", guest->name);
-  vmm_log("n vcpu: %d\n", vmcfg->nvcpu);
-  vmm_log("allocated ram: %d byte\n", vmcfg->nallocate);
-  vmm_log("img_start %p img_size %p byte\n", guest->start, guest->size);
+  vmm_log("[node] node's ncpu: %d\n", ndcfg->nvcpu);
+  vmm_log("[node] node allocate %d bytes\n", ndcfg->nallocate);
+  vmm_log("[vm] create vm `%s`\n", guest->name);
+  vmm_log("[vm] use %d vcpu(s)\n", vmcfg->nvcpu);
+  vmm_log("[vm] allocated ram: %d byte\n", vmcfg->nallocate);
+  vmm_log("[vm] img_start %p img_size %p byte\n", guest->start, guest->size);
   if(fdt)
-    vmm_log("fdt_start %p fdt_size %p byte\n", fdt->start, fdt->size);
+    vmm_log("[vm] fdt_start %p fdt_size %p byte\n", fdt->start, fdt->size);
   if(initrd)
-    vmm_log("initrd_start %p initrd_size %p byte\n", initrd->start, initrd->size);
+    vmm_log("[vm] initrd_start %p initrd_size %p byte\n", initrd->start, initrd->size);
 
-  if(guest->size > vmcfg->nallocate)
-    panic("img_size > nallocate");
+  if(guest->size > ndcfg->nallocate)
+    panic("imgsize > nallocate");
   if(vmcfg->nallocate % PAGESIZE != 0)
     panic("invalid mem size");
-  if(vmcfg->nvcpu > VCPU_PER_NODE_MAX)
+  if(ndcfg->nallocate % PAGESIZE != 0)
+    panic("invalid mem size");
+  if(ndcfg->nvcpu > VCPU_PER_NODE_MAX)
     panic("too many vcpu");
 
   node->ctl = &global_nodectl;
@@ -57,8 +62,7 @@ void node_init(struct vmconfig *vmcfg) {
   node->initrd_base = initrd ? 0x48000000 : 0;
   node->fdt_base = fdt ? 0x48400000 : 0;
   node->entrypoint = vmcfg->entrypoint;
-
-  node->nvcpu = vmcfg->nvcpu;
+  node->nvcpu = ndcfg->nvcpu;
 
   u64 *vttbr = kalloc();
   if(!vttbr)
@@ -88,7 +92,7 @@ void node_init(struct vmconfig *vmcfg) {
     pagemap(vttbr, vmcfg->entrypoint+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
   }
 
-  for(; p < vmcfg->nallocate - 0x200000; p += PAGESIZE) {
+  for(; p < ndcfg->nallocate - 0x200000; p += PAGESIZE) {
     char *page = kalloc();
     if(!page)
       panic("ram");

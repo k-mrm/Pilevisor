@@ -115,7 +115,6 @@ static int emul_ldst_pair(struct vcpu *vcpu, u32 inst, enum addressing ad) {
   }
 }
 
-/* access (1 << size) byte */
 static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
   u64 ipa = vcpu->dabt.fault_ipa;
   u64 page = ipa & ~(u64)(PAGESIZE-1);
@@ -153,16 +152,17 @@ static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
 
 static int emul_ldrstr_roffset(struct vcpu *vcpu, int rt, int size, bool load) {
   u64 ipa = vcpu->dabt.fault_ipa;
+  int accbyte = 1 << size;
   int c;
 
   if(load) {
     u64 val = 0;
-    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 0) < 0)
       return -1;
     vcpu->reg.x[rt] = val;
   } else {
     u64 val = vcpu_x(vcpu, rt);
-    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 1) < 0)
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
       return -1;
   }
 
@@ -191,6 +191,7 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
                            int size, bool load, enum addressing ad) {
   u64 addr;
   u64 ipa = vcpu->dabt.fault_ipa;
+  int accbyte = 1 << size;
 
   if(rn == 31)
     panic("sp");
@@ -202,13 +203,13 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
 
   if(load) {
     u64 val = 0;
-    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 0) < 0)
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 0) < 0)
       return -1;
     vcpu->reg.x[rt] = val;
   } else {
     u64 val = vcpu_x(vcpu, rt);
 
-    if(vsm_access(vcpu, (char *)&val, ipa, 1 << size, 1) < 0)
+    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
       return -1;
   }
 

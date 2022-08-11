@@ -6,14 +6,15 @@
 #include "vgic.h"
 #include "spinlock.h"
 #include "guest.h"
-#include "vm.h"
 #include "net.h"
 #include "vsm.h"
 #include "nodectl.h"
 
+struct mmio_access;
+
 struct node {
   struct vcpu *vcpus[VCPU_PER_NODE_MAX];
-  int nvcpu;    /* nvcpu == npcpu */
+  int nvcpu;    /* nvcpu <= npcpu */
 
   int nodeid;
 
@@ -43,6 +44,8 @@ struct node {
   /* node control dispatcher */
   struct nodectl *ctl;
 
+  struct nodeconfig *cfg;
+
   /* remote node */
   struct rnode_desc {
     u8 mac[6];
@@ -51,7 +54,26 @@ struct node {
   int nremote;
 };
 
-void node_init(struct vmconfig *vmcfg);
+/* configuration vm */
+struct vmconfig {
+  struct guest *guest_img;
+  struct guest *fdt_img;
+  struct guest *initrd_img;
+  /* TODO: determine parameters by fdt file */
+  int nvcpu;
+  u64 nallocate;
+  u64 entrypoint;
+};
+
+/* configuration per node */
+struct nodeconfig {
+  struct vmconfig *vmcfg;
+  int nvcpu;
+  u64 ram_start;
+  u64 nallocate;
+};
+
+void node_init(struct nodeconfig *ndcfg);
 
 void pagetrap(struct node *node, u64 va, u64 size,
               int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),

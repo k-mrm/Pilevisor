@@ -2,7 +2,6 @@
 #include "aarch64.h"
 #include "kalloc.h"
 #include "guest.h"
-#include "vm.h"
 #include "pcpu.h"
 #include "mm.h"
 #include "log.h"
@@ -67,11 +66,18 @@ int vmm_init_cpu0() {
     .fdt_img = &virt_dtb,
     .initrd_img = &rootfs_img,
     .nvcpu = 1,
-    .nallocate = 128 * 1024 * 1024,
+    .nallocate = 256 * 1024 * 1024,
     .entrypoint = 0x40200000,
   };
 
-  node_init(&vmcfg);
+  struct nodeconfig ndcfg = {
+    .vmcfg = &vmcfg,
+    .nvcpu = 1,
+    .ram_start = 0x40000000,
+    .nallocate = 128 * 1024 * 1024,
+  };
+
+  node_init(&ndcfg);
 
   panic("unreachable");
 }
