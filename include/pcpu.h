@@ -7,8 +7,6 @@
 
 struct pcpu {
   int cpuid;
-  struct vcpu *vcpu;  /* current vcpu */
-  struct vcpu *ready;
 };
 
 extern struct pcpu pcpus[NCPU];

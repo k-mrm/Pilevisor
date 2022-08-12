@@ -12,6 +12,10 @@
 #include "psci.h"
 #include "virtio-mmio.h"
 
+#define KiB   (1024)
+#define MiB   (1024 * 1024)
+#define GiB   (1024 * 1024 * 1024)
+
 extern struct guest xv6_img;
 extern struct guest linux_img;
 extern struct guest virt_dtb;
@@ -66,7 +70,7 @@ int vmm_init_cpu0() {
     .fdt_img = &virt_dtb,
     .initrd_img = &rootfs_img,
     .nvcpu = 1,
-    .nallocate = 256 * 1024 * 1024,
+    .nallocate = 256 * MiB,
     .entrypoint = 0x40200000,
   };
 
@@ -74,7 +78,7 @@ int vmm_init_cpu0() {
     .vmcfg = &vmcfg,
     .nvcpu = 1,
     .ram_start = 0x40000000,
-    .nallocate = 128 * 1024 * 1024,
+    .nallocate = 128 * MiB,
   };
 
   node_init(&ndcfg);

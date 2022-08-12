@@ -73,9 +73,7 @@ static inline bool vcpu_running(struct vcpu *vcpu) {
   return vcpu->state == RUNNING;
 }
 
-static inline struct vcpu *cur_vcpu() {
-  return (struct vcpu *)read_sysreg(tpidr_el2);
-}
+#define current   ((struct vcpu *)read_sysreg(tpidr_el2))
 
 /* read general-purpose register */
 static inline u64 vcpu_x(struct vcpu *vcpu, int r) {

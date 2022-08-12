@@ -163,7 +163,7 @@ void panic(const char *fmt, ...) {
   vprintf(fmt, ap);
   printf("\n");
 
-  vcpu_dump(cur_vcpu());
+  vcpu_dump(current);
 
   va_end(ap);
 

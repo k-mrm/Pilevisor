@@ -48,9 +48,7 @@ void hyp_irq_handler() {
 void virtio_dev_intr(struct vcpu *vcpu);
 
 void vm_irq_handler() {
-  struct vcpu *vcpu = cur_vcpu();
-
-  vgic_irq_enter(vcpu);
+  vgic_irq_enter(current);
 
   u32 iar = gic_read_iar();
   u32 pirq = iar & 0x3ff;
@@ -65,7 +63,7 @@ void vm_irq_handler() {
 
   gic_guest_eoi(pirq, 1);
 
-  if(vgic_inject_virq(vcpu, pirq, virq, 1) < 0)
+  if(vgic_inject_virq(current, pirq, virq, 1) < 0)
     gic_deactive_irq(pirq);
 
   isb();
@@ -206,8 +204,6 @@ static void iabort_iss_dump(u64 iss) {
 int vsysreg_emulate(struct vcpu *vcpu, u64 iss);
 
 void vm_sync_handler() {
-  struct vcpu *vcpu = (struct vcpu *)read_sysreg(tpidr_el2);
-
   // vmm_log("el0/1 sync!\n");
   u64 esr = read_sysreg(esr_el2);
   u64 elr = read_sysreg(elr_el2);
@@ -218,27 +214,27 @@ void vm_sync_handler() {
   switch(ec) {
     case 0x1:     /* trap WF* */
       // vmm_log("wf* trapped\n");
-      vcpu->reg.elr += 4;
+      current->reg.elr += 4;
       break;
     case 0x16:    /* trap hvc */
-      if(hvc_handler(vcpu, iss) < 0)
+      if(hvc_handler(current, iss) < 0)
         panic("unknown hvc #%d", iss);
 
       break;
     case 0x17:    /* trap smc */
-      if(hvc_handler(vcpu, iss) < 0)
+      if(hvc_handler(current, iss) < 0)
         panic("unknown smc #%d", iss);
 
       break;
     case 0x18:    /* trap system regsiter */
-      if(vsysreg_emulate(vcpu, iss) < 0)
+      if(vsysreg_emulate(current, iss) < 0)
         panic("unknown msr/mrs access %p", iss);
 
-      vcpu->reg.elr += 4;
+      current->reg.elr += 4;
 
       break;
     case 0x20:    /* instruction abort */
-      if(vm_iabort(vcpu, iss, far) < 0) {
+      if(vm_iabort(current, iss, far) < 0) {
         printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
         iabort_iss_dump(iss);
         panic("iabort");
@@ -247,13 +243,13 @@ void vm_sync_handler() {
       break;
     case 0x24: {  /* trap EL0/1 data abort */
       int redo;
-      if((redo = vm_dabort(vcpu, iss, far)) < 0) {
+      if((redo = vm_dabort(current, iss, far)) < 0) {
         dabort_iss_dump(iss);
         panic("unexcepted dabort");
       }
 
       if(!redo)
-        vcpu->reg.elr += 4;
+        current->reg.elr += 4;
 
       break;
     }
