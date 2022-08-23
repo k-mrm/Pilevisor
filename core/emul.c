@@ -5,6 +5,7 @@
 #include "mm.h"
 #include "log.h"
 #include "lib.h"
+#include "node.h"
 
 #define ADDR_WBACK    (1 << 0)
 #define ADDR_POSTIDX  (1 << 1)
@@ -119,7 +120,7 @@ static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
   u64 ipa = vcpu->dabt.fault_ipa;
   u64 page = ipa & ~(u64)(PAGESIZE-1);
 
-  vsm_fetch_and_cache_dummy(vcpu->node, page);
+  vsm_fetch_and_cache_dummy(&localnode, page);
 
   return 1;
 }

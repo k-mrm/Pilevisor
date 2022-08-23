@@ -1,8 +1,12 @@
-#include "mm.h"
 #include "aarch64.h"
 #include "lib.h"
+#include "mm.h"
+#include "memmap.h"
 #include "kalloc.h"
 #include "printf.h"
+#include "guest.h"
+
+void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len);
 
 u64 *pagewalk(u64 *pgt, u64 va, int alloc) {
   for(int level = 0; level < 3; level++) {
@@ -53,6 +57,35 @@ void pageunmap(u64 *pgt, u64 va, u64 size) {
   }
 }
 
+void alloc_guestmem(u64 *pgt, u64 ipa, u64 size) {
+  if(size % PAGESIZE)
+    panic("invalid size");
+
+  for(int i = 0; i < size; i += PAGESIZE) {
+    char *p = kalloc();
+    if(!p)
+      panic("p");
+
+    pagemap(pgt, ipa+i, (u64)p, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  }
+}
+
+void map_guest_image(u64 *pgt, struct guest *img, u64 ipa) {
+  copy_to_guest_alloc(pgt, ipa, (char *)img->start, img->size);
+}
+
+void map_peripherals(u64 *pgt) {
+  pagemap(pgt, UARTBASE, UARTBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
+  pagemap(pgt, GPIOBASE, GPIOBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
+  pagemap(pgt, RTCBASE, RTCBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
+  pagemap(pgt, VIRTIO0, VIRTIO0, 0x4000, S2PTE_DEVICE|S2PTE_RW);
+  pagemap(pgt, PCIE_ECAM_BASE, PCIE_ECAM_BASE, 256*1024*1024,
+          S2PTE_DEVICE|S2PTE_RW);
+  pagemap(pgt, PCIE_MMIO_BASE, PCIE_MMIO_BASE, 0x2eff0000, S2PTE_DEVICE|S2PTE_RW);
+  pagemap(pgt, PCIE_HIGH_MMIO_BASE, PCIE_HIGH_MMIO_BASE, 0x100000/*XXX*/,
+          S2PTE_DEVICE|S2PTE_RW);
+}
+
 void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
   if(va % PAGESIZE != 0 || size % PAGESIZE != 0)
     panic("invalid pageremap");
@@ -61,6 +94,30 @@ void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
 
   pageunmap(pgt, va, size);
   pagemap(pgt, va, pa, size, attr);
+}
+
+void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
+  while(len > 0) {
+    u64 pa = ipa2pa(pgt, to_ipa);
+    if(pa == 0) {
+      char *page = kalloc();
+      pagemap(pgt, PAGEROUNDDOWN(to_ipa), (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+      pa = ipa2pa(pgt, to_ipa);
+      if(pa == 0)
+        panic("copy_to_guest_alloc");
+    }
+
+    u64 poff = PAGEOFFSET(to_ipa);
+    u64 n = PAGESIZE - poff;
+    if(n > len)
+      n = len;
+
+    memcpy((char *)pa, from, n);
+
+    from += n;
+    to_ipa += n;
+    len -= n;
+  }
 }
 
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len) {
@@ -86,7 +143,7 @@ void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len) {
     u64 pa = ipa2pa(pgt, from_ipa);
     if(pa == 0)
       panic("copy_from_guest pa == 0 from_ipa: %p", from_ipa);
-    u64 poff = from_ipa & (PAGESIZE-1);
+    u64 poff = PAGEOFFSET(from_ipa);
     u64 n = PAGESIZE - poff;
     if(n > len)
       n = len;
@@ -103,7 +160,7 @@ u64 ipa2pa(u64 *pgt, u64 ipa) {
   u64 *pte = pagewalk(pgt, ipa, 0);
   if(!pte)
     return 0;
-  u32 off = ipa & (PAGESIZE-1);
+  u32 off = PAGEOFFSET(ipa);
 
   return PTE_PA(*pte) + off;
 }
@@ -116,10 +173,10 @@ u64 at_uva2pa(u64 uva) {
   par = read_sysreg(par_el1);
 
   if(par & 1) {
-    dump_par_el1(par);
+    // dump_par_el1();
     return 0;
   } else {
-    return (par & 0xfffffffff000) | (uva & 0xfff);
+    return (par & 0xfffffffff000) | PAGEOFFSET(uva);
   }
 }
 
@@ -131,14 +188,16 @@ u64 at_uva2ipa(u64 uva) {
   par = read_sysreg(par_el1);
 
   if(par & 1) {
-    // dump_par_el1(par);
+    // dump_par_el1();
     return 0;
   } else {
-    return (par & 0xfffffffff000) | (uva & 0xfff);
+    return (par & 0xfffffffff000) | PAGEOFFSET(uva);
   }
 }
 
-void dump_par_el1(u64 par) {
+void dump_par_el1(void) {
+  u64 par = read_sysreg(par_el1);
+
   if(par & 1) {
     printf("translation fault\n");
     printf("FST : %p\n", (par >> 1) & 0x3f);

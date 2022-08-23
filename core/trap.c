@@ -7,6 +7,7 @@
 #include "mm.h"
 #include "mmio.h"
 #include "vpsci.h"
+#include "node.h"
 
 static void dabort_iss_dump(u64 iss);
 static void iabort_iss_dump(u64 iss);
@@ -80,7 +81,7 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
     /* fetch pagetable */
     u64 pgt_ipa = faulting_ipa_page();
     vmm_log("iabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
-    vsm_fetch_pagetable(vcpu->node, pgt_ipa);
+    vsm_fetch_pagetable(&localnode, pgt_ipa);
 
     return 0;
   }
@@ -108,7 +109,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     /* fetch pagetable */
     u64 pgt_ipa = faulting_ipa_page();
     vmm_log("dabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
-    vsm_fetch_pagetable(vcpu->node, pgt_ipa);
+    vsm_fetch_pagetable(&localnode, pgt_ipa);
 
     return 1;
   }

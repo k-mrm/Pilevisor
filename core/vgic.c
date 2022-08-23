@@ -7,6 +7,7 @@
 #include "mmio.h"
 #include "kalloc.h"
 #include "lib.h"
+#include "node.h"
 
 static struct vgic vgics[NODE_MAX];
 static struct vgic_cpu vgic_cpus[VCPU_MAX];
@@ -129,7 +130,7 @@ static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
   else if(is_ppi(intid))
     return &vcpu->vgic->ppis[intid - 16];
   else if(is_spi(intid))
-    return &vcpu->node->vgic->spis[intid - 32];
+    return &localnode.vgic->spis[intid - 32];
 
   panic("unknown %d", intid);
   return NULL;
@@ -142,7 +143,7 @@ static void vgic_dump_irq_state(struct vcpu *vcpu, int intid) {
 }
 
 static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
-  struct node *node = vcpu->node;
+  struct node *node = &localnode;
 
   u16 targetlist = ICC_SGI1R_TargetList(sgir); 
   u8 intid = ICC_SGI1R_INTID(sgir);
@@ -154,7 +155,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
       if(i >= node->nvcpu)
         continue;
 
-      struct vcpu *target = node->vcpus[i];
+      struct vcpu *target = &node->vcpus[i];
 
       // vgic_inject_virq(target, intid, intid, 1);
     }
@@ -182,7 +183,7 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
 static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
   int intid, idx;
   struct vgic_irq *irq;
-  struct vgic *vgic = vcpu->node->vgic;
+  struct vgic *vgic = localnode.vgic;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -293,7 +294,7 @@ end:
 static int vgicd_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
-  struct vgic *vgic = vcpu->node->vgic;
+  struct vgic *vgic = localnode.vgic;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -530,12 +531,12 @@ static int vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
   u32 ridx = offset / 0x20000;
   u32 roffset = offset % 0x20000;
 
-  if(ridx > vcpu->node->nvcpu) {
+  if(ridx >= localnode.nvcpu) {
     vmm_warn("invalid rdist access");
     return -1;
   }
 
-  vcpu = vcpu->node->vcpus[ridx];
+  vcpu = &localnode.vcpus[ridx];
 
   return __vgicr_mmio_read(vcpu, roffset, val, mmio);
 }
@@ -544,12 +545,12 @@ static int vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
   u32 ridx = offset / 0x20000;
   u32 roffset = offset % 0x20000;
 
-  if(ridx > vcpu->node->nvcpu) {
+  if(ridx >= localnode.nvcpu) {
     vmm_warn("invalid rdist access");
     return -1;
   }
 
-  vcpu = vcpu->node->vcpus[ridx];
+  vcpu = &localnode.vcpus[ridx];
 
   return __vgicr_mmio_write(vcpu, roffset, val, mmio);
 }
@@ -571,7 +572,7 @@ static int vgits_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
   return -1;
 }
 
-struct vgic *new_vgic(struct node *node) {
+static void load_new_vgic(void) {
   struct vgic *vgic = allocvgic();
   vgic->spi_max = gic_max_spi();
   vgic->nspis = vgic->spi_max - 31;
@@ -582,11 +583,11 @@ struct vgic *new_vgic(struct node *node) {
 
   vmm_log("nspis %d sizeof nspi %d\n", vgic->nspis, sizeof(struct vgic_irq) * vgic->nspis);
 
-  pagetrap(node, GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
-  pagetrap(node, GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
-  pagetrap(node, GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
+  pagetrap(&localnode, GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
+  pagetrap(&localnode, GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
+  pagetrap(&localnode, GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
 
-  return vgic;
+  localnode.vgic = vgic;
 }
 
 struct vgic_cpu *new_vgic_cpu(int vcpuid) {
@@ -614,4 +615,6 @@ void vgic_init() {
   }
 
   spinlock_init(&vgic_cpus_lock);
+
+  load_new_vgic();
 }

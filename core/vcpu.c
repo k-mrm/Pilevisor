@@ -7,31 +7,13 @@
 #include "mm.h"
 #include "spinlock.h"
 #include "memmap.h"
-
-static struct vcpu vcpus[VCPU_MAX];
-static spinlock_t vcpus_lk;
+#include "node.h"
 
 static void save_sysreg(struct vcpu *vcpu);
 static void restore_sysreg(struct vcpu *vcpu);
 
 void vcpu_init() {
-  spinlock_init(&vcpus_lk);
-}
-
-static struct vcpu *allocvcpu() {
-  acquire(&vcpus_lk);
-
-  for(struct vcpu *vcpu = vcpus; vcpu < &vcpus[VCPU_MAX]; vcpu++) {
-    if(vcpu->state == UNUSED) {
-      vcpu->state = CREATED;
-      release(&vcpus_lk);
-      return vcpu;
-    }
-  }
-
-  release(&vcpus_lk);
-
-  return NULL;
+  ;
 }
 
 static void vcpu_features_init(struct vcpu *vcpu) {
@@ -44,81 +26,64 @@ static void vcpu_features_init(struct vcpu *vcpu) {
   vcpu->features.pfr0 = pfr0;
 }
 
-struct vcpu *new_vcpu(struct node *node, int vcpuid) {
-  struct vcpu *vcpu = allocvcpu();
-  if(!vcpu)
-    panic("vcpu kokatsu");
+struct vcpu *vcpu_vcpuid(int vcpuid) {
+  if(vcpuid >= localnode.nvcpu)
+    panic("vcpu");
 
-  vcpu->name = "cortex-a72";
-  vcpu->node = node;
-  vcpu->cpuid = vcpuid;
+  struct vcpu *vcpu = &localnode.vcpus[vcpuid];
 
-  vcpu->vgic = new_vgic_cpu(vcpuid);
-
-  vcpu->reg.spsr = 0x3c5;   /* EL1 */
-
-  vcpu->sys.mpidr_el1 = vcpuid; /* TODO: affinity */
-  vcpu->sys.midr_el1 = 0x410fd081;  /* cortex-a72 */
-  vcpu->sys.sctlr_el1 = 0xc50838;
-  vcpu->sys.cntfrq_el0 = 62500000;
-
-  if(vcpuid == 0) {
-    /* linux https://www.kernel.org/doc/Documentation/arm64/booting.txt */
-    vcpu->reg.x[0] = node->fdt_base;    /* fdt address */
-  }
-
-  vcpu_features_init(vcpu);
-
-  gic_init_state(&vcpu->gic);
+  if(!vcpu->initialized)
+    panic("got uninit vcpu");
 
   return vcpu;
 }
 
-void vcpu_ready(struct vcpu *vcpu) {
-  vmm_log("vcpu ready %d\n", vcpu->cpuid);
+void load_new_local_vcpu(void) {
+  int localcpuid = cpuid();
+  if(localcpuid >= localnode.nvcpu)
+    panic("too many vcpu");
 
-  vcpu->state = READY;
+  struct vcpu *vcpu = &localnode.vcpus[localcpuid];
+
+  set_current_vcpu(vcpu);
+
+  vcpu->name = "cortex-a72";
+  vcpu->cpuid = localcpuid;
+
+  vcpu->vgic = new_vgic_cpu(localcpuid);
+  gic_init_state(&vcpu->gic);
+
+  vcpu->reg.spsr = 0x3c5;   /* EL1 */
+
+  vcpu->sys.mpidr_el1 = localcpuid; /* TODO: affinity */
+  vcpu->sys.midr_el1 = 0x410fd081;  /* cortex-a72 */
+  vcpu->sys.sctlr_el1 = 0xc50838;
+  vcpu->sys.cntfrq_el0 = 62500000;
+
+  vcpu_features_init(vcpu);
+
+  vcpu->initialized = true;
+
+  return vcpu;
 }
 
 void trapret(void);
 
-static void switch_vcpu(struct vcpu *vcpu) {
-  write_sysreg(tpidr_el2, vcpu);
+void enter_vcpu() {
+  vmm_log("entering vcpu%d\n", current->cpuid);
 
-  if(vcpu->cpuid != cpuid())
-    panic("cpu%d: illegal vcpu%d", cpuid(), vcpu->cpuid);
+  if(current->reg.elr == 0)
+    panic("elr maybe uninitalized?");
 
-  vcpu->state = RUNNING;
+  restore_sysreg(current);
+  gic_restore_state(&current->gic);
 
-  write_sysreg(vttbr_el2, vcpu->node->vttbr);
-  tlb_flush();
-  restore_sysreg(vcpu);
-  gic_restore_state(&vcpu->gic);
+  vcpu_dump(current);
 
   isb();
 
-  vmm_log("enter vcpu%d enter %p\n", vcpu->cpuid, vcpu->reg.elr);
-
-  vcpu_dump(vcpu);
-
   /* enter vm */
   trapret();
-
-  panic("unreachable");
-}
-
-void enter_vcpu() {
-  int id = cpuid();
-  struct vcpu *vcpu = &vcpus[id];
-
-  while(vcpu->state != READY)
-    wfi();
-
-  vmm_log("cpu%d: entering vcpu%d\n", id, vcpu->cpuid);
-
-  vcpu->reg.elr = vcpu->node->entrypoint;
-
-  switch_vcpu(vcpu);
 }
 
 static void save_sysreg(struct vcpu *vcpu) {

@@ -57,7 +57,7 @@ int vsm_fetch_and_cache_dummy(struct node *node, u64 page_ipa) {
   if(!page)
     panic("mem");
 
-  struct vcpu *vcpu = node->vcpus[0];
+  struct vcpu *vcpu = &node->vcpus[0];
 
   vsm_fetch_page_dummy(node, 1, page_ipa, page);
 
@@ -97,7 +97,7 @@ static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *bu
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   char *tmp;
-  struct node *node = vcpu->node;
+  struct node *node = &localnode;
   int zerofill = !buf;
 
   if(!wr && !buf)

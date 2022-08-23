@@ -10,6 +10,7 @@
 #include "pci.h"
 #include "log.h"
 #include "psci.h"
+#include "node.h"
 #include "virtio-mmio.h"
 
 #define KiB   (1024)
@@ -43,8 +44,9 @@ int vmm_init_secondary() {
   gic_init_cpu(cpuid());
   s2mmu_init();
   hcr_setup();
+  write_sysreg(vttbr_el2, localnode.vttbr);
 
-  enter_vcpu();
+  localnode.ctl->initvcpu();
 
   panic("unreachable");
 }
@@ -53,35 +55,34 @@ int vmm_init_cpu0() {
   uart_init();
   vmm_log("vmm booting...\n");
   kalloc_init();
-  pcpu_init();
   write_sysreg(vbar_el2, (u64)vectable);
+  hcr_setup();
   gic_init();
   gic_init_cpu(0);
-  vgic_init();
   vtimer_init();
-  vcpu_init();
   s2mmu_init();
   // pci_init();
   virtio_mmio_init();
-  hcr_setup();
 
-  struct vmconfig vmcfg = {
-    .guest_img = &linux_img,
+  struct vm_desc vm_desc = {
+    .os_img = &linux_img,
     .fdt_img = &virt_dtb,
     .initrd_img = &rootfs_img,
+    /* TODO: determine parameters by fdt file */
     .nvcpu = 1,
     .nallocate = 256 * MiB,
-    .entrypoint = 0x40200000,
-  };
-
-  struct nodeconfig ndcfg = {
-    .vmcfg = &vmcfg,
-    .nvcpu = 1,
     .ram_start = 0x40000000,
-    .nallocate = 128 * MiB,
+    .entrypoint = 0x40200000,
+    .fdt_base = 0x48400000,
+    .initrd_base = 0x48000000,
   };
 
-  node_init(&ndcfg);
+  node_preinit(1, 256 * MiB, &vm_desc);
+  nodectl_init();
+
+  localnode.ctl->init();
+  localnode.ctl->initvcpu();
+  localnode.ctl->start();
 
   panic("unreachable");
 }

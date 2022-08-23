@@ -10,7 +10,6 @@
 #include "node.h"
 
 struct virtio_net vtnet_dev;
-struct nic netdev;
 
 static void virtio_net_get_mac(struct virtio_net *dev, u8 *mac) {
   memcpy(mac, dev->cfg->mac, sizeof(u8)*6);
@@ -84,8 +83,7 @@ static void txintr(struct virtio_net *dev, u16 idx) {
 }
 
 void virtio_net_intr() {
-  struct node *node = &global;
-  struct virtio_net *dev = node->nic->device;
+  struct virtio_net *dev = localnode.nic->device;
 
   if(!dev)
     panic("uninit vtnet dev");
@@ -106,7 +104,7 @@ void virtio_net_intr() {
   }
 }
 
-static struct nic_ops virtio_net_ops = {
+static struct nic netdev = {
   .xmit = virtio_net_xmit,
 };
 
@@ -169,8 +167,9 @@ int virtio_net_init(void *base, int intid) {
   virtio_net_get_mac(&vtnet_dev, nic->mac);
   nic->device = &vtnet_dev;
   nic->irq = intid;
-  nic->ops = &virtio_net_ops;
   nic->name = "virtio-net";
+
+  localnode.nic = &netdev;
 
   return 0;
 }

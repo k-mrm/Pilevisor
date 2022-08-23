@@ -2,19 +2,11 @@
 #define MVMM_VCPU_H
 
 #include "types.h"
-#include "node.h"
 #include "param.h"
 #include "vgic.h"
 #include "gic.h"
 #include "aarch64.h"
 #include "mm.h"
-
-enum vcpu_state {
-  UNUSED,
-  CREATED,
-  READY,
-  RUNNING,
-};
 
 struct cpu_features {
   u64 pfr0;
@@ -45,35 +37,29 @@ struct vcpu {
 
   struct cpu_features features;
   const char *name;
-  enum vcpu_state state;
 
   struct gic_state gic;
   struct vgic_cpu *vgic;
-
-  struct node *node;
 
   int cpuid;
 
   /* when dabort occurs on vCPU, informations will save here */
   struct dabort_info dabt;
+
+  bool initialized;
 };
 
-struct vcpu *new_vcpu(struct node *node, int vcpuid);
-void free_vcpu(struct vcpu *vcpu);
-
-void vcpu_ready(struct vcpu *vcpu);
-
 void enter_vcpu(void);
-
 void vcpu_init(void);
-
+struct vcpu *vcpu_vcpuid(int vcpuid);
+void load_new_local_vcpu(void);
 void vcpu_dump(struct vcpu *vcpu);
 
-static inline bool vcpu_running(struct vcpu *vcpu) {
-  return vcpu->state == RUNNING;
-}
-
 #define current   ((struct vcpu *)read_sysreg(tpidr_el2))
+
+static inline void set_current_vcpu(struct vcpu *vcpu) {
+  write_sysreg(tpidr_el2, vcpu);
+}
 
 /* read general-purpose register */
 static inline u64 vcpu_x(struct vcpu *vcpu, int r) {

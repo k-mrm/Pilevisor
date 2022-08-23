@@ -9,11 +9,31 @@
 #include "net.h"
 #include "vsm.h"
 #include "nodectl.h"
+#include "vcpu.h"
 
 struct mmio_access;
 
+/* vm descriptor */
+struct vm_desc {
+  struct guest *os_img;
+  struct guest *fdt_img;
+  struct guest *initrd_img;
+  int nvcpu;
+  u64 ram_start;
+  u64 nallocate;
+  u64 entrypoint;
+  u64 fdt_base;
+  u64 initrd_base;
+};
+
+/* configuration per node */
+struct nodeconfig {
+  int nvcpu;
+  u64 nallocate;
+};
+
 struct node {
-  struct vcpu *vcpus[VCPU_PER_NODE_MAX];
+  struct vcpu vcpus[VCPU_PER_NODE_MAX];
   int nvcpu;    /* nvcpu <= npcpu */
 
   int nodeid;
@@ -30,13 +50,6 @@ struct node {
   /* network interface card */
   struct nic *nic;
 
-  /* internal physical address of vm's device tree file (for Linux) */
-  u64 fdt_base;
-  /* internal physical address of vm's initrd file (for Linux) */
-  u64 initrd_base;
-  /* internal physical address of vm's entrypoint */
-  u64 entrypoint;
-
   spinlock_t lock;
   struct mmio_info *pmap;
   int npmap;
@@ -44,41 +57,24 @@ struct node {
   /* node control dispatcher */
   struct nodectl *ctl;
 
-  struct nodeconfig *cfg;
+  struct vm_desc *vm_desc;
 
-  /* remote node */
+  u64 nalloc;
+
+  /* remote nodes' desc */
   struct rnode_desc {
     u8 mac[6];
     u8 enabled;
-  } remote[NODE_MAX];
-  int nremote;
+  } remotes[NODE_MAX];
+  int nremotes;
 };
 
-/* configuration vm */
-struct vmconfig {
-  struct guest *guest_img;
-  struct guest *fdt_img;
-  struct guest *initrd_img;
-  /* TODO: determine parameters by fdt file */
-  int nvcpu;
-  u64 nallocate;
-  u64 entrypoint;
-};
-
-/* configuration per node */
-struct nodeconfig {
-  struct vmconfig *vmcfg;
-  int nvcpu;
-  u64 ram_start;
-  u64 nallocate;
-};
-
-void node_init(struct nodeconfig *ndcfg);
+void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc);
 
 void pagetrap(struct node *node, u64 va, u64 size,
               int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
               int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *));
 
-extern struct node global;
+extern struct node localnode;
 
 #endif

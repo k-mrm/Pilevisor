@@ -14,7 +14,7 @@ static u8 *msg_pack_eth_header(struct node *node, struct msg *msg, u8 *buf) {
     u8 bits = msg->dst_bits;
     for(int i = 0; bits != 0; bits = bits >> 1, i++) {
       if(bits & 1) {
-        memcpy(buf, node->remote[i].mac, sizeof(u8)*6);
+        memcpy(buf, node->remotes[i].mac, sizeof(u8)*6);
       }
     }
   }
@@ -35,7 +35,7 @@ static int send_init_request(struct node *node, struct msg *msg) {
   u8 buf[64] = {0};
 
   msg_pack_eth_header(node, msg, buf);
-  node->nic->ops->xmit(node->nic, buf, 64);
+  node->nic->xmit(node->nic, buf, 64);
 
   return 0;
 }
@@ -45,9 +45,9 @@ static int recv_init_request(struct node *node, u8 *buf) {
   if(node->nodeid == 0)
     panic("node0 recv init msg");
 
-  memcpy(node->remote[0].mac, buf+6, sizeof(u8)*6);
+  memcpy(node->remotes[0].mac, buf+6, sizeof(u8)*6);
 
-  vmm_log("node0 mac address: %m\n", node->remote[0].mac);
+  vmm_log("node0 mac address: %m\n", node->remotes[0].mac);
   vmm_log("me mac address: %m\n", node->nic->mac);
 
   struct init_reply msg;
@@ -75,7 +75,7 @@ static int send_init_reply(struct node *node, struct msg *msg) {
   memcpy(body, rep->mac, sizeof(u8)*6);
 
   vmm_log("dst_bits: %d", msg->dst_bits);
-  node->nic->ops->xmit(node->nic, buf, 64);
+  node->nic->xmit(node->nic, buf, 64);
 
   return 0;
 }
@@ -87,7 +87,7 @@ static int recv_init_reply(struct node *node, u8 *buf) {
   u8 remote_mac[6];
   memcpy(remote_mac, buf+6, sizeof(u8)*6);
 
-  node->ctl->register_remote_node(node, remote_mac);
+  node->ctl->register_remote_node(remote_mac);
 
   vmm_log("sub-node's mac %m\n", remote_mac);
 
@@ -115,7 +115,7 @@ static int send_read_request(struct node *node, struct msg *msg) {
   u8 *body = msg_pack_eth_header(node, msg, buf);
   memcpy(body, &rmsg->ipa, sizeof(rmsg->ipa));
 
-  node->nic->ops->xmit(node->nic, buf, 64);
+  node->nic->xmit(node->nic, buf, 64);
 
   return 0;
 }
@@ -166,7 +166,7 @@ static int send_read_reply(struct node *node, struct msg *msg) {
   u8 *body = msg_pack_eth_header(node, msg, buf);
   memcpy(body, rmsg->page, 1024);
 
-  node->nic->ops->xmit(node->nic, buf, 1088);
+  node->nic->xmit(node->nic, buf, 1088);
 
   return 0;
 }
@@ -179,24 +179,22 @@ void read_reply_init(struct read_reply *rmsg, u8 dst, u8 *page) {
 }
 
 void msg_recv_intr(u8 *buf) {
-  struct node *node = &global;
-
   if(buf[12] != 0x19)
     return;
   u8 type = buf[13];
 
   switch(type) {
     case MSG_INIT:
-      recv_init_request(node, buf);
+      recv_init_request(&localnode, buf);
       break;
     case MSG_INIT_REPLY:
-      recv_init_reply(node, buf);
+      recv_init_reply(&localnode, buf);
       break;
     case MSG_READ:
-      recv_read_request(node, buf);
+      recv_read_request(&localnode, buf);
       break;
     case MSG_READ_REPLY:
-      recv_read_reply(node, buf);
+      recv_read_reply(&localnode, buf);
       break;
     default:
       panic("?");

@@ -1,27 +1,26 @@
 #include "types.h"
 #include "vpsci.h"
 #include "log.h"
+#include "node.h"
 
 void _start(void);
 
 static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci_argv *argv) {
-  u64 target_cpu = argv->x1;
+  u64 target_cpuid = argv->x1;
   u64 ep_addr = argv->x2;
   u64 contextid = argv->x3;
-  vmm_log("vcpu%d on: entrypoint %p\n", target_cpu, ep_addr);
+  vmm_log("vcpu%d on: entrypoint %p\n", target_cpuid, ep_addr);
 
-  if(target_cpu >= vcpu->node->nvcpu) {
-    vmm_warn("vcpu%d wakeup failed\n", target_cpu);
+  if(target_cpuid >= localnode.nvcpu) {
+    vmm_warn("vcpu%d wakeup failed\n", target_cpuid);
     return -1;
   }
 
-  struct vcpu *target = vcpu->node->vcpus[target_cpu];
+  struct vcpu *target = &localnode.vcpus[target_cpuid];
   target->reg.elr = ep_addr;
 
-  vcpu_ready(target);
-
   /* wakeup pcpu */
-  return psci_call(PSCI_SYSTEM_CPUON, target_cpu, (u64)_start, 0);
+  return psci_call(PSCI_SYSTEM_CPUON, target_cpuid, (u64)_start, 0);
 }
 
 static u32 vpsci_version() {

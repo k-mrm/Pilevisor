@@ -2,6 +2,7 @@
 #define MVMM_MM_H
 
 #include "types.h"
+#include "guest.h"
 
 #define TCR_T0SZ(n)   ((n) & 0x3f)
 #define TCR_IRGN0(n)  (((n) & 0x3) << 8)
@@ -74,7 +75,9 @@
 
 #define PAGESIZE  4096    /* 4KB */
 
-#define PAGEROUNDUP(p)  ((p + PAGESIZE - 1) & ~(PAGESIZE - 1))
+#define PAGEROUNDDOWN(p)  ((p) & ~(PAGESIZE-1))
+#define PAGEROUNDUP(p)    (((p) + PAGESIZE-1) & ~(PAGESIZE-1))
+#define PAGEOFFSET(p)     ((p) & (PAGESIZE-1))
 
 /* attr index */
 #define AI_DEVICE_nGnRnE_IDX  0x0
@@ -105,6 +108,11 @@ void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
 
 void s2mmu_init(void);
+
+void map_guest_image(u64 *pgt, struct guest *img, u64 ipa);
+void alloc_guestmem(u64 *pgt, u64 ipa, u64 size);
+
+void dump_par_el1(void);
 
 u64 faulting_ipa_page(void);
 

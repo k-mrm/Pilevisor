@@ -9,7 +9,7 @@
 #include "mmio.h"
 #include "node.h"
 
-struct node global;
+struct node localnode;    /* me */
 
 void pagetrap(struct node *node, u64 ipa, u64 size,
               int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
@@ -25,139 +25,32 @@ void pagetrap(struct node *node, u64 ipa, u64 size,
   tlb_flush();
 }
 
-void node_init(struct nodeconfig *ndcfg) {
-  struct node *node = &global;
-  struct vmconfig *vmcfg = ndcfg->vmcfg;
-
-  struct guest *guest = vmcfg->guest_img;
-  struct guest *fdt = vmcfg->fdt_img;
-  struct guest *initrd = vmcfg->initrd_img;
-
-  if(!guest)
-    panic("guest img required");
-
-  vmm_log("[node] node's ncpu: %d\n", ndcfg->nvcpu);
-  vmm_log("[node] node allocate %d bytes\n", ndcfg->nallocate);
-  vmm_log("[vm] create vm `%s`\n", guest->name);
-  vmm_log("[vm] use %d vcpu(s)\n", vmcfg->nvcpu);
-  vmm_log("[vm] allocated ram: %d byte\n", vmcfg->nallocate);
-  vmm_log("[vm] img_start %p img_size %p byte\n", guest->start, guest->size);
-  if(fdt)
-    vmm_log("[vm] fdt_start %p fdt_size %p byte\n", fdt->start, fdt->size);
-  if(initrd)
-    vmm_log("[vm] initrd_start %p initrd_size %p byte\n", initrd->start, initrd->size);
-
-  if(guest->size > ndcfg->nallocate)
-    panic("imgsize > nallocate");
-  if(vmcfg->nallocate % PAGESIZE != 0)
-    panic("invalid mem size");
-  if(ndcfg->nallocate % PAGESIZE != 0)
-    panic("invalid mem size");
-  if(ndcfg->nvcpu > VCPU_PER_NODE_MAX)
-    panic("too many vcpu");
-
-  node->ctl = &global_nodectl;
-
-  /* set initrd/fdt/entrypoint ipa */
-  node->initrd_base = initrd ? 0x48000000 : 0;
-  node->fdt_base = fdt ? 0x48400000 : 0;
-  node->entrypoint = vmcfg->entrypoint;
-  node->nvcpu = ndcfg->nvcpu;
-
+void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc) {
   u64 *vttbr = kalloc();
   if(!vttbr)
     panic("vttbr");
 
-  /* TODO: commonize */
-  u64 p, cpsize;
-  for(p = 0; p < 0x200000; p += PAGESIZE) {
-    char *page = kalloc();
-    if(!page)
-      panic("ram");
+  localnode.vttbr = vttbr;
+  write_sysreg(vttbr_el2, vttbr);
 
-    pagemap(vttbr, 0x40000000+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
-  /* map kernel image */
-  for(p = 0; p < guest->size; p += PAGESIZE) {
-    char *page = kalloc();
-    if(!page)
-      panic("img");
+  map_peripherals(localnode.vttbr);
 
-    if(guest->size - p > PAGESIZE)
-      cpsize = PAGESIZE;
-    else
-      cpsize = guest->size - p;
+  localnode.nvcpu = nvcpu;
+  localnode.nalloc = nalloc;
 
-    memcpy(page, (char *)guest->start+p, cpsize);
-    pagemap(vttbr, vmcfg->entrypoint+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
+  localnode.pmap = NULL;
+  spinlock_init(&localnode.lock);
 
-  for(; p < ndcfg->nallocate - 0x200000; p += PAGESIZE) {
-    char *page = kalloc();
-    if(!page)
-      panic("ram");
+  /* TODO: determines vm's device info from fdt file */
+  localnode.vm_desc = vm_desc;
 
-    pagemap(vttbr, vmcfg->entrypoint+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
-
-  vmm_log("Node0 mapped [%p - %p]\n", vmcfg->entrypoint, vmcfg->entrypoint+p);
-
-  for(int i = 0; i < initrd->size; i += PAGESIZE) {
-    char *page = kalloc();
-    if(!page)
-      panic("ram");
-
-    pagemap(vttbr, node->initrd_base+i, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
-  for(int i = 0; i < fdt->size; i += PAGESIZE) {
-    char *page = kalloc();
-    if(!page)
-      panic("ram");
-
-    pagemap(vttbr, node->fdt_base+i, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  }
-
-  /* map initrd image */
-  if(initrd)
-    copy_to_guest(vttbr, node->initrd_base, (char *)initrd->start, initrd->size);
-  /* map fdt image */
-  if(fdt)
-    copy_to_guest(vttbr, node->fdt_base, (char *)fdt->start, fdt->size);
-
-  /* map peripheral */
-  pagemap(vttbr, UARTBASE, UARTBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(vttbr, GPIOBASE, GPIOBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(vttbr, RTCBASE, RTCBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(vttbr, VIRTIO0, VIRTIO0, 0x4000, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(vttbr, PCIE_ECAM_BASE, PCIE_ECAM_BASE, 256*1024*1024,
-          S2PTE_DEVICE|S2PTE_RW);
-  pagemap(vttbr, PCIE_MMIO_BASE, PCIE_MMIO_BASE, 0x2eff0000, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(vttbr, PCIE_HIGH_MMIO_BASE, PCIE_HIGH_MMIO_BASE, 0x100000/*XXX*/,
-          S2PTE_DEVICE|S2PTE_RW);
-
-  node->vttbr = vttbr;
-  node->pmap = NULL;
-  node->vgic = new_vgic(node);
-
-  node->nic = &netdev;
-  vmm_log("node mac %m\n", node->nic->mac);
-
-  vsm_init(node);
-
-  spinlock_init(&node->lock);
-
-  node->ctl->initcore(node);
-
-  node->ctl->start(node);
-
-  /* never return here */
+  vgic_init();
 }
 
 void nodedump(struct node *node) {
   printf("================== node  ================\n");
   printf("nvcpu %4d nodeid %4d\n", node->nvcpu, node->nodeid);
   printf("nic %p mac %m\n", node->nic, node->nic->mac);
-  printf("fdt %p entrypoint %p\n", node->fdt_base, node->entrypoint);
   printf("ctl %p\n", node->ctl);
   printf("=========================================\n");
 }

@@ -30,9 +30,7 @@ static struct mmio_info *alloc_mmio_info(struct mmio_info *prev) {
 }
 
 int mmio_emulate(struct vcpu *vcpu, int rn, struct mmio_access *mmio) {
-  struct mmio_info *map = vcpu->node->pmap;
-  if(!map)
-    return -1;
+  struct mmio_info *map = localnode.pmap;
 
   u64 ipa = mmio->ipa;
   u64 *reg = NULL;
