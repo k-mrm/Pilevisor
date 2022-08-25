@@ -29,44 +29,35 @@ void msg_recv_intr(struct etherframe *eth, u64 len) {
   }
 }
 
-static u8 *msg_pack_eth_header(struct node *node, struct msg *msg, u8 *buf) {
+static void send_msg_core(struct msg *msg, void *body, u32 len) {
   /* dst mac address */
+  static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  u8 mac_buf[6];
+  u8 *mac;
+
   if(msg->dst_bits == 0xff) { /* broadcast */
-    memset(buf, 0xff, sizeof(u8)*6);
+    mac = broadcast_mac;
   } else {
     /* TODO: multicast? */
     u8 bits = msg->dst_bits;
     for(int i = 0; bits != 0; bits = bits >> 1, i++) {
       if(bits & 1) {
-        memcpy(buf, node->remotes[i].mac, sizeof(u8)*6);
+        memcpy(mac_buf, node->remotes[i].mac, sizeof(u8)*6);
+        mac = mac_buf;
         break;
       }
     }
   }
 
-  /* src mac address */
-  memcpy(buf+6, node->nic->mac, sizeof(u8)*6);
-  buf[12] = 0x19;       /* this is message-packet */
-  buf[13] = msg->type;
+  u16 type = 0x1900 | msg->type;
 
-  return buf + 14;  /* body */
+  len += sizeof(struct etherframe);
+  len = len < 64 ? 64 : len;
+
+  ethernet_xmit(localnode.nic, mac, type, body, len);
 }
 
-
-static int send_init_request(struct node *node, struct msg *msg) {
-  struct init_msg *imsg = (struct init_msg *)msg;
-  vmm_log("send_init_request!!!!!!!\n");
-  /* send code */
-  u8 buf[64] = {0};
-
-  msg_pack_eth_header(node, msg, buf);
-  node->nic->xmit(node->nic, buf, 64);
-
-  return 0;
-}
-
-/* node must be sub-node */
-static int recv_init_request(struct node *node, u8 *buf) {
+static int recv_init_request() {
   if(node->nodeid == 0)
     panic("node0 recv init msg");
 
@@ -82,55 +73,82 @@ static int recv_init_request(struct node *node, u8 *buf) {
   return 0;
 }
 
-void init_msg_init(struct init_msg *msg, u8 *mac) {
-  msg->msg.type = MSG_INIT;
-  msg->msg.dst_bits = 0xff;   /* broadcast */
-  msg->msg.send = send_init_request;
-  memcpy(msg->mac, mac, sizeof(msg->mac));
+static int send_init_request(struct msg *msg) {
+  struct init_req *req = (struct init_req *)msg;
+
+  send_msg_core(msg, &req->body, sizeof(req->body));
+
+  return 0;
 }
 
+int recv_init_request(struct recv_msg *rmsg) {
+  if(localnode.nodeid == 0)
+    panic("node 0 recv init request");
 
-/* node is sub-node */
-static int send_init_reply(struct node *node, struct msg *msg) {
+  struct __init_req *body = (struct __init_req *)rmsg->body;
+
+  memcpy(localnode.remotes[0].mac, body->me_mac, 6);
+  vmm_log("node 0 mac address: %m\n", localnode.remotes[0].mac);
+  vmm_log("me mac address: %m\n", localnode.nic->mac);
+
+  /* send reply */
+  struct init_reply reply;
+  init_reply_init(&reply, localnode.nic->mac, 128 * 1024 * 1024);
+  msg_send(reply);
+  
+  return 0;
+}
+
+static struct recv_msg *pop_from_waitqueue() {
+  /* stub */
+  return NULL;
+}
+
+static int recv_init_reply(struct msg *msg) {
+  struct init_req *req = (struct init_req *)msg;
+
+  /* TODO: pop from waitqueue */
+
+  struct recv_msg *recvmsg = pop_from_waitqueue();
+  while(!recvmsg) {
+    // sleep?
+    recvmsg = pop_from_waitqueue();
+  }
+
+  struct __init_reply *body = (struct __init_reply *)recvmsg->body;
+
+  memcpy(&req->reply, body, sizeof(req->reply));
+
+  return 0;
+}
+
+void init_req_init(strcut init_req *req, u8 *mac) {
+  req->msg.type = MSG_INIT;
+  req->msg.dst_bits = 0xff;
+  req->msg.send = send_init_request;
+  req->msg.recv_reply = recv_init_reply;
+
+  memcpy(req->body.me_mac, mac, 6);
+}
+
+static int send_init_reply(struct msg *msg) {
   struct init_reply *rep = (struct init_reply *)msg;
   vmm_log("send_init_reply\n");
 
-  u8 buf[64] = {0};
-  u8 *body = msg_pack_eth_header(node, msg, buf);
-  memcpy(body, rep->mac, sizeof(u8)*6);
-
-  vmm_log("dst_bits: %d", msg->dst_bits);
-  node->nic->xmit(node->nic, buf, 64);
+  send_msg_core(msg, &rep->body, sizeof(rep->body));
 
   return 0;
 }
 
-/* node is node0 */
-static int recv_init_reply(struct node *node, u8 *buf) {
-  vmm_log("recv_init_reply\n");
+void init_reply_init(struct init_reply *rep, u8 *mac, u64 allocated) {
+  rep->msg.type = MSG_INIT_REPLY;
+  rep->msg.dst_bits = (1 << 0);   /* send to Node 0 */
+  rep->msg.send = send_init_reply;
+  rep->msg.recv_reply = NULL;
 
-  u8 remote_mac[6];
-  memcpy(remote_mac, buf+6, sizeof(u8)*6);
-
-  node->ctl->register_remote_node(remote_mac);
-
-  vmm_log("sub-node's mac %m\n", remote_mac);
-
-  return 0;
+  memcpy(rep->body.me_mac, mac, 6);
+  rep->body.allocated = allocated;
 }
-
-static void unpack_init_reply(u8 *buf, struct init_reply *rep) {
-  /* TODO */
-}
-
-/* mac: Node n's MAC address */
-void init_reply_init(struct init_reply *msg, u8 *mac) {
-  msg->msg.type = MSG_INIT_REPLY;
-  msg->msg.dst_bits = (1 << 0);   /* send to Node0 */
-  msg->msg.send = send_init_reply;
-  memcpy(msg->mac, mac, sizeof(msg->mac));
-}
-
 
 static int send_read_request(struct node *node, struct msg *msg) {
   struct read_msg *rmsg = (struct read_msg *)msg;

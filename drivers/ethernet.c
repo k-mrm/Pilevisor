@@ -2,14 +2,14 @@
 #include "net.h"
 #include "mm.h"
 
-u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 /* FIXME */
 void free_etherframe(struct etherframe *eth) {
   kfree(PAGEROUNDDOWN(eth));
 }
 
-int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u64 len) {
+int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len) {
   if(memcmp(eth->dst, broadcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
     if(((eth->type >> 8) & 0xff) == 0x19) {
       /* this is msg packet */
@@ -22,6 +22,6 @@ int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u64 len) {
   return -1;
 }
 
-int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *body) {
+int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *body, u32 len) {
   ;
 }

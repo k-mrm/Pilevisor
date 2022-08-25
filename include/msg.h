@@ -35,7 +35,7 @@ struct msg {
   int (*recv_reply)(struct msg *);
 };
 
-#define send_msg(msg)   (((struct msg *)&msg)->send((struct msg *)&msg))
+#define msg_send(msg)   (((struct msg *)&msg)->send((struct msg *)&msg))
 
 /*
  *  Initialize message
@@ -61,7 +61,7 @@ struct __init_reply {
 struct init_req {
   struct msg msg;
   struct __init_req body;
-  struct __init_reply rep;
+  struct __init_reply reply;
 };
 
 struct init_reply {
@@ -70,7 +70,7 @@ struct init_reply {
 };
 
 void init_req_init(struct init_req *req, u8 *mac);
-void init_reply_init(struct init_req *req, u8 *mac, u64 allocated);
+void init_reply_init(struct init_reply *rep, u8 *mac, u64 allocated);
 
 /*
  *  Read message
@@ -94,7 +94,7 @@ struct __read_reply {
 struct read_req {
   struct msg msg;
   struct __read_req body;
-  struct __read_reply rep;
+  struct __read_reply reply;
 };
 
 struct read_reply {

@@ -11,7 +11,7 @@ struct etherframe {
   u8 body[0];
 };
 
-int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u64 len);
-int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *body);
+int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len);
+int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *body, u32 len);
 
 #endif
