@@ -5,23 +5,67 @@
 #include "net.h"
 #include "pcpu.h"
 #include "mm.h"
+#include "spinlock.h"
+#include "ethernet.h"
+
+static struct msg_cb mcbs[16];
+static spinlock_t mcbs_lock;
+
+static struct msg_cb *allocmcb() {
+  acquire(&mcbs_lock);
+
+  for(struct msg_cb *m = mcbs; m < &mcbs[16]; m++) {
+    if(!m->used) {
+      m->used = 1;
+      release(&mcbs_lock);
+      return m;
+    }
+  }
+
+  release(&mcbs_lock);
+  return NULL;
+}
+
+static void freemcb(struct msg_cb *mcb) {
+  acquire(&mcbs_lock);
+  memset(mcb, 0, sizeof(*mcb));
+  mcb->used = 0;
+  release(&mcbs_lock);
+}
+
+static inline bool need_handle_now(enum msgtype ty) {
+  return ty & NEED_HANDLE_IMMEDIATE;
+}
+
+void msg_recv_intr(struct etherframe *eth, u64 len) {
+  enum msgtype m = eth->type & 0xff;
+
+  if(need_handle_now(m)) {
+    localnode.ctl->msg_recv_intr();
+    free_etherframe(eth);
+  } else {
+    /* add to waitqueue */
+  }
+}
 
 static u8 *msg_pack_eth_header(struct node *node, struct msg *msg, u8 *buf) {
   /* dst mac address */
   if(msg->dst_bits == 0xff) { /* broadcast */
     memset(buf, 0xff, sizeof(u8)*6);
   } else {
+    /* TODO: multicast? */
     u8 bits = msg->dst_bits;
     for(int i = 0; bits != 0; bits = bits >> 1, i++) {
       if(bits & 1) {
         memcpy(buf, node->remotes[i].mac, sizeof(u8)*6);
+        break;
       }
     }
   }
 
   /* src mac address */
   memcpy(buf+6, node->nic->mac, sizeof(u8)*6);
-  buf[12] = 0x19;
+  buf[12] = 0x19;       /* this is message-packet */
   buf[13] = msg->type;
 
   return buf + 14;  /* body */
@@ -178,26 +222,6 @@ void read_reply_init(struct read_reply *rmsg, u8 dst, u8 *page) {
   rmsg->page = page;
 }
 
-void msg_recv_intr(u8 *buf) {
-  if(buf[12] != 0x19)
-    return;
-  u8 type = buf[13];
-
-  switch(type) {
-    case MSG_INIT:
-      recv_init_request(&localnode, buf);
-      break;
-    case MSG_INIT_REPLY:
-      recv_init_reply(&localnode, buf);
-      break;
-    case MSG_READ:
-      recv_read_request(&localnode, buf);
-      break;
-    case MSG_READ_REPLY:
-      recv_read_reply(&localnode, buf);
-      break;
-    default:
-      panic("?");
-  }
+void msg_sysinit() {
+  spinlock_init(&mcbs_lock);
 }
-

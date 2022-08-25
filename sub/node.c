@@ -5,24 +5,34 @@
 
 /* sub node controller */
 
-static void initmem(struct node *node) {
-  ;
+static int wait_for_node0() {
+  while(!localnode.remotes[0].enabled)
+    wfi();
 }
 
-static void subnode_init(struct nodeconfig *ndcfg) {
+static void sub_init() {
   vmm_log("sub-node init");
-}
-
-static void subnode_start(void) {
-  vmm_log("nodeN: start\n");
 
   intr_enable();
-  enter_vcpu();
+
+  wait_for_node0();
+}
+
+static void sub_initvcpu() {
+  load_new_local_vcpu();
+
+  /* TODO: handle psci call (from remote) */
+}
+
+static void sub_start() {
+  vmm_log("nodeN: start\n");
 }
 
 struct nodectl subnode_ctl = {
-  .initcore = subnode_initcore,
-  .start = subnode_start,
+  .init = sub_init,
+  .initvcpu = sub_initvcpu,
+  .start = sub_start,
+  .msg_recv = sub_msg_recv,
 };
 
 void nodectl_init() {

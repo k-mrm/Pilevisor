@@ -63,6 +63,7 @@ int vmm_init_cpu0() {
   s2mmu_init();
   // pci_init();
   virtio_mmio_init();
+  msg_sysinit();
 
   struct vm_desc vm_desc = {
     .os_img = &linux_img,

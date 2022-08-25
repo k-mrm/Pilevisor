@@ -1,0 +1,5 @@
+- send big packet
+- dsm cache system
+- setup and enable TTBR_EL2
+- physical memory allocation system
+- FDT parser

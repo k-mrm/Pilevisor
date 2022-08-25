@@ -3,19 +3,21 @@
 
 #include "types.h"
 
+#define NEED_HANDLE_IMMEDIATE   0x80
+
 enum msgtype {
-  MSG_NONE = 0,
-  MSG_INIT,
-  MSG_INIT_REPLY,
-  MSG_WAKEUP,
-  MSG_SHUTDOWN,
-  MSG_READ,
-  MSG_READ_REPLY,
-  MSG_INVALID_SNOOP,
-  MSG_INTERRUPT,
+  MSG_NONE          = 0x0,
+  MSG_INIT          = 0x1 | NEED_HANDLE_IMMEDIATE,
+  MSG_INIT_REPLY    = 0x2,
+  MSG_WAKEUP        = 0x3 | NEED_HANDLE_IMMEDIATE,
+  MSG_SHUTDOWN      = 0x4 | NEED_HANDLE_IMMEDIATE,
+  MSG_READ          = 0x5 | NEED_HANDLE_IMMEDIATE,
+  MSG_READ_REPLY    = 0x6,
+  MSG_INVALID_SNOOP = 0x7 | NEED_HANDLE_IMMEDIATE,
+  MSG_INTERRUPT     = 0x8 | NEED_HANDLE_IMMEDIATE,
 };
 
-struct node;
+#define send_msg(msg)   (((struct msg *)&msg)->send(&msg))
 
 struct msg {
   enum msgtype type;
@@ -23,6 +25,13 @@ struct msg {
   u8 dst_bits;
 
   int (*send)(struct node *, struct msg *);
+};
+
+struct msg_cb {
+  bool used;
+  enum msgtype type;
+  char window[4096];
+  int wlen;
 };
 
 /*
@@ -89,5 +98,7 @@ struct wakeup_msg {
 struct shutdown_msg {
   struct msg msg;
 };
+
+void msg_sysinit(void);
 
 #endif

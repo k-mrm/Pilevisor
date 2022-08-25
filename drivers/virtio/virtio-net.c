@@ -11,11 +11,11 @@
 
 struct virtio_net vtnet_dev;
 
-static void virtio_net_get_mac(struct virtio_net *dev, u8 *mac) {
-  memcpy(mac, dev->cfg->mac, sizeof(u8)*6);
+static void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
+  memcpy(buf, dev->cfg->mac, sizeof(u8)*6);
 }
 
-void virtio_net_xmit(struct nic *nic, u8 *buf, u64 size) {
+static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 size) {
   struct virtio_net *dev = nic->device;
 
   u16 d0 = virtq_alloc_desc(dev->tx);
@@ -31,7 +31,6 @@ void virtio_net_xmit(struct nic *nic, u8 *buf, u64 size) {
   hdr->num_buffers = 1;
 
   u8 *packet = (u8 *)hdr + sizeof(struct virtio_net_hdr);
-  // printf("ppppppppppppppppp %p", packet);
   memcpy(packet, buf, size);
 
   dev->tx->desc[d0].len = sizeof(struct virtio_net_hdr) + size;
@@ -46,13 +45,17 @@ void virtio_net_xmit(struct nic *nic, u8 *buf, u64 size) {
   vtmmio_write(dev->base, VIRTIO_MMIO_QUEUE_NOTIFY, dev->tx->qsel);
 }
 
+static void virtio_net_recv(struct nic *nic, u8 *buf, u64 *size) {
+  struct virtio_net *dev = nic->device;
+}
+
 static void fill_recv_queue(struct virtq *rxq) {
   for(int i = 0; i < NQUEUE; i++) {
     u16 d = virtq_alloc_desc(rxq);
     rxq->desc[d].addr = (u64)kalloc();
     rxq->desc[d].len = 1564;    /* TODO: ??? */
     rxq->desc[d].flags = VIRTQ_DESC_F_WRITE;
-    rxq->avail->ring[rxq->avail->idx] = d;
+    rxq->avail->ring[rxq->avail->idx % NQUEUE] = d;
     dsb(sy);
     rxq->avail->idx += 1;
   }
@@ -64,9 +67,10 @@ static void rxintr(struct virtio_net *dev, u16 idx) {
   u32 len = dev->rx->used->ring[idx].len;
 
   // printf("rxintr %p %d %d\n", buf, idx, len);
+  struct etherframe *eth = (struct etherframe *)buf;
+  ethernet_recv_intr(eth, len);
 
-  msg_recv_intr(buf);
-
+  dev->rx->desc[d].addr = kalloc();
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d;
   dsb(sy);
   dev->rx->avail->idx += 1;
@@ -84,9 +88,6 @@ static void txintr(struct virtio_net *dev, u16 idx) {
 
 void virtio_net_intr() {
   struct virtio_net *dev = localnode.nic->device;
-
-  if(!dev)
-    panic("uninit vtnet dev");
 
   u32 status = vtmmio_read(dev->base, VIRTIO_MMIO_INTERRUPT_STATUS);
   vtmmio_write(dev->base, VIRTIO_MMIO_INTERRUPT_ACK, status);
@@ -106,6 +107,7 @@ void virtio_net_intr() {
 
 static struct nic netdev = {
   .xmit = virtio_net_xmit,
+  .recv = virtio_net_recv,
 };
 
 int virtio_net_init(void *base, int intid) {

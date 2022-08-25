@@ -6,6 +6,7 @@
 #include "msg.h"
 #include "lib.h"
 #include "log.h"
+#include "main-msg.h"
 
 /* main node (node0) controller */
 
@@ -51,7 +52,7 @@ static void initvm() {
   struct guest *initrd = desc->initrd_img;
 
   if(!os)
-    panic("guest os img required");
+    panic("guest-os img is required");
 
   if(desc->nallocate % PAGESIZE != 0)
     panic("invalid mem size");
@@ -87,15 +88,16 @@ static void node0_initvcpu() {
   if(current->cpuid == 0) {
     current->reg.elr = localnode.vm_desc->entrypoint;
     current->reg.x[0] = localnode.vm_desc->fdt_base;
+  } else {
+    /* TODO: handle psci call */
+    ;
   }
-
-  /* TODO: handle psci call */
 }
 
-static void node0_start(void) {
+static void node0_start() {
   vmm_log("node0: start\n");
 
-  // node0_init_broadcast(node0);
+  node0_init_broadcast(node0);
 
   enter_vcpu();
 }
@@ -104,7 +106,7 @@ static struct nodectl node0_ctl = {
   .init = node0_init,
   .initvcpu = node0_initvcpu,
   .start = node0_start,
-  .register_remote_node = node0_register_remote,
+  .msg_recv = node0_msg_recv,
 };
 
 void nodectl_init() {
