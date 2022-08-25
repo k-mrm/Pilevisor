@@ -2,6 +2,7 @@
 #define MSG_H
 
 #include "types.h"
+#include "node.h"
 
 #define NEED_HANDLE_IMMEDIATE   0x80
 
@@ -17,75 +18,89 @@ enum msgtype {
   MSG_INTERRUPT     = 0x8 | NEED_HANDLE_IMMEDIATE,
 };
 
-#define send_msg(msg)   (((struct msg *)&msg)->send(&msg))
+struct recv_msg {
+  enum msgtype type;
+  u8 *src_mac;
+  u8 *body;
+  u32 len;
+  void *data;   /* ethernet frame */
+};
 
 struct msg {
   enum msgtype type;
   /* destination node id */
   u8 dst_bits;
 
-  int (*send)(struct node *, struct msg *);
+  int (*send)(struct msg *);
+  int (*recv_reply)(struct msg *);
 };
 
-struct msg_cb {
-  bool used;
-  enum msgtype type;
-  char window[4096];
-  int wlen;
-};
+#define send_msg(msg)   (((struct msg *)&msg)->send((struct msg *)&msg))
 
 /*
- *  init msg: Node 0 --broadcast--> Node n(n!=0)
+ *  Initialize message
+ *  init request: Node 0 --broadcast--> Node n(n!=0)
+ *    send:
+ *      Node 0's MAC address 
  *
- *  send:
- *    Node0 MAC address 
+ *  init reply:   Node n ---> Node 0
+ *    send:
+ *      Node n's MAC address
+ *      allocated ram size to VM from Node n
  */
-struct init_msg {
+
+struct __init_req {
+  u8 me_mac[6];
+};
+
+struct __init_reply {
+  u8 me_mac[6];
+  u64 allocated;
+};
+
+struct init_req {
   struct msg msg;
-  u8 mac[6];
+  struct __init_req body;
+  struct __init_reply rep;
 };
-
-void init_msg_init(struct init_msg *msg, u8 *mac);
-
-/*
- *  init reply: Node n ---> Node 0
- *
- *  send:
- *    Node n MAC address
- */
 
 struct init_reply {
   struct msg msg;
-  u8 mac[6];
+  struct __init_reply body;
 };
 
-void init_reply_init(struct init_reply *msg, u8 *mac);
+void init_req_init(struct init_req *req, u8 *mac);
+void init_reply_init(struct init_req *req, u8 *mac, u64 allocated);
 
 /*
- *  read msg: Node n ---> Node n
+ *  Read message
+ *  read request: Node n1 ---> Node n2
+ *    send
+ *      - intermediate physical address
  *
- *  send:
- *    internal physical address
+ *  read reply:   Node n1 <--- Node n2
+ *    send
+ *      - 4KB page(but now 1KB...) corresponding to ipa
  */
-struct read_msg {
-  struct msg msg;
+
+struct __read_req {
   u64 ipa;
 };
 
-void read_msg_init(struct read_msg *msg, u8 dst, u64 ipa);
-
-/*
- *  read reply: Node n ---> Node n
- *
- *  send:
- *    requested page(4KB, but now 1KB)
- */
-struct read_reply {
-  struct msg msg;
-  u8 *page;
+struct __read_reply {
+  u8 page[1024];
 };
 
-void read_reply_init(struct read_reply *msg, u8 dst, u8 *page);
+struct read_req {
+  struct msg msg;
+  struct __read_req body;
+  struct __read_reply rep;
+};
+
+struct read_reply {
+  struct msg msg;
+  struct __read_reply body;
+};
 
 struct invalid_snoop_msg {
   struct msg msg;

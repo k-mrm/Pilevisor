@@ -8,40 +8,21 @@
 #include "spinlock.h"
 #include "ethernet.h"
 
-static struct msg_cb mcbs[16];
-static spinlock_t mcbs_lock;
-
-static struct msg_cb *allocmcb() {
-  acquire(&mcbs_lock);
-
-  for(struct msg_cb *m = mcbs; m < &mcbs[16]; m++) {
-    if(!m->used) {
-      m->used = 1;
-      release(&mcbs_lock);
-      return m;
-    }
-  }
-
-  release(&mcbs_lock);
-  return NULL;
-}
-
-static void freemcb(struct msg_cb *mcb) {
-  acquire(&mcbs_lock);
-  memset(mcb, 0, sizeof(*mcb));
-  mcb->used = 0;
-  release(&mcbs_lock);
-}
-
 static inline bool need_handle_now(enum msgtype ty) {
   return ty & NEED_HANDLE_IMMEDIATE;
 }
 
 void msg_recv_intr(struct etherframe *eth, u64 len) {
   enum msgtype m = eth->type & 0xff;
+  struct recv_msg msg;
+  msg.type = m;
+  msg.src_mac = eth->src;
+  msg.body = eth->body;
+  msg.len = len;
+  msg.data = eth;
 
   if(need_handle_now(m)) {
-    localnode.ctl->msg_recv_intr();
+    localnode.ctl->msg_recv_intr(&msg);
     free_etherframe(eth);
   } else {
     /* add to waitqueue */
@@ -164,31 +145,27 @@ static int send_read_request(struct node *node, struct msg *msg) {
   return 0;
 }
 
-static int recv_read_request(struct node *node, u8 *buf) {
+void recv_read_msg(struct recv_msg *msg) {
   vmm_log("recv read request\n");
 
-  u8 *body = buf + 14;
-
-  u64 ipa, pa;
-  memcpy(&ipa, body, sizeof(ipa));
+  struct __read_msg *rd = (struct __read_msg *)msg->body;
 
   /* TODO: use at instruction */
-  pa = ipa2pa(node->vttbr, ipa);
+  pa = ipa2pa(node->vttbr, rd->ipa);
 
-  vmm_log("ipa: read @%p\n", ipa);
+  vmm_log("ipa: read @%p\n", rd->ipa);
 
+  /* send read reply */
   struct read_reply reply;
   read_reply_init(&reply, 0, (u8 *)pa);
   reply.msg.send(node, &reply);
-
-  return -1;
 }
 
 void read_msg_init(struct read_msg *rmsg, u8 dst, u64 ipa) {
   rmsg->msg.type = MSG_READ;
   rmsg->msg.dst_bits = 1 << dst;
   rmsg->msg.send = send_read_request;
-  rmsg->ipa = ipa;
+  rmsg->rd.ipa = ipa;
 }
 
 static int recv_read_reply(struct node *node, u8 *buf) {
@@ -223,5 +200,5 @@ void read_reply_init(struct read_reply *rmsg, u8 dst, u8 *page) {
 }
 
 void msg_sysinit() {
-  spinlock_init(&mcbs_lock);
+  ;
 }

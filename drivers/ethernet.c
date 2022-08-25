@@ -22,6 +22,6 @@ int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u64 len) {
   return -1;
 }
 
-int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *payload) {
+int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *body) {
   ;
 }
