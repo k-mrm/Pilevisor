@@ -45,10 +45,6 @@ static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 size) {
   vtmmio_write(dev->base, VIRTIO_MMIO_QUEUE_NOTIFY, dev->tx->qsel);
 }
 
-static void virtio_net_recv(struct nic *nic, u8 *buf, u64 *size) {
-  struct virtio_net *dev = nic->device;
-}
-
 static void fill_recv_queue(struct virtq *rxq) {
   for(int i = 0; i < NQUEUE; i++) {
     u16 d = virtq_alloc_desc(rxq);
@@ -107,7 +103,6 @@ void virtio_net_intr() {
 
 static struct nic netdev = {
   .xmit = virtio_net_xmit,
-  .recv = virtio_net_recv,
 };
 
 int virtio_net_init(void *base, int intid) {

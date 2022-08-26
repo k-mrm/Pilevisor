@@ -2,12 +2,13 @@
 #define NODECTL_H
 
 #include "types.h"
+#include "msg.h"
 
 struct nodectl {
   void (*init)(void);
   void (*initvcpu)(void);
   void (*start)(void);
-  int (*register_remote_node)(u8 *);
+  void (*msg_recv_intr)(struct recv_msg *);
 };
 
 void nodectl_init(void);

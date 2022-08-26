@@ -4,7 +4,6 @@
 #include "types.h"
 
 struct nic;
-
 struct nic {
   char *name;
   u8 mac[6];

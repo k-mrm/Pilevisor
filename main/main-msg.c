@@ -1,20 +1,29 @@
 #include "msg.h"
 #include "main-msg.h"
 
-void node0_msg_recv_intr(struct recv_msg *msg) {
-  switch(msg->type) {
-    case MSG_INIT:
-      recv_init_request(&localnode, msg);
+static int node0_recv_init_reply_intr(struct recv_msg *recvmsg) {
+  struct __init_reply *body = (struct __init_reply *)recvmsg->body;
+
+  node0_register_remote(body->me_mac);
+  vmm_log("Node 1 is %m %p bytes\n", body->me_mac, body->allocated);
+
+  return 0;
+}
+
+void node0_msg_recv_intr(struct recv_msg *recvmsg) {
+  switch(recvmsg->type) {
+    case MSG_INIT_REPLY:
+      node0_recv_init_reply_intr(recvmsg);
       break;
     case MSG_WAKEUP:
       panic("msg-wakeup");
     case MSG_SHUTDOWN:
       panic("msg-shutdown");
     case MSG_READ:
-      recv_read_request(&localnode, msg);
+      recv_read_request_intr(recvmsg);
       break;
     case MSG_INVALID_SNOOP:
-      recv_read_reply(&localnode, msg);
+      panic("msg-invalid-snoop");
       break;
     case MSG_INTERRUPT:
       panic("msg-interrupt");

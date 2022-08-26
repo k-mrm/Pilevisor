@@ -7,18 +7,19 @@
 #include "lib.h"
 #include "log.h"
 #include "main-msg.h"
+#include "cnt.h"
 
 /* main node (node0) controller */
 
-static int node0_init_broadcast(struct node *node0) {
-  struct init_msg msg;
-  init_msg_init(&msg, node0->nic->mac);
+static int node0_init_broadcast() {
+  struct init_req req;
+  init_req_init(&req, localnode.nic->mac);
 
-  /* send msg */
-  msg.msg.send(node0, (struct msg *)&msg);
+  msg_send(req);
 
   intr_enable();
-  while(!node0->remotes[1].enabled)
+  // TODO: now Node 1 only
+  while(!localnode.remotes[1].enabled)
     wfi();
 
   vmm_log("node1 ok\n");
@@ -26,18 +27,15 @@ static int node0_init_broadcast(struct node *node0) {
   return 0;
 }
 
-static int node0_register_remote(u8 *remote_mac) {
+void node0_register_remote(u8 *remote_mac) {
   u8 idx = ++localnode.nremotes;
-  if(idx > NODE_MAX) 
+  if(idx >= NODE_MAX) 
     panic("remote node");
 
   struct rnode_desc *rnode = &localnode.remotes[idx];
 
-  memcpy(rnode->mac, remote_mac, sizeof(u8)*6);
-
+  memcpy(rnode->mac, remote_mac, 6);
   rnode->enabled = 1;
-
-  return 0;
 }
 
 static void initmem() {
@@ -97,7 +95,7 @@ static void node0_initvcpu() {
 static void node0_start() {
   vmm_log("node0: start\n");
 
-  node0_init_broadcast(node0);
+  node0_init_broadcast();
 
   enter_vcpu();
 }
@@ -106,7 +104,7 @@ static struct nodectl node0_ctl = {
   .init = node0_init,
   .initvcpu = node0_initvcpu,
   .start = node0_start,
-  .msg_recv = node0_msg_recv,
+  .msg_recv_intr = node0_msg_recv_intr,
 };
 
 void nodectl_init() {

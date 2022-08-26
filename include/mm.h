@@ -41,43 +41,43 @@
  */
 
 #define PIDX(level, va) (((va) >> (39 - (level) * 9)) & 0x1ff)
-#define OFFSET(va)  ((va) & 0xfff)
+#define OFFSET(va)      ((va) & 0xfff)
 
-#define PTE_PA(pte) ((u64)(pte) & 0xfffffffff000)
+#define PTE_PA(pte)     ((u64)(pte) & 0xfffffffff000)
 
 /* lower attribute */
-#define PTE_VALID 1   /* level 0,1,2 descriptor */
-#define PTE_TABLE 2   /* level 0,1,2 descriptor */
-#define PTE_V 3       /* level 3 descriptor */
+#define PTE_VALID     1   /* level 0,1,2 descriptor */
+#define PTE_TABLE     2   /* level 0,1,2 descriptor */
+#define PTE_V         3   /* level 3 descriptor */
 #define PTE_INDX(idx) (((idx) & 7) << 2)
-#define PTE_NORMAL  PTE_INDX(AI_NORMAL_NC_IDX)
-#define PTE_DEVICE  PTE_INDX(AI_DEVICE_nGnRnE_IDX)
-#define PTE_NS  (1 << 5)
-#define PTE_AP(ap)  (((ap) & 3) << 6)
-#define PTE_U   PTE_AP(1)
-#define PTE_RO  PTE_AP(2)
-#define PTE_URO PTE_AP(3)
-#define PTE_SH(sh)  (((sh) & 3) << 8)
-#define PTE_AF  (1 << 10)
+#define PTE_NORMAL    PTE_INDX(AI_NORMAL_NC_IDX)
+#define PTE_DEVICE    PTE_INDX(AI_DEVICE_nGnRnE_IDX)
+#define PTE_NS        (1 << 5)
+#define PTE_AP(ap)    (((ap) & 3) << 6)
+#define PTE_U         PTE_AP(1)
+#define PTE_RO        PTE_AP(2)
+#define PTE_URO       PTE_AP(3)
+#define PTE_SH(sh)    (((sh) & 3) << 8)
+#define PTE_AF        (1 << 10)
 /* upper attribute */
-#define PTE_PXN (1UL << 53)
-#define PTE_UXN (1UL << 54)
+#define PTE_PXN       (1UL << 53)
+#define PTE_UXN       (1UL << 54)
 
 /* stage 2 attribute */
-#define S2PTE_AF  (1 << 10)
-#define S2PTE_S2AP(ap)  (((ap) & 3) << 6)
-#define S2PTE_RO  S2PTE_S2AP(1)
-#define S2PTE_WO  S2PTE_S2AP(2)
-#define S2PTE_RW  S2PTE_S2AP(3)
+#define S2PTE_AF          (1 << 10)
+#define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
+#define S2PTE_RO          S2PTE_S2AP(1)
+#define S2PTE_WO          S2PTE_S2AP(2)
+#define S2PTE_RW          S2PTE_S2AP(3)
 #define S2PTE_ATTR(attr)  (((attr) & 7) << 2)
-#define S2PTE_NORMAL  S2PTE_ATTR(AI_NORMAL_NC_IDX)
-#define S2PTE_DEVICE  S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
+#define S2PTE_NORMAL      S2PTE_ATTR(AI_NORMAL_NC_IDX)
+#define S2PTE_DEVICE      S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
 
-#define PAGESIZE  4096    /* 4KB */
+#define PAGESIZE    4096  /* 4KB */
 
-#define PAGEROUNDDOWN(p)  ((p) & ~(PAGESIZE-1))
-#define PAGEROUNDUP(p)    (((p) + PAGESIZE-1) & ~(PAGESIZE-1))
-#define PAGEOFFSET(p)     ((p) & (PAGESIZE-1))
+#define PAGEROUNDDOWN(p)  ((u64)(p) & ~(PAGESIZE-1))
+#define PAGEROUNDUP(p)    (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
+#define PAGEOFFSET(p)     ((u64)(p) & (PAGESIZE-1))
 
 /* attr index */
 #define AI_DEVICE_nGnRnE_IDX  0x0

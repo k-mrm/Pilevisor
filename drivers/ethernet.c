@@ -1,12 +1,14 @@
 #include "ethernet.h"
 #include "net.h"
 #include "mm.h"
+#include "lib.h"
+#include "kalloc.h"
 
 static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 /* FIXME */
 void free_etherframe(struct etherframe *eth) {
-  kfree(PAGEROUNDDOWN(eth));
+  kfree((void *)PAGEROUNDDOWN(eth));
 }
 
 int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len) {

@@ -4,18 +4,19 @@
 #include "types.h"
 #include "node.h"
 
-#define NEED_HANDLE_IMMEDIATE   0x80
+struct etherframe;
+void msg_recv_intr(struct etherframe *eth, u64 len);
 
 enum msgtype {
   MSG_NONE          = 0x0,
-  MSG_INIT          = 0x1 | NEED_HANDLE_IMMEDIATE,
+  MSG_INIT          = 0x1,
   MSG_INIT_REPLY    = 0x2,
-  MSG_WAKEUP        = 0x3 | NEED_HANDLE_IMMEDIATE,
-  MSG_SHUTDOWN      = 0x4 | NEED_HANDLE_IMMEDIATE,
-  MSG_READ          = 0x5 | NEED_HANDLE_IMMEDIATE,
+  MSG_WAKEUP        = 0x3,
+  MSG_SHUTDOWN      = 0x4,
+  MSG_READ          = 0x5,
   MSG_READ_REPLY    = 0x6,
-  MSG_INVALID_SNOOP = 0x7 | NEED_HANDLE_IMMEDIATE,
-  MSG_INTERRUPT     = 0x8 | NEED_HANDLE_IMMEDIATE,
+  MSG_INVALID_SNOOP = 0x7,
+  MSG_INTERRUPT     = 0x8,
 };
 
 struct recv_msg {
@@ -32,10 +33,9 @@ struct msg {
   u8 dst_bits;
 
   int (*send)(struct msg *);
-  int (*recv_reply)(struct msg *);
 };
 
-#define msg_send(msg)   (((struct msg *)&msg)->send((struct msg *)&msg))
+#define msg_send(m)     (((struct msg *)&(m))->send((struct msg *)&(m)))
 
 /*
  *  Initialize message
@@ -61,7 +61,6 @@ struct __init_reply {
 struct init_req {
   struct msg msg;
   struct __init_req body;
-  struct __init_reply reply;
 };
 
 struct init_reply {
@@ -94,13 +93,15 @@ struct __read_reply {
 struct read_req {
   struct msg msg;
   struct __read_req body;
-  struct __read_reply reply;
 };
 
 struct read_reply {
   struct msg msg;
   struct __read_reply body;
 };
+
+void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa);
+void read_reply_init(struct read_reply *rmsg, u8 dst, u8 *page);
 
 struct invalid_snoop_msg {
   struct msg msg;
