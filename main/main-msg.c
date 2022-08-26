@@ -1,13 +1,11 @@
 #include "msg.h"
 #include "main-msg.h"
 
-static int node0_recv_init_reply_intr(struct recv_msg *recvmsg) {
+static void node0_recv_init_reply_intr(struct recv_msg *recvmsg) {
   struct __init_reply *body = (struct __init_reply *)recvmsg->body;
 
   node0_register_remote(body->me_mac);
   vmm_log("Node 1 is %m %p bytes\n", body->me_mac, body->allocated);
-
-  return 0;
 }
 
 void node0_msg_recv_intr(struct recv_msg *recvmsg) {

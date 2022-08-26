@@ -1,4 +1,3 @@
-/* virtual shared memory */
 #include "types.h"
 #include "aarch64.h"
 #include "vsm.h"
@@ -9,6 +8,8 @@
 #include "node.h"
 #include "vcpu.h"
 #include "msg.h"
+
+/* virtual shared memory */
 
 static u64 vsm_fetch_page_dummy(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
   if(page_ipa % PAGESIZE)
@@ -80,9 +81,9 @@ static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *bu
   vsm->finished = 0;
 
   /* send read request */
-  struct read_msg rmsg;
-  read_msg_init(&rmsg, dst_node, page_ipa);
-  rmsg.msg.send(node, (struct msg *)&rmsg);
+  struct read_req rreq;
+  read_req_init(&rreq, dst_node, page_ipa);
+  msg_send(rreq);
   
   /* wait read reply */
   intr_enable();
@@ -120,9 +121,6 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
 
       vsm_writeback(node, page_ipa, tmp);
     } else {
-      if(!buf)
-        panic("?");
-
       memcpy(buf, tmp+offset, size);
     }
   } else {
