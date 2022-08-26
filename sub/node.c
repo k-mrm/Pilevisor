@@ -2,6 +2,9 @@
 #include "vcpu.h"
 #include "node.h"
 #include "nodectl.h"
+#include "sub-msg.h"
+#include "lib.h"
+#include "log.h"
 
 /* sub node controller */
 
@@ -41,7 +44,7 @@ struct nodectl subnode_ctl = {
   .init = sub_init,
   .initvcpu = sub_initvcpu,
   .start = sub_start,
-  .msg_recv = sub_msg_recv_intr,
+  .msg_recv_intr = sub_msg_recv_intr,
 };
 
 void nodectl_init() {

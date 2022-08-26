@@ -1,5 +1,6 @@
 #include "msg.h"
 #include "sub-msg.h"
+#include "log.h"
 
 static int sub_recv_init_request_intr(struct recv_msg *recvmsg) {
   struct __init_req *body = (struct __init_req *)recvmsg->body;
