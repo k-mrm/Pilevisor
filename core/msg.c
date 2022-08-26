@@ -41,11 +41,10 @@ static void send_msg_core(struct msg *msg, void *body, u32 len) {
       }
     }
   }
-
   if(!mac)
-    panic("invalid mac");
+    panic("invalid");
 
-  u16 type = 0x1900 | msg->type;
+  u16 type = (msg->type << 8) | 0x19;
 
   len += sizeof(struct etherframe);
   len = len < 64 ? 64 : len;
@@ -55,6 +54,7 @@ static void send_msg_core(struct msg *msg, void *body, u32 len) {
 
 static int send_init_request(struct msg *msg) {
   struct init_req *req = (struct init_req *)msg;
+  printf("send_init_request");
 
   send_msg_core(msg, &req->body, sizeof(req->body));
 

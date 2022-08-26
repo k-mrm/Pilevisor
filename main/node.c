@@ -15,9 +15,10 @@ static int node0_init_broadcast() {
   struct init_req req;
   init_req_init(&req, localnode.nic->mac);
 
+  intr_enable();
+
   msg_send(req);
 
-  intr_enable();
   // TODO: now Node 1 only
   while(!localnode.remotes[1].enabled)
     wfi();

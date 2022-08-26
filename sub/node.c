@@ -23,8 +23,8 @@ static void sub_init() {
   vmm_log("sub-node init");
 
   intr_enable();
-
   wait_for_node0_init();
+
   vmm_log("node0 OK\n");
 }
 

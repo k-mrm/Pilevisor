@@ -62,22 +62,22 @@ static void rxintr(struct virtio_net *dev, u16 idx) {
   u8 *buf = (u8 *)dev->rx->desc[d].addr + sizeof(struct virtio_net_hdr);
   u32 len = dev->rx->used->ring[idx].len;
 
-  // printf("rxintr %p %d %d\n", buf, idx, len);
   struct etherframe *eth = (struct etherframe *)buf;
   ethernet_recv_intr(eth, len);
 
-  dev->rx->desc[d].addr = kalloc();
+  dev->rx->desc[d].addr = (u64)kalloc();
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d;
   dsb(sy);
   dev->rx->avail->idx += 1;
 }
 
 static void txintr(struct virtio_net *dev, u16 idx) {
+  vmm_log("txintrrrrrrrrrrrrrr");
   u16 d = dev->tx->avail->ring[idx];
 
-  u8 *buf = dev->tx->desc[d].addr;
+  u8 *buf = (u8 *)dev->tx->desc[d].addr;
 
-  kfree((void*)dev->tx->desc[d].addr);
+  kfree((void *)dev->tx->desc[d].addr);
 
   virtq_free_desc(dev->tx, d);
 }

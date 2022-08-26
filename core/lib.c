@@ -81,3 +81,12 @@ u64 strlen(const char *s) {
 
   return i;
 }
+
+void bin_dump(void *p, u64 size) {
+  u8 *bin = p;
+  for(u64 i = 0; i < size; i++) {
+    printf("%02x ", bin[i]);
+    if((i+1) % 8 == 0)
+      printf("\n");
+  }
+}
