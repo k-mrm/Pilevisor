@@ -13,9 +13,10 @@ void free_etherframe(struct etherframe *eth) {
 }
 
 int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len) {
-  printf("eth %m %x\n", eth->dst, eth->type);
+  printf("eth len %d %m %x\n", len, eth->dst, eth->type);
+  // bin_dump(eth, len);
   if(memcmp(eth->dst, broadcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
-    if(((eth->type >> 8) & 0xff) == 0x19) {
+    if((eth->type & 0xff) == 0x19) {
       /* this is msg packet */
       printf("msgggggggggggggggggggggggggggggggggggggggggggg\n");
       msg_recv_intr(eth, len);

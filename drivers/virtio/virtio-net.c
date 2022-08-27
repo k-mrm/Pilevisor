@@ -8,6 +8,7 @@
 #include "virtio-net.h"
 #include "net.h"
 #include "node.h"
+#include "ethernet.h"
 
 struct virtio_net vtnet_dev;
 
@@ -57,13 +58,15 @@ static void fill_recv_queue(struct virtq *rxq) {
   }
 }
 
-static void rxintr(struct virtio_net *dev, u16 idx) {
+static void rxintr(struct nic *nic, u16 idx) {
+  struct virtio_net *dev = nic->device;
+
   u16 d = dev->rx->used->ring[idx].id;
   u8 *buf = (u8 *)dev->rx->desc[d].addr + sizeof(struct virtio_net_hdr);
   u32 len = dev->rx->used->ring[idx].len;
 
   struct etherframe *eth = (struct etherframe *)buf;
-  ethernet_recv_intr(eth, len);
+  ethernet_recv_intr(nic, eth, len);
 
   dev->rx->desc[d].addr = (u64)kalloc();
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d;
@@ -71,10 +74,11 @@ static void rxintr(struct virtio_net *dev, u16 idx) {
   dev->rx->avail->idx += 1;
 }
 
-static void txintr(struct virtio_net *dev, u16 idx) {
+static void txintr(struct nic *nic, u16 idx) {
   vmm_log("txintrrrrrrrrrrrrrr");
-  u16 d = dev->tx->avail->ring[idx];
+  struct virtio_net *dev = nic->device;
 
+  u16 d = dev->tx->avail->ring[idx];
   u8 *buf = (u8 *)dev->tx->desc[d].addr;
 
   kfree((void *)dev->tx->desc[d].addr);
@@ -83,19 +87,20 @@ static void txintr(struct virtio_net *dev, u16 idx) {
 }
 
 void virtio_net_intr() {
-  struct virtio_net *dev = localnode.nic->device;
+  struct nic *nic = localnode.nic;
+  struct virtio_net *dev = nic->device;
 
   u32 status = vtmmio_read(dev->base, VIRTIO_MMIO_INTERRUPT_STATUS);
   vtmmio_write(dev->base, VIRTIO_MMIO_INTERRUPT_ACK, status);
 
   while(dev->rx->last_used_idx != dev->rx->used->idx) {
-    rxintr(dev, dev->rx->last_used_idx % NQUEUE);
+    rxintr(nic, dev->rx->last_used_idx % NQUEUE);
     dev->rx->last_used_idx++;
     dsb(sy);
   }
 
   while(dev->tx->last_used_idx != dev->tx->used->idx) {
-    txintr(dev, dev->tx->last_used_idx % NQUEUE);
+    txintr(nic, dev->tx->last_used_idx % NQUEUE);
     dev->tx->last_used_idx++;
     dsb(sy);
   }

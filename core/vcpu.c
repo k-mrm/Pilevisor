@@ -63,8 +63,6 @@ void load_new_local_vcpu(void) {
   vcpu_features_init(vcpu);
 
   vcpu->initialized = true;
-
-  return vcpu;
 }
 
 void trapret(void);
