@@ -1,4 +1,5 @@
 #include "lib.h"
+#include "log.h"
 
 void *memcpy(void *dst, const void *src, u64 n) {
   return memmove(dst, src, n);
@@ -83,6 +84,7 @@ u64 strlen(const char *s) {
 }
 
 void bin_dump(void *p, u64 size) {
+  printf("bin dump %p %d\n", p, size);
   u8 *bin = p;
   for(u64 i = 0; i < size; i++) {
     printf("%02x ", bin[i]);

@@ -52,7 +52,7 @@ static void fill_recv_queue(struct virtq *rxq) {
     rxq->desc[d].addr = (u64)kalloc();
     rxq->desc[d].len = 1564;    /* TODO: ??? */
     rxq->desc[d].flags = VIRTQ_DESC_F_WRITE;
-    rxq->avail->ring[rxq->avail->idx % NQUEUE] = d;
+    rxq->avail->ring[rxq->avail->idx] = d;
     dsb(sy);
     rxq->avail->idx += 1;
   }
@@ -68,18 +68,18 @@ static void rxintr(struct nic *nic, u16 idx) {
   struct etherframe *eth = (struct etherframe *)buf;
   ethernet_recv_intr(nic, eth, len);
 
-  dev->rx->desc[d].addr = (u64)kalloc();
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d;
   dsb(sy);
   dev->rx->avail->idx += 1;
 }
 
 static void txintr(struct nic *nic, u16 idx) {
-  vmm_log("txintrrrrrrrrrrrrrr");
   struct virtio_net *dev = nic->device;
 
   u16 d = dev->tx->avail->ring[idx];
-  u8 *buf = (u8 *)dev->tx->desc[d].addr;
+  u8 *buf = (u8 *)dev->tx->desc[d].addr + sizeof(struct virtio_net_hdr);
+  bin_dump(buf, 16);
+  vmm_log("txintrrrrrrrrrrrrrr\n");
 
   kfree((void *)dev->tx->desc[d].addr);
 

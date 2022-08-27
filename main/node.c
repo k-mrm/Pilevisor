@@ -15,15 +15,7 @@ static int node0_init_broadcast() {
   struct init_req req;
   init_req_init(&req, localnode.nic->mac);
 
-  intr_enable();
-
   msg_send(req);
-
-  // TODO: now Node 1 only
-  while(!localnode.remotes[1].enabled)
-    wfi();
-
-  vmm_log("node1 ok\n");
 
   return 0;
 }
@@ -97,6 +89,14 @@ static void node0_start() {
   vmm_log("node0: start\n");
 
   node0_init_broadcast();
+
+  intr_enable();
+
+  // TODO: now Node 1 only
+  while(!localnode.remotes[1].enabled)
+    wfi();
+
+  vmm_log("node1 ok\n");
 
   enter_vcpu();
 }

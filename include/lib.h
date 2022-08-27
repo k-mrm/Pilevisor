@@ -11,7 +11,12 @@ int strcmp(const char *s1, const char *s2);
 u64 strlen(const char *s);
 char *strcpy(char *dst, const char *src);
 
-#define BIT(n)          (1<<(n))
+void bin_dump(void *p, u64 size);
+
+#define BIT(n)          (1 << (n))
 #define get_bit(x, n)   (((x) & BIT(n)) >> n)
+
+#define max(x, y)       ((x) > (y) ? (x) : (y))
+#define min(x, y)       ((x) < (y) ? (x) : (y))
 
 #endif

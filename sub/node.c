@@ -20,12 +20,13 @@ static int wait_for_node0_init() {
 }
 
 static void sub_init() {
-  vmm_log("sub-node init");
+  vmm_log("sub-node init\n");
+  vmm_log("waiting node 0...\n");
 
   intr_enable();
   wait_for_node0_init();
 
-  vmm_log("node0 OK\n");
+  vmm_log("node0 OK %m\n", localnode.remotes[0].mac);
 }
 
 static void sub_initvcpu() {
@@ -36,8 +37,9 @@ static void sub_initvcpu() {
 
 static void sub_start() {
   vmm_log("nodeN: start\n");
-
-  panic("hi");
+  intr_enable();
+  for(;;)
+    ;
 }
 
 struct nodectl subnode_ctl = {

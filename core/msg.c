@@ -1,4 +1,3 @@
-#include "lib.h"
 #include "log.h"
 #include "node.h"
 #include "net.h"
@@ -7,9 +6,10 @@
 #include "spinlock.h"
 #include "ethernet.h"
 #include "msg.h"
+#include "lib.h"
 
 void msg_recv_intr(struct etherframe *eth, u64 len) {
-  enum msgtype m = eth->type & 0xff;
+  enum msgtype m = (eth->type >> 8) & 0xff;
   struct recv_msg msg;
   msg.type = m;
   msg.src_mac = eth->src;
@@ -40,14 +40,14 @@ static void send_msg_core(struct msg *msg, void *body, u32 len) {
         break;
       }
     }
+    if(!mac)
+      panic("invalid");
   }
-  if(!mac)
-    panic("invalid");
 
   u16 type = (msg->type << 8) | 0x19;
 
   len += sizeof(struct etherframe);
-  len = len < 64 ? 64 : len;
+  len = max(64, len);
 
   ethernet_xmit(localnode.nic, mac, type, body, len);
 }
