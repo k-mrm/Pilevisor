@@ -12,6 +12,59 @@
 
 struct virtio_net vtnet_dev;
 
+static struct vbuf {
+  int used;
+  char buf[8192];
+} txbuf[16], rxbuf[16];
+
+static spinlock_t txbuf_lk, rxbuf_lk;
+
+#define buf_vbuf_ptr(bp)   container_of(bp, struct vbuf, buf)
+
+static char *alloctxbuf() {
+  acquire(&txbuf_lk);
+  for(struct vbuf *v = txbuf; v < &txbuf[16]; v++) {
+    if(!v->used) {
+      v->used = 1;
+      release(&txbuf_lk);
+      return v->buf;
+    }
+  }
+
+  release(&txbuf_lk);
+  panic("txbuf");
+  return NULL;
+}
+
+static char *allocrxbuf() {
+  acquire(&rxbuf_lk);
+  for(struct vbuf *v = rxbuf; v < &rxbuf[16]; v++) {
+    if(!v->used) {
+      v->used = 1;
+      release(&rxbuf_lk);
+      return v->buf;
+    }
+  }
+
+  release(&rxbuf_lk);
+  panic("txbuf");
+  return NULL;
+}
+
+static void freetxbuf(struct vbuf *v) {
+  acquire(&txbuf_lk);
+  v->used = 0;
+  memset(v->buf, 0, 8192);
+  release(&txbuf_lk);
+}
+
+static void freerxbuf(struct vbuf *v) {
+  acquire(&rxbuf_lk);
+  v->used = 0;
+  memset(v->buf, 0, 8192);
+  release(&rxbuf_lk);
+}
+
 static void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
   memcpy(buf, dev->cfg->mac, sizeof(u8)*6);
 }
@@ -21,7 +74,7 @@ static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 size) {
 
   u16 d0 = virtq_alloc_desc(dev->tx);
 
-  struct virtio_net_hdr *hdr = kalloc();
+  struct virtio_net_hdr *hdr = alloctxbuf();
 
   hdr->flags = 0;
   hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
@@ -49,8 +102,8 @@ static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 size) {
 static void fill_recv_queue(struct virtq *rxq) {
   for(int i = 0; i < NQUEUE; i++) {
     u16 d = virtq_alloc_desc(rxq);
-    rxq->desc[d].addr = (u64)kalloc();
-    rxq->desc[d].len = 1564;    /* TODO: ??? */
+    rxq->desc[d].addr = (u64)allocrxbuf();
+    rxq->desc[d].len = 8192;    /* TODO: ??? */
     rxq->desc[d].flags = VIRTQ_DESC_F_WRITE;
     rxq->avail->ring[rxq->avail->idx] = d;
     dsb(sy);
@@ -81,7 +134,7 @@ static void txintr(struct nic *nic, u16 idx) {
   bin_dump(buf, 16);
   vmm_log("txintrrrrrrrrrrrrrr\n");
 
-  kfree((void *)dev->tx->desc[d].addr);
+  freetxbuf(buf_vbuf_ptr((void *)dev->tx->desc[d].addr));
 
   virtq_free_desc(dev->tx, d);
 }
@@ -126,7 +179,7 @@ int virtio_net_init(void *base, int intid) {
   u32 feat = vtmmio_read(base, VIRTIO_MMIO_DEVICE_FEATURES);
   feat &= ~(1 << VIRTIO_NET_F_GUEST_CSUM);
   feat &= ~(1 << VIRTIO_NET_F_CTRL_GUEST_OFFLOADS);
-  feat &= ~(1 << VIRTIO_NET_F_MTU);
+  // feat &= ~(1 << VIRTIO_NET_F_MTU);
   feat &= ~(1 << VIRTIO_NET_F_GUEST_TSO4);
   feat &= ~(1 << VIRTIO_NET_F_GUEST_TSO6);
   feat &= ~(1 << VIRTIO_NET_F_GUEST_ECN);
@@ -159,6 +212,8 @@ int virtio_net_init(void *base, int intid) {
   virtq_reg_to_dev(base, vtnet_dev.tx, 1);
 
   fill_recv_queue(vtnet_dev.rx);
+
+  vtdev.mtu = vtdev.cfg->mtu;
 
   /* initialize done */
   status = vtmmio_read(base, VIRTIO_MMIO_STATUS);

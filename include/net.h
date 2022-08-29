@@ -3,6 +3,12 @@
 
 #include "types.h"
 
+struct packet_body {
+  struct packet_body *next;
+  void *data;
+  int len;
+};
+
 struct nic;
 struct nic {
   char *name;

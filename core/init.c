@@ -78,7 +78,7 @@ int vmm_init_cpu0() {
     .initrd_base = 0x48000000,
   };
 
-  node_preinit(1, 256 * MiB, &vm_desc);
+  node_preinit(1, 128 * MiB, &vm_desc);
   nodectl_init();
 
   localnode.ctl->init();

@@ -75,11 +75,12 @@ void init_reply_init(struct init_reply *rep, u8 *mac, u64 allocated);
  *  Read message
  *  read request: Node n1 ---> Node n2
  *    send
- *      - intermediate physical address
+ *      - intermediate physical address(ipa)
  *
  *  read reply:   Node n1 <--- Node n2
  *    send
- *      - 4KB page(but now 1KB...) corresponding to ipa
+ *      - intermediate physical address(ipa)
+ *      - 4KB page corresponding to ipa
  */
 
 struct __read_req {
@@ -87,7 +88,7 @@ struct __read_req {
 };
 
 struct __read_reply {
-  u8 page[1024];
+  u8 page[4096];
 };
 
 struct read_req {

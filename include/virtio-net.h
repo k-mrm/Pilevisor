@@ -36,14 +36,16 @@ struct virtio_net_config {
 #define VIRTIO_NET_S_ANNOUNCE 2
   u16 status;
   u16 max_virtqueue_pairs;
+  u16 mtu;
 } __attribute__((packed));
 
 struct virtio_net {
   void *base;
   struct virtio_net_config *cfg;
-  int intid;
   struct virtq *tx;
   struct virtq *rx;
+  int intid;
+  u32 mtu;
 };
 
 struct virtio_net_hdr {

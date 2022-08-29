@@ -77,22 +77,13 @@ static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *bu
 
   vmm_log("request remote fetch!!!!: %p\n", page_ipa);
 
-  vsm->readbuf = buf;
-  vsm->finished = 0;
-
   /* send read request */
   struct read_req rreq;
   read_req_init(&rreq, dst_node, page_ipa);
   msg_send(rreq);
-  
-  /* wait read reply */
+
   intr_enable();
-  while(!vsm->finished)
-    wfi();
-
-  vsm->readbuf = NULL;
-  vsm->finished = 0;
-
+  
   return 0;
 }
 
