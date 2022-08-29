@@ -3,11 +3,14 @@
 
 #include "types.h"
 
-struct packet_body {
-  struct packet_body *next;
+struct packet {
   void *data;
   int len;
+  struct packet *next;
 };
+
+#define foreach_packet(pk, pkhead)  \
+  for((pk) = (pkhead); (pk); (pk) = (pk)->next)
 
 struct nic;
 struct nic {

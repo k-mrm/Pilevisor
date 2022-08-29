@@ -88,6 +88,7 @@ struct __read_req {
 };
 
 struct __read_reply {
+  u64 ipa;
   u8 page[4096];
 };
 

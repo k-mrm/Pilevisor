@@ -13,8 +13,6 @@ struct etherframe {
 } __attribute__((packed));
 
 int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len);
-int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *body, u32 len);
-
-void free_etherframe(struct etherframe *eth);
+int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet);
 
 #endif

@@ -18,6 +18,7 @@ typedef _Bool bool;
 #define false 0
 
 #define offsetof(st, m) ((u64)((char *)&((st *)0)->m - (char *)0))
+
 #define container_of(ptr, st, m)  \
   ({ const typeof(((st *)0)->m) *_mptr = (ptr); \
      (st *)((char *)_mptr - offsetof(st, m)); })

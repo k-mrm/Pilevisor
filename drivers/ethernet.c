@@ -8,11 +8,6 @@
 
 static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-/* FIXME */
-void free_etherframe(struct etherframe *eth) {
-  kfree((void *)PAGEROUNDDOWN(eth));
-}
-
 int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len) {
   printf("eth len %d %m %x\n", len, eth->dst, eth->type);
   if(memcmp(eth->dst, broadcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
@@ -26,16 +21,16 @@ int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len) {
   return -1;
 }
 
-int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, u8 *body, u32 len) {
+int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet) {
   struct etherframe *eth = kalloc();
   memcpy(eth->dst, dst_mac, 6);
   memcpy(eth->src, nic->mac, 6);
   eth->type = type;
   printf("ttttttttttt dst %m src %m %p\n", eth->dst, eth->src, type);
   /* FIXME: unnecessary copy */
-  memcpy(eth->body, body, len - sizeof(struct etherframe));
+  memcpy(eth->body, packet->data, packet->len - sizeof(struct etherframe));
 
-  nic->xmit(nic, (u8 *)eth, len);
+  nic->xmit(nic, (u8 *)eth, packet->len);
 
   kfree(eth);
 

@@ -24,7 +24,7 @@ int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_SEL, qsel);
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_NUM, NQUEUE);
   int qmax = vtmmio_read(base, VIRTIO_MMIO_QUEUE_NUM_MAX);
-  printf("virtq  max %d\n", qmax);
+  vmm_log("virtio: virtq max %d\n", qmax);
   if(qmax < NQUEUE)
     panic("queue?");
 
@@ -40,6 +40,7 @@ int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
   return 0;
 }
 
+/* TODO: chain? */
 u16 virtq_alloc_desc(struct virtq *vq) {
   if(vq->nfree == 0)
     panic("virtq kokatu");
@@ -65,7 +66,7 @@ struct virtq *virtq_create() {
   vq->desc = kalloc();
   vq->avail = kalloc();
   vq->used = kalloc();
-  printf("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
+  vmm_log("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
 
   vq->nfree = NQUEUE;
   vq->free_head = 0;

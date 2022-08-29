@@ -4,7 +4,7 @@
 #include "types.h"
 
 /* virtqueue */
-#define NQUEUE  16
+#define NQUEUE  32
 
 #define VIRTQ_DESC_F_NEXT     1
 #define VIRTQ_DESC_F_WRITE    2 

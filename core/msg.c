@@ -18,8 +18,6 @@ void msg_recv_intr(struct etherframe *eth, u64 len) {
   msg.data = eth;
 
   localnode.ctl->msg_recv_intr(&msg);
-
-  free_etherframe(eth);
 }
 
 static void send_msg_core(struct msg *msg, void *body, u32 len) {
@@ -49,7 +47,11 @@ static void send_msg_core(struct msg *msg, void *body, u32 len) {
   len += sizeof(struct etherframe);
   len = max(64, len);
 
-  ethernet_xmit(localnode.nic, mac, type, body, len);
+  struct packet pk;
+  pk.data = body;
+  pk.len = len;
+
+  ethernet_xmit(localnode.nic, mac, type, &pk);
 }
 
 static int send_init_request(struct msg *msg) {
