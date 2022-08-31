@@ -114,15 +114,15 @@ void virtio_net_intr() {
   u32 status = vtmmio_read(dev->base, VIRTIO_MMIO_INTERRUPT_STATUS);
   vtmmio_write(dev->base, VIRTIO_MMIO_INTERRUPT_ACK, status);
 
-  while(dev->rx->last_used_idx != dev->rx->used->idx) {
-    rxintr(nic, dev->rx->last_used_idx % NQUEUE);
-    dev->rx->last_used_idx++;
-    dsb(sy);
-  }
-
   while(dev->tx->last_used_idx != dev->tx->used->idx) {
     txintr(nic, dev->tx->last_used_idx % NQUEUE);
     dev->tx->last_used_idx++;
+    dsb(sy);
+  }
+
+  while(dev->rx->last_used_idx != dev->rx->used->idx) {
+    rxintr(nic, dev->rx->last_used_idx % NQUEUE);
+    dev->rx->last_used_idx++;
     dsb(sy);
   }
 }
