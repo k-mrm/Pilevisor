@@ -2,7 +2,7 @@
 #include "lib.h"
 #include "mm.h"
 #include "memmap.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "printf.h"
 #include "guest.h"
 
@@ -15,7 +15,7 @@ u64 *pagewalk(u64 *pgt, u64 va, int alloc) {
     if((*pte & PTE_VALID) && (*pte & PTE_TABLE)) {
       pgt = (u64 *)PTE_PA(*pte);
     } else if(alloc) {
-      pgt = kalloc();
+      pgt = alloc_page();
       if(!pgt)
         panic("nomem");
 
@@ -52,7 +52,7 @@ void pageunmap(u64 *pgt, u64 va, u64 size) {
       panic("unmapped");
 
     u64 pa = PTE_PA(*pte);
-    kfree((void *)pa);
+    free_page((void *)pa);
     *pte = 0;
   }
 }
@@ -62,7 +62,7 @@ void alloc_guestmem(u64 *pgt, u64 ipa, u64 size) {
     panic("invalid size");
 
   for(int i = 0; i < size; i += PAGESIZE) {
-    char *p = kalloc();
+    char *p = alloc_page();
     if(!p)
       panic("p");
 
@@ -100,7 +100,7 @@ void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
   while(len > 0) {
     u64 pa = ipa2pa(pgt, to_ipa);
     if(pa == 0) {
-      char *page = kalloc();
+      char *page = alloc_page();
       pagemap(pgt, PAGEROUNDDOWN(to_ipa), (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
       pa = ipa2pa(pgt, to_ipa);
       if(pa == 0)

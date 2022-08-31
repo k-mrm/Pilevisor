@@ -1,8 +1,8 @@
 #include "uart.h"
 #include "aarch64.h"
-#include "kalloc.h"
 #include "guest.h"
 #include "pcpu.h"
+#include "allocpage.h"
 #include "mm.h"
 #include "log.h"
 #include "vgic.h"
@@ -54,7 +54,7 @@ int vmm_init_secondary() {
 int vmm_init_cpu0() {
   uart_init();
   vmm_log("vmm booting...\n");
-  kalloc_init();
+  pageallocator_init();
   write_sysreg(vbar_el2, (u64)vectable);
   hcr_setup();
   gic_init();

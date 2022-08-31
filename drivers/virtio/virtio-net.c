@@ -1,7 +1,7 @@
 #include "pci.h"
 #include "aarch64.h"
 #include "log.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
@@ -12,66 +12,13 @@
 
 struct virtio_net vtnet_dev;
 
-static struct vbuf {
-  int used;
-  u8 buf[8192];
-} txbuf[NQUEUE], rxbuf[NQUEUE];
-
-static spinlock_t txbuf_lk, rxbuf_lk;
-
-#define buf_vbuf_ptr(bp)   container_of(bp, struct vbuf, buf)
-
-static u8 *alloctxbuf() {
-  acquire(&txbuf_lk);
-  for(struct vbuf *v = txbuf; v < &txbuf[NQUEUE]; v++) {
-    if(!v->used) {
-      v->used = 1;
-      release(&txbuf_lk);
-      return v->buf;
-    }
-  }
-
-  release(&txbuf_lk);
-  panic("txbuf");
-  return NULL;
-}
-
-static u8 *allocrxbuf() {
-  acquire(&rxbuf_lk);
-  for(struct vbuf *v = rxbuf; v < &rxbuf[NQUEUE]; v++) {
-    if(!v->used) {
-      v->used = 1;
-      release(&rxbuf_lk);
-      return v->buf;
-    }
-  }
-
-  release(&rxbuf_lk);
-  panic("txbuf");
-  return NULL;
-}
-
-static void freetxbuf(struct vbuf *v) {
-  acquire(&txbuf_lk);
-  v->used = 0;
-  memset(v->buf, 0, 8192);
-  release(&txbuf_lk);
-}
-
-static void freerxbuf(struct vbuf *v) {
-  acquire(&rxbuf_lk);
-  v->used = 0;
-  memset(v->buf, 0, 8192);
-  release(&rxbuf_lk);
-}
-
 static void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
   memcpy(buf, dev->cfg->mac, sizeof(u8)*6);
 }
 
 static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 len) {
   struct virtio_net *dev = nic->device;
-  struct virtio_net_hdr *hdr = kalloc();
+  struct virtio_net_hdr *hdr = alloc_page();
 
   hdr->flags = 0;
   hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
@@ -81,7 +28,7 @@ static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 len) {
   hdr->csum_offset = 0;
   hdr->num_buffers = 0;
 
-  u8 *body = kalloc();
+  u8 *body = alloc_pages(1);
   memcpy(body, buf, len);
 
   /* hdr */
@@ -121,7 +68,7 @@ static void fill_recv_queue(struct virtq *rxq) {
     rxq->desc[d0].len = sizeof(struct virtio_net_hdr);
     rxq->desc[d0].flags = VIRTQ_DESC_F_WRITE | VIRTQ_DESC_F_NEXT;
     rxq->desc[d0].next = d1;
-    rxq->desc[d1].addr = (u64)allocrxbuf();
+    rxq->desc[d1].addr = (u64)alloc_pages(1);
     rxq->desc[d1].len = 8192;
     rxq->desc[d1].flags = VIRTQ_DESC_F_WRITE;
     rxq->avail->ring[rxq->avail->idx] = d0;
@@ -152,12 +99,11 @@ static void txintr(struct nic *nic, u16 idx) {
   u16 d1 = dev->tx->desc[d0].next;
   struct virtio_net_hdr *h = (struct virtio_net_hdr *)dev->tx->desc[d0].addr;
   u8 *buf = (u8 *)dev->tx->desc[d1].addr;
-  bin_dump(h, 12);
   bin_dump(buf, 64);
   vmm_log("txintrrrrrrrrrrrrrr\n");
 
-  // freetxbuf(buf_vbuf_ptr(buf));
-  kfree(buf);
+  free_page(h);
+  free_pages(buf, 1);
 
   virtq_free_desc(dev->tx, d0);
   virtq_free_desc(dev->tx, d1);

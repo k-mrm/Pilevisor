@@ -2,7 +2,7 @@
 #include "net.h"
 #include "mm.h"
 #include "lib.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "log.h"
 #include "msg.h"
 
@@ -22,7 +22,7 @@ int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len) {
 }
 
 int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet) {
-  struct etherframe *eth = kalloc();
+  struct etherframe *eth = alloc_page();
   memcpy(eth->dst, dst_mac, 6);
   memcpy(eth->src, nic->mac, 6);
   eth->type = type;
@@ -32,7 +32,7 @@ int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet)
 
   nic->xmit(nic, (u8 *)eth, packet->len);
 
-  kfree(eth);
+  free_page(eth);
 
   return 0;
 }

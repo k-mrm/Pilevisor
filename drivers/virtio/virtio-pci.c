@@ -1,7 +1,7 @@
 #include "pci.h"
 #include "virtio-pci.h"
 #include "log.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "lib.h"
 
 static void virtio_pci_notify_queue(struct virtio_pci_dev *vdev, int queue) {

@@ -2,7 +2,7 @@
 #include "aarch64.h"
 #include "vsm.h"
 #include "mm.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "log.h"
 #include "lib.h"
 #include "node.h"
@@ -42,7 +42,7 @@ static int vsm_writeback(struct node *node, u64 page_ipa, char *buf) {
 }
 
 int vsm_fetch_pagetable(struct node *node, u64 page_ipa) {
-  char *pgt = kalloc();
+  char *pgt = alloc_page();
   if(!pgt)
     panic("mem");
 
@@ -54,7 +54,7 @@ int vsm_fetch_pagetable(struct node *node, u64 page_ipa) {
 }
 
 int vsm_fetch_and_cache_dummy(struct node *node, u64 page_ipa) {
-  char *page = kalloc();
+  char *page = alloc_page();
   if(!page)
     panic("mem");
 
@@ -98,7 +98,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   /* FIXME */
   /* access remote memory */
   if(0x40000000+128*1024*1024 <= ipa && ipa <= 0x40000000+128*1024*1024+128*1024*1024) {
-    tmp = kalloc();
+    tmp = alloc_page();
     u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
     u64 pa = vsm_fetch_page_dummy(node, 1, page_ipa, tmp);
 
@@ -118,7 +118,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
     return -1;
   }
 
-  kfree(tmp);
+  free_page(tmp);
 
   return 0;
 }
@@ -128,10 +128,10 @@ void vsm_init(struct node *node) {
     u64 start = 0x40000000 + 128*1024*1024;
     u64 p;
 
-    node->vsm.dummypgt = kalloc();
+    node->vsm.dummypgt = alloc_page();
 
     for(p = 0; p < 128*1024*1024; p += PAGESIZE) {
-      char *page = kalloc();
+      char *page = alloc_page();
       if(!page)
         panic("ram");
 
@@ -146,7 +146,7 @@ void vsm_init(struct node *node) {
   /*
   u64 start = 0x40000000+128*1024*1024;
   for(u64 p = 0; p < 128*1024*1024; p += PAGESIZE) {
-    char *page = kalloc();
+    char *page = alloc_page();
     if(!page)
       panic("ram");
 

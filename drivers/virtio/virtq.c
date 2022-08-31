@@ -1,6 +1,6 @@
 #include "types.h"
 #include "log.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
@@ -61,11 +61,11 @@ void virtq_free_desc(struct virtq *vq, u16 n) {
 }
 
 struct virtq *virtq_create() {
-  struct virtq *vq = kalloc();
+  struct virtq *vq = alloc_page();
 
-  vq->desc = kalloc();
-  vq->avail = kalloc();
-  vq->used = kalloc();
+  vq->desc = alloc_page();
+  vq->avail = alloc_page();
+  vq->used = alloc_page();
   vmm_log("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
 
   vq->nfree = NQUEUE;

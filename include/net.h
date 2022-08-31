@@ -4,6 +4,7 @@
 #include "types.h"
 
 struct packet {
+  int used;
   void *data;
   int len;
   struct packet *next;
@@ -11,6 +12,9 @@ struct packet {
 
 #define foreach_packet(pk, pkhead)  \
   for((pk) = (pkhead); (pk); (pk) = (pk)->next)
+
+struct packet *allocpacket(void);
+void freepacket(struct packet *packet);
 
 struct nic;
 struct nic {

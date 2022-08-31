@@ -1,7 +1,7 @@
 #include "types.h"
 #include "vcpu.h"
 #include "mm.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "lib.h"
 #include "memmap.h"
 #include "printf.h"
@@ -26,7 +26,7 @@ void pagetrap(struct node *node, u64 ipa, u64 size,
 }
 
 void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc) {
-  u64 *vttbr = kalloc();
+  u64 *vttbr = alloc_page();
   if(!vttbr)
     panic("vttbr");
 

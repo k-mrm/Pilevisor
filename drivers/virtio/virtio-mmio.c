@@ -1,7 +1,7 @@
 #include "types.h"
 #include "log.h"
 #include "memmap.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"

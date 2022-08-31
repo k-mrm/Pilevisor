@@ -5,7 +5,7 @@
 #include "param.h"
 #include "vcpu.h"
 #include "mmio.h"
-#include "kalloc.h"
+#include "allocpage.h"
 #include "lib.h"
 #include "node.h"
 
@@ -577,7 +577,7 @@ static void load_new_vgic(void) {
   vgic->spi_max = gic_max_spi();
   vgic->nspis = vgic->spi_max - 31;
   vgic->ctlr = 0;
-  vgic->spis = (struct vgic_irq *)kalloc();
+  vgic->spis = (struct vgic_irq *)alloc_page();
   if(!vgic->spis)
     panic("nomem");
 
