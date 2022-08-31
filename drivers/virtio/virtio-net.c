@@ -48,8 +48,6 @@ static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 len) {
 
   dev->tx->desc[d0].next = d1;
 
-  printf("d0 %d d1 %d\n", d0, d1);
-
   dev->tx->avail->ring[dev->tx->avail->idx % NQUEUE] = d0;
   dsb(sy);
   dev->tx->avail->idx += 1;

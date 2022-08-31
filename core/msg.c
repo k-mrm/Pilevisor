@@ -44,9 +44,7 @@ static void send_msg_core(struct msg *msg, void *body, u32 len) {
 
   u16 type = (msg->type << 8) | 0x19;
 
-  len += sizeof(struct etherframe);
-  len = max(64, len);
-
+  // printf("packet %p %d\n", body, len);
   struct packet pk;
   pk.data = body;
   pk.len = len;

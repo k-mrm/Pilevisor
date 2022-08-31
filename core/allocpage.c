@@ -5,6 +5,7 @@
 #include "memmap.h"
 #include "lib.h"
 #include "param.h"
+#include "allocpage.h"
 
 #define MAX_ORDER   10
 
