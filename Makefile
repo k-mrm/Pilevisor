@@ -85,9 +85,11 @@ poc-sub-vsm: $(SUBOBJS) $(S)/memory.ld guest/vsmtest.img
 dev-main: poc-main
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
+	sudo ifconfig br4poc mtu 4500 || true
 	sudo ip tuntap add dev tap$(TAP_NUM) mode tap
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
+	sudo ifconfig tap$(TAP_NUM) mtu 4500
 	$(QEMU) $(QEMUOPTS) poc-main -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
 	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
 	sudo ip link set tap$(TAP_NUM) down
@@ -96,9 +98,11 @@ dev-main: poc-main
 dev-sub: poc-sub
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
+	sudo ifconfig br4poc mtu 4500
 	sudo ip tuntap add dev tap$(TAP_NUM) mode tap
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
+	sudo ifconfig tap$(TAP_NUM) mtu 4500
 	$(QEMU) $(QEMUOPTS) poc-sub -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
 	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
 	sudo ip link set tap$(TAP_NUM) down
