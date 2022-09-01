@@ -69,20 +69,23 @@ int vsm_fetch_and_cache_dummy(struct node *node, u64 page_ipa) {
   return 0;
 }
 
-static int vsm_fetch_page(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
+static int vsm_fetch_page(u8 dst_node, u64 page_ipa, char *buf) {
   if(page_ipa % PAGESIZE)
     panic("align error");
-
-  struct vsmctl *vsm = &node->vsm;
 
   vmm_log("request remote fetch!!!!: %p\n", page_ipa);
 
   /* send read request */
+  /*
   struct read_req rreq;
   read_req_init(&rreq, dst_node, page_ipa);
   msg_send(rreq);
+  */
 
   intr_enable();
+
+  for(;;)
+    wfi();
   
   return 0;
 }
@@ -100,7 +103,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   if(0x40000000+128*1024*1024 <= ipa && ipa <= 0x40000000+128*1024*1024+128*1024*1024) {
     tmp = alloc_page();
     u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
-    u64 pa = vsm_fetch_page_dummy(node, 1, page_ipa, tmp);
+    u64 pa = vsm_fetch_page(1, page_ipa, tmp);
 
     u32 offset = ipa & (PAGESIZE-1);
 
@@ -123,33 +126,19 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   return 0;
 }
 
-void vsm_init(struct node *node) {
-  if(node->nodeid == 0) {
-    u64 start = 0x40000000 + 128*1024*1024;
-    u64 p;
+  /* now Node 1 only */
+void vsm_node_init() {
+  u64 *vttbr = localnode.vttbr;
+  u64 start = 0x40000000 + 128*1024*1024;
+  u64 p;
 
-    node->vsm.dummypgt = alloc_page();
-
-    for(p = 0; p < 128*1024*1024; p += PAGESIZE) {
-      char *page = alloc_page();
-      if(!page)
-        panic("ram");
-
-      pagemap(node->vsm.dummypgt, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-    }
-
-    vmm_log("dummy Node1 mapped [%p - %p]\n", start, start + p);
-  }
-
-  return;
-
-  /*
-  u64 start = 0x40000000+128*1024*1024;
-  for(u64 p = 0; p < 128*1024*1024; p += PAGESIZE) {
+  for(p = 0; p < localnode.nalloc; p += PAGESIZE) {
     char *page = alloc_page();
     if(!page)
       panic("ram");
 
-    pagemap(node->vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-  } */
+    pagemap(vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  }
+
+  vmm_log("Node 1 mapped: [%p - %p]\n", start, start+p);
 }

@@ -56,6 +56,7 @@ u16 virtq_alloc_desc(struct virtq *vq) {
 
 void virtq_free_desc(struct virtq *vq, u16 n) {
   vq->desc[n].next = vq->free_head;
+  vq->desc[n].flags = VIRTQ_DESC_F_NEXT;
   vq->free_head = n;
   vq->nfree++;  /* TODO: chain? */
 }

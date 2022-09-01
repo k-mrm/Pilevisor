@@ -19,8 +19,8 @@ struct vsmctl {
   u8 finished;
 };
 
-void vsm_init(struct node *node);
 int vsm_fetch_pagetable(struct node *node, u64 page_ipa);
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr);
+void vsm_node_init(void);
 
 #endif

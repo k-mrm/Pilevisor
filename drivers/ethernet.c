@@ -27,7 +27,6 @@ void ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet
   memcpy(eth->dst, dst_mac, 6);
   memcpy(eth->src, nic->mac, 6);
   eth->type = type;
-  printf("ttttttttttt dst %m src %m %p %p %d\n", eth->dst, eth->src, type, packet->data, packet->len);
   /* FIXME: unnecessary copy */
   struct packet *p;
   u32 len = 0;
@@ -37,6 +36,7 @@ void ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet
   }
 
   len = max(ETHER_PACKET_LENGTH_MIN, len + sizeof(struct etherframe));
+  printf("tttttttt dst %m src %m %p %p %d\n", eth->dst, eth->src, type, packet->data, len);
   nic->ops->xmit(nic, eth, len);
 
   free_pages(eth, 1);

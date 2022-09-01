@@ -97,6 +97,9 @@ static void node0_start() {
     wfi();
 
   vmm_log("node1 ok\n");
+  node0_init_broadcast();
+  node0_init_broadcast();
+  node0_init_broadcast();
 
   enter_vcpu();
 }
