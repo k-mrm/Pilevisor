@@ -98,8 +98,7 @@ void recv_read_request_intr(struct recv_msg *recvmsg) {
 }
 
 void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa) {
-  // rmsg->msg.type = MSG_READ;
-  rmsg->msg.type = 0x1;
+  rmsg->msg.type = MSG_READ;
   remote_macaddr(dst, rmsg->msg.dst_mac);
   rmsg->msg.send = send_read_request;
   rmsg->body.ipa = ipa;

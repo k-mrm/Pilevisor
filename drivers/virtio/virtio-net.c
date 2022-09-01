@@ -32,7 +32,6 @@ static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
   u8 *body = alloc_pages(1);
   memcpy(body, buf, len);
   
-  bin_dump(hdr, sizeof(struct virtio_net_hdr));
   bin_dump(body, len);
 
   /* hdr */
@@ -44,8 +43,6 @@ static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
 
   /* body */
   u16 d1 = virtq_alloc_desc(dev->tx);
-
-  printf("hdr %p body %p d0 %d d1 %d\n", hdr, body, d0, d1);
 
   dev->tx->desc[d1].len = len;
   dev->tx->desc[d1].addr = (u64)body;
@@ -102,8 +99,6 @@ static void txintr(struct nic *nic, u16 idx) {
   u16 d1 = dev->tx->desc[d0].next;
   struct virtio_net_hdr *h = (struct virtio_net_hdr *)dev->tx->desc[d0].addr;
   u8 *buf = (u8 *)dev->tx->desc[d1].addr;
-  bin_dump(buf, 64);
-  vmm_log("txintrrrrrrrrrrrrrr d0 %d d1 %d %p %p\n", d0, d1, h, buf);
 
   free_page(h);
   free_pages(buf, 1);
