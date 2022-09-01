@@ -20,6 +20,9 @@ void node0_msg_recv_intr(struct recv_msg *recvmsg) {
     case MSG_READ:
       recv_read_request_intr(recvmsg);
       break;
+    case MSG_READ_REPLY:
+      recv_read_reply_intr(recvmsg);
+      break;
     case MSG_INVALID_SNOOP:
       panic("msg-invalid-snoop");
       break;

@@ -15,44 +15,49 @@ struct header {
 
 extern char vmm_end[];
 
-struct freepage {
+struct free_chunk {
   spinlock_t lock; 
   struct header *freelist;
 };
 
-static struct freepage freepages[MAX_ORDER];
+static struct free_chunk free_chunks[MAX_ORDER];
 
 static void *__alloc_pages(int order);
 
-static void buddy_request(int order) {
+static void *buddy_request_page(int order) {
   if(order == MAX_ORDER-1)
-    return;
+    return NULL;
 
   void *large_page = __alloc_pages(order + 1);
   if(!large_page) {
-    buddy_request(order + 1);
-    large_page = __alloc_pages(order + 1);    /* retry */
+    large_page = buddy_request_page(order + 1);
+    if(!large_page)
+      return NULL;
   }
 
   u64 split_offset = PAGESIZE << order;
   free_pages(large_page, order);
-  free_pages((char *)large_page + split_offset, order);
+
+  return (char *)large_page + split_offset;
 }
 
 static void *__alloc_pages(int order) {
-  struct freepage *f = &freepages[order];
+  struct free_chunk *f = &free_chunks[order];
 
   struct header *new = f->freelist;
-  if(!new) {
-    buddy_request(order);
-    new = f->freelist;
-    if(!new)
-      return NULL;
-  }
+  if(new)
+    goto get_from_freelist;
+  
+  new = buddy_request_page(order);
+  if(new)
+    goto get_pages;
 
+  return NULL;
+
+get_from_freelist:
   f->freelist = new->next;
-  memset((char *)new, 0, PAGESIZE << order);
 
+get_pages:
   return new;
 }
 
@@ -68,7 +73,7 @@ void *alloc_pages(int order) {
 }
 
 static void __free_pages(void *pages, int order) {
-  struct freepage *f = &freepages[order];
+  struct free_chunk *f = &free_chunks[order];
   struct header *fp = (struct header *)pages;
 
   memset(pages, 0, PAGESIZE << order);
@@ -99,7 +104,7 @@ static void buddyinit() {
 }
 
 void pageallocator_init() {
-  for(struct freepage *f = freepages; f < &freepages[MAX_ORDER]; f++) {
+  for(struct free_chunk *f = free_chunks; f < &free_chunks[MAX_ORDER]; f++) {
     spinlock_init(&f->lock);
   }
 

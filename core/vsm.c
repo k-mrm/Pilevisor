@@ -76,11 +76,9 @@ static int vsm_fetch_page(u8 dst_node, u64 page_ipa, char *buf) {
   vmm_log("request remote fetch!!!!: %p\n", page_ipa);
 
   /* send read request */
-  /*
   struct read_req rreq;
   read_req_init(&rreq, dst_node, page_ipa);
   msg_send(rreq);
-  */
 
   intr_enable();
 
