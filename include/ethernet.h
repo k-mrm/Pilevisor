@@ -12,7 +12,9 @@ struct etherframe {
   u8 body[0];
 } __attribute__((packed));
 
-int ethernet_recv_intr(struct nic *nic, struct etherframe *eth, u32 len);
-int ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet);
+void ethernet_recv_intr(struct nic *nic, void *data, u64 len);
+void ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet);
+
+#define ETHER_PACKET_LENGTH_MIN    64
 
 #endif

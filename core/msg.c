@@ -8,6 +8,10 @@
 #include "msg.h"
 #include "lib.h"
 
+static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+static int read_reply_send(u8 *dst_mac, u64 ipa, void *page);
+
 void msg_recv_intr(struct etherframe *eth, u64 len) {
   enum msgtype m = (eth->type >> 8) & 0xff;
   struct recv_msg msg;
@@ -20,50 +24,27 @@ void msg_recv_intr(struct etherframe *eth, u64 len) {
   localnode.ctl->msg_recv_intr(&msg);
 }
 
-static void send_msg_core(struct msg *msg, void *body, u32 len) {
-  /* dst mac address */
-  static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-  u8 mac_buf[6];
-  u8 *mac = NULL;
-
-  if(msg->dst_bits == 0xff) { /* broadcast */
-    mac = broadcast_mac;
-  } else {
-    /* TODO: multicast? */
-    u8 bits = msg->dst_bits;
-    for(int i = 0; bits != 0; bits = bits >> 1, i++) {
-      if(bits & 1) {
-        memcpy(mac_buf, localnode.remotes[i].mac, sizeof(u8)*6);
-        mac = mac_buf;
-        break;
-      }
-    }
-    if(!mac)
-      panic("invalid");
-  }
-
+static inline void send_msg_core(struct msg *msg, struct packet *pk) {
   u16 type = (msg->type << 8) | 0x19;
 
-  // printf("packet %p %d\n", body, len);
-  struct packet pk;
-  pk.data = body;
-  pk.len = len;
-
-  ethernet_xmit(localnode.nic, mac, type, &pk);
+  ethernet_xmit(localnode.nic, msg->dst_mac, type, pk);
 }
 
 static int send_init_request(struct msg *msg) {
   struct init_req *req = (struct init_req *)msg;
   printf("send_init_request");
 
-  send_msg_core(msg, &req->body, sizeof(req->body));
+  struct packet pk;
+  packet_init(&pk, &req->body, sizeof(req->body));
+
+  send_msg_core(msg, &pk);
 
   return 0;
 }
 
 void init_req_init(struct init_req *req, u8 *mac) {
   req->msg.type = MSG_INIT;
-  req->msg.dst_bits = 0xff;
+  memcpy(req->msg.dst_mac, broadcast_mac, 6);
   req->msg.send = send_init_request;
 
   memcpy(req->body.me_mac, mac, 6);
@@ -73,14 +54,17 @@ static int send_init_reply(struct msg *msg) {
   struct init_reply *rep = (struct init_reply *)msg;
   vmm_log("send_init_reply\n");
 
-  send_msg_core(msg, &rep->body, sizeof(rep->body));
+  struct packet pk;
+  packet_init(&pk, &rep->body, sizeof(rep->body));
+
+  send_msg_core(msg, &pk);
 
   return 0;
 }
 
 void init_reply_init(struct init_reply *rep, u8 *mac, u64 allocated) {
   rep->msg.type = MSG_INIT_REPLY;
-  rep->msg.dst_bits = (1 << 0);   /* send to Node 0 */
+  remote_macaddr(0, rep->msg.dst_mac);
   rep->msg.send = send_init_reply;
 
   memcpy(rep->body.me_mac, mac, 6);
@@ -88,72 +72,57 @@ void init_reply_init(struct init_reply *rep, u8 *mac, u64 allocated) {
 }
 
 static int send_read_request(struct msg *msg) {
-  /*
-  struct read_msg *rmsg = (struct read_msg *)msg;
+  struct read_req *req = (struct read_req *)msg;
   vmm_log("send read request\n");
 
-  u8 buf[64] = {0};
-  u8 *body = msg_pack_eth_header(node, msg, buf);
-  memcpy(body, &rmsg->ipa, sizeof(rmsg->ipa));
+  struct packet pk;
+  packet_init(&pk, &req->body, sizeof(req->body));
 
-  node->nic->xmit(node->nic, buf, 64);
-  */
+  send_msg_core(msg, &pk);
 
   return 0;
 }
 
-void recv_read_request_intr(struct recv_msg *msg) {
+void recv_read_request_intr(struct recv_msg *recvmsg) {
   vmm_log("recv read request\n");
 
-  struct __read_req *rd = (struct __read_req *)msg->body;
+  struct __read_req *rd = (struct __read_req *)recvmsg->body;
 
   /* TODO: use at instruction */
   u64 pa = ipa2pa(localnode.vttbr, rd->ipa);
 
-  vmm_log("ipa: read @%p\n", rd->ipa);
+  vmm_log("ipa: read @%p -> pa %p\n", rd->ipa, pa);
 
   /* send read reply */
-  struct read_reply reply;
-  read_reply_init(&reply, 0, (u8 *)pa);
-  msg_send(reply);
+  read_reply_send(recvmsg->src_mac, rd->ipa, (void *)pa);
 }
 
 void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa) {
   rmsg->msg.type = MSG_READ;
-  rmsg->msg.dst_bits = 1 << dst;
+  remote_macaddr(dst, rmsg->msg.dst_mac);
   rmsg->msg.send = send_read_request;
   rmsg->body.ipa = ipa;
 }
 
-int recv_read_reply_intr(struct recv_msg *recvmsg) {
-  /*
-  struct vsmctl *vsm = &node->vsm;
-
-  u8 *body = buf + 14;
-  memcpy(vsm->readbuf, body, 1024);
-  vsm->finished = 1;
-  */
-  return -1;
+void recv_read_reply_intr(struct recv_msg *recvmsg) {
+  struct __read_reply *rep = (struct __read_reply *)recvmsg->body;
+  vmm_log("remote @%p", rep->ipa);
+  bin_dump(rep->page, 4096);
 }
 
-static int send_read_reply(struct msg *msg) {
-  /*
-  struct read_reply *rmsg = (struct read_reply *)msg;
+static int read_reply_send(u8 *dst_mac, u64 ipa, void *page) {
+  struct msg msg;
+  msg.type = MSG_READ_REPLY;
+  memcpy(msg.dst_mac, dst_mac, 6);
+  struct packet p_ipa;
+  packet_init(&p_ipa, &ipa, sizeof(ipa));
+  struct packet p_page;
+  packet_init(&p_page, page, 4096);
+  p_ipa.next = &p_page;
 
-  vmm_log("send read reply\n", rmsg->page);
-
-  u8 buf[1088] = {0};
-  u8 *body = msg_pack_eth_header(node, msg, buf);
-  memcpy(body, rmsg->page, 1024);
-
-  node->nic->xmit(node->nic, buf, 1088);
-  */
+  send_msg_core(&msg, &p_ipa);
 
   return 0;
-}
-
-void read_reply_init(struct read_reply *rmsg, u8 dst, u8 *page) {
-  ;
 }
 
 void msg_sysinit() {

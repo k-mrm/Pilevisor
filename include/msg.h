@@ -22,15 +22,14 @@ enum msgtype {
 struct recv_msg {
   enum msgtype type;
   u8 *src_mac;
-  u8 *body;
+  void *body;
   u32 len;
   void *data;   /* ethernet frame */
 };
 
 struct msg {
   enum msgtype type;
-  /* destination node id */
-  u8 dst_bits;
+  u8 dst_mac[6];
 
   int (*send)(struct msg *);
 };
@@ -103,7 +102,6 @@ struct read_reply {
 };
 
 void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa);
-void read_reply_init(struct read_reply *rmsg, u8 dst, u8 *page);
 
 struct invalid_snoop_msg {
   struct msg msg;

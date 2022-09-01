@@ -1,5 +1,8 @@
 #include "net.h"
 #include "spinlock.h"
+#include "ethernet.h"
+
+static struct nic netdev;
 
 static struct packet packets[256];
 static spinlock_t plock;
@@ -24,4 +27,19 @@ void freepacket(struct packet *packet) {
     memset(p, 0, sizeof(*p));
   }
   release(&plock);
+}
+
+void net_init(char *name, u8 *mac, int irq, void *dev, struct nic_ops *ops) {
+  if(localnode.nic)
+    vmm_warn("net: already initialized");
+
+  netdev.name = name;
+  memcpy(netdev.mac, mac, 6);
+  netdev.irq = irq;
+  netdev.device = dev;
+  netdev.ops = ops;
+
+  netdev.ops->set_recv_intr_callback(&netdev, ethernet_recv_intr);
+
+  localnode.nic = &netdev;
 }

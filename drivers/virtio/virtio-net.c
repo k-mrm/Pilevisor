@@ -12,13 +12,14 @@
 
 struct virtio_net vtnet_dev;
 
-static void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
+static inline void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
   memcpy(buf, dev->cfg->mac, sizeof(u8)*6);
 }
 
-static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 len) {
+static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
   struct virtio_net *dev = nic->device;
   struct virtio_net_hdr *hdr = alloc_page();
+  u8 *buf = (u8 *)data;
 
   hdr->flags = 0;
   hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
@@ -32,7 +33,6 @@ static void virtio_net_xmit(struct nic *nic, u8 *buf, u64 len) {
   memcpy(body, buf, len);
 
   /* hdr */
-  bin_dump(hdr, 12);
   u16 d0 = virtq_alloc_desc(dev->tx);
 
   dev->tx->desc[d0].len = sizeof(struct virtio_net_hdr);
@@ -82,8 +82,8 @@ static void rxintr(struct nic *nic, u16 idx) {
   u16 d1 = dev->rx->desc[d0].next;
   u32 len = dev->rx->used->ring[idx].len;
 
-  struct etherframe *eth = (struct etherframe *)dev->rx->desc[d1].addr;
-  ethernet_recv_intr(nic, eth, len - sizeof(struct virtio_net_hdr));
+  if(nic->ops->recv_intr_callback)
+    nic->ops->recv_intr_callback(nic, (void *)dev->rx->desc[d1].addr, len - sizeof(struct virtio_net_hdr));
 
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d0;
   dsb(sy);
@@ -127,13 +127,17 @@ void virtio_net_intr() {
   }
 }
 
-static struct nic netdev = {
+static void virtio_net_set_recv_intr_callback(struct nic *nic, 
+                                              void (*cb)(struct nic *, void *, u64)) {
+  nic->ops->recv_intr_callback = cb;
+}
+
+static struct nic_ops virtio_net_ops = {
   .xmit = virtio_net_xmit,
+  .set_recv_intr_callback = virtio_net_set_recv_intr_callback,
 };
 
 int virtio_net_init(void *base, int intid) {
-  struct nic *nic = &netdev;
-
   vmm_log("virtio_net_init\n");
 
   vtnet_dev.base = base;
@@ -189,12 +193,10 @@ int virtio_net_init(void *base, int intid) {
 
   printf("virtio-net ready %p\n", status);
 
-  virtio_net_get_mac(&vtnet_dev, nic->mac);
-  nic->device = &vtnet_dev;
-  nic->irq = intid;
-  nic->name = "virtio-net";
+  u8 mac[6] = {0};
+  virtio_net_get_mac(&vtnet_dev, mac);
 
-  localnode.nic = &netdev;
+  net_init("virtio-net", mac, intid, &vtnet_dev, &virtio_net_ops);
 
   return 0;
 }
