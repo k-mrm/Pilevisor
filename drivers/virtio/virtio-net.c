@@ -32,8 +32,6 @@ static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
   u8 *body = alloc_pages(1);
   memcpy(body, buf, len);
   
-  bin_dump(body, len);
-
   /* hdr */
   u16 d0 = virtq_alloc_desc(dev->tx);
 

@@ -42,4 +42,6 @@ void net_init(char *name, u8 *mac, int irq, void *dev, struct nic_ops *ops) {
   netdev.ops->set_recv_intr_callback(&netdev, ethernet_recv_intr);
 
   localnode.nic = &netdev;
+
+  vmm_log("found nic: %s %m @%p\n", name, mac, &netdev);
 }

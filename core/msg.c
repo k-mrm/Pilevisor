@@ -106,8 +106,7 @@ void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa) {
 
 void recv_read_reply_intr(struct recv_msg *recvmsg) {
   struct __read_reply *rep = (struct __read_reply *)recvmsg->body;
-  vmm_log("remote @%p\n", rep->ipa);
-  bin_dump(rep->page, 1024);
+  vmm_log("recv remote @%p\n", rep->ipa);
 
   vsm_set_cache(rep->ipa, rep->page);
 }

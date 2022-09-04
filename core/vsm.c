@@ -9,6 +9,8 @@
 #include "vcpu.h"
 #include "msg.h"
 
+static bool ready = false;
+
 /* virtual shared memory */
 
 static u64 vsm_fetch_page_dummy(struct node *node, u8 dst_node, u64 page_ipa, char *buf) {
@@ -81,9 +83,13 @@ static void *vsm_fetch_page(u8 dst_node, u64 page_ipa, bool wr) {
   read_req_init(&rreq, dst_node, page_ipa);
   msg_send(rreq);
 
+  intr_enable();
+
   u64 pa;
   while(!(pa = ipa2pa(vttbr, page_ipa)))
     wfi();
+
+  vmm_log("got page %p\n", pa);
   
   return (void *)pa;
 }
@@ -130,7 +136,9 @@ void vsm_set_cache(u64 ipa, u8 *page) {
 
   memcpy(c, page, PAGESIZE);
 
-  pagemap(vttbr, ipa, (u64)c, PAGESIZE, S2PTE_NORMAL|S2PTE_RO|S2PTE_DBM);
+  vmm_log("vsm: cache @%p\n", ipa);
+
+  pagemap(vttbr, ipa, (u64)c, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
 }
 
 /* now Node 1 only */
@@ -148,4 +156,6 @@ void vsm_node_init() {
   }
 
   vmm_log("Node 1 mapped: [%p - %p]\n", start, start+p);
+
+  ready = true;
 }
