@@ -91,7 +91,7 @@ void recv_read_request_intr(struct recv_msg *recvmsg) {
   /* TODO: use at instruction */
   u64 pa = ipa2pa(localnode.vttbr, rd->ipa);
 
-  vmm_log("ipa: read @%p -> pa %p\n", rd->ipa, pa);
+  vmm_log("read ipa @%p -> pa %p\n", rd->ipa, pa);
 
   /* send read reply */
   read_reply_send(recvmsg->src_mac, rd->ipa, (void *)pa);
@@ -106,8 +106,10 @@ void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa) {
 
 void recv_read_reply_intr(struct recv_msg *recvmsg) {
   struct __read_reply *rep = (struct __read_reply *)recvmsg->body;
-  vmm_log("remote @%p", rep->ipa);
+  vmm_log("remote @%p\n", rep->ipa);
   bin_dump(rep->page, 1024);
+
+  vsm_set_cache(rep->ipa, rep->page);
 }
 
 static int read_reply_send(u8 *dst_mac, u64 ipa, void *page) {

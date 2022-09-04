@@ -8,13 +8,13 @@
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len);
 
-u64 *pagewalk(u64 *pgt, u64 va, int alloc) {
+u64 *pagewalk(u64 *pgt, u64 va, int create) {
   for(int level = 0; level < 3; level++) {
     u64 *pte = &pgt[PIDX(level, va)];
 
     if((*pte & PTE_VALID) && (*pte & PTE_TABLE)) {
       pgt = (u64 *)PTE_PA(*pte);
-    } else if(alloc) {
+    } else if(create) {
       pgt = alloc_page();
       if(!pgt)
         panic("nomem");
@@ -219,7 +219,7 @@ void s2mmu_init(void) {
   u64 mmf = read_sysreg(id_aa64mmfr0_el1);
   printf("id_aa64mmfr0_el1.parange = %p\n", mmf & 0xf);
 
-  u64 vtcr = VTCR_T0SZ(20) | VTCR_SH0(0) | VTCR_SL0(2) |
+  u64 vtcr = VTCR_T0SZ(20) | VTCR_SH0(0) | VTCR_SL0(2) | VTCR_HA | VTCR_HD |
              VTCR_TG0(0) | VTCR_NSW | VTCR_NSA | VTCR_PS(4);
   write_sysreg(vtcr_el2, vtcr);
 

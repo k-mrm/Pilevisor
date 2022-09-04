@@ -69,10 +69,11 @@ int vsm_fetch_and_cache_dummy(struct node *node, u64 page_ipa) {
   return 0;
 }
 
-static int vsm_fetch_page(u8 dst_node, u64 page_ipa, char *buf) {
+static void *vsm_fetch_page(u8 dst_node, u64 page_ipa, bool wr) {
   if(page_ipa % PAGESIZE)
     panic("align error");
 
+  u64 *vttbr = localnode.vttbr;
   vmm_log("request remote fetch!!!!: %p\n", page_ipa);
 
   /* send read request */
@@ -80,16 +81,14 @@ static int vsm_fetch_page(u8 dst_node, u64 page_ipa, char *buf) {
   read_req_init(&rreq, dst_node, page_ipa);
   msg_send(rreq);
 
-  intr_enable();
-
-  for(;;)
+  u64 pa;
+  while(!(pa = ipa2pa(vttbr, page_ipa)))
     wfi();
   
-  return 0;
+  return (void *)pa;
 }
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
-  char *tmp;
   struct node *node = &localnode;
   int zerofill = !buf;
 
@@ -99,32 +98,42 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   /* FIXME */
   /* access remote memory */
   if(0x40000000+128*1024*1024 <= ipa && ipa <= 0x40000000+128*1024*1024+128*1024*1024) {
-    tmp = alloc_page();
     u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
-    u64 pa = vsm_fetch_page(1, page_ipa, tmp);
+    char *pa_page = vsm_fetch_page(1, page_ipa, wr);
 
     u32 offset = ipa & (PAGESIZE-1);
 
     if(wr) {
       if(zerofill)
-        memset(tmp+offset, 0, size);
+        memset(pa_page+offset, 0, size);
       else
-        memcpy(tmp+offset, buf, size);
-
-      vsm_writeback(node, page_ipa, tmp);
+        memcpy(pa_page+offset, buf, size);
     } else {
-      memcpy(buf, tmp+offset, size);
+      memcpy(buf, pa_page+offset, size);
     }
   } else {
     return -1;
   }
 
-  free_page(tmp);
-
   return 0;
 }
 
-  /* now Node 1 only */
+void vsm_set_cache(u64 ipa, u8 *page) {
+  u64 *vttbr = localnode.vttbr;
+
+  if(!PAGE_ALIGNED(ipa))
+    panic("ipa align");
+
+  void *c = alloc_page();
+  if(!c)
+    panic("cache");
+
+  memcpy(c, page, PAGESIZE);
+
+  pagemap(vttbr, ipa, (u64)c, PAGESIZE, S2PTE_NORMAL|S2PTE_RO|S2PTE_DBM);
+}
+
+/* now Node 1 only */
 void vsm_node_init() {
   u64 *vttbr = localnode.vttbr;
   u64 start = 0x40000000 + 128*1024*1024;

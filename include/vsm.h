@@ -8,19 +8,23 @@
 struct vcpu;
 struct node;
 
+#define CACHE_PAGE_NUM    64
+
+struct page_cache {
+
+};
+
 struct vsmctl {
   struct node_vrange local;
   struct node_vrange remotes[NODE_MAX];
 
-  u64 *dummypgt;
-  
-  /* read request/reply buffer */
-  char *readbuf;
-  u8 finished;
+  u64 *dummypgt;  /* for debug */
 };
 
 int vsm_fetch_pagetable(struct node *node, u64 page_ipa);
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr);
+void vsm_set_cache(u64 ipa, u8 *page);
+void vsm_init(void);
 void vsm_node_init(void);
 
 #endif

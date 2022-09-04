@@ -26,6 +26,8 @@
 #define VTCR_SH0(n)   (((n) & 0x3) << 12)
 #define VTCR_TG0(n)   (((n) & 0x3) << 14)
 #define VTCR_PS(n)    (((n) & 0x7) << 16)
+#define VTCR_HA       (1 << 21)
+#define VTCR_HD       (1 << 22)
 #define VTCR_NSW      (1 << 29)
 #define VTCR_NSA      (1 << 30)
 
@@ -73,8 +75,12 @@
 #define S2PTE_NORMAL      S2PTE_ATTR(AI_NORMAL_NC_IDX)
 #define S2PTE_DEVICE      S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
 
-#define PAGESIZE    4096  /* 4KB */
+#define S2PTE_DBM         (1UL << 51)
 
+#define PAGESIZE          4096  /* 4KB */
+
+#define PAGE_ALIGN(p)     ((u64)(p) & ~(PAGESIZE-1))
+#define PAGE_ALIGNED(p)   ((u64)(p) % PAGESIZE == 0)
 #define PAGEROUNDDOWN(p)  ((u64)(p) & ~(PAGESIZE-1))
 #define PAGEROUNDUP(p)    (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
 #define PAGEOFFSET(p)     ((u64)(p) & (PAGESIZE-1))
@@ -115,5 +121,10 @@ void alloc_guestmem(u64 *pgt, u64 ipa, u64 size);
 void dump_par_el1(void);
 
 u64 faulting_ipa_page(void);
+
+static inline bool page_is_accessible(u64 *vttbr, u64 ipa) {
+  u64 *pte = pagewalk(vttbr, ipa, 0);
+  return !!(*pte & S2PTE_AF);
+}
 
 #endif
