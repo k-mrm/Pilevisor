@@ -2,7 +2,6 @@
 #define NET_H
 
 #include "types.h"
-#include "node.h"
 
 struct packet {
   int used;
@@ -24,7 +23,6 @@ struct packet *allocpacket(void);
 void freepacket(struct packet *packet);
 
 struct nic;
-
 struct nic_ops {
   void (*xmit)(struct nic *, void *, u64);
   void (*set_recv_intr_callback)(struct nic *, void (*cb)(struct nic *, void *, u64));

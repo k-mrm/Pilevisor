@@ -11,19 +11,12 @@
 
 /* main node (node0) controller */
 
-static int node0_init_broadcast() {
-  struct init_req req;
-  init_req_init(&req, localnode.nic->mac);
-
-  msg_send(req);
-
-  return 0;
-}
-
 void node0_register_remote(u8 *remote_mac) {
   u8 idx = ++localnode.nremotes;
   if(idx >= NODE_MAX) 
     panic("remote node");
+
+  vmm_log("Node %d macaddr %m\n", idx, remote_mac);
 
   struct rnode_desc *rnode = &localnode.remotes[idx];
 
@@ -89,15 +82,12 @@ static void node0_initvcpu() {
 static void node0_start() {
   vmm_log("node0: start\n");
 
-  node0_init_broadcast();
-
+  send_init_broadcast();
   intr_enable();
 
   // TODO: now Node 1 only
-  while(!localnode.remotes[1].enabled)
+  while(!localnode.remotes[1].online)
     wfi();
-
-  vmm_log("node1 ok\n");
 
   enter_vcpu();
 }

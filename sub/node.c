@@ -36,7 +36,7 @@ static void sub_init() {
 
   vmm_log("node0 OK %m\n", localnode.remotes[0].mac);
 
-  sub_init_done();
+  send_setup_done_notify(0);
 }
 
 static void sub_initvcpu() {

@@ -6,9 +6,7 @@
 #include "log.h"
 #include "msg.h"
 
-/* Ethernet II */
-
-static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 void ethernet_recv_intr(struct nic *nic, void *data, u64 len) {
   struct etherframe *eth = (struct etherframe *)data;
@@ -28,8 +26,8 @@ void ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet
   memcpy(eth->src, nic->mac, 6);
   eth->type = type;
   /* FIXME: unnecessary copy */
-  struct packet *p;
   u32 len = 0;
+  struct packet *p;
   foreach_packet(p, packet) {
     memcpy((char *)eth->body + len, p->data, p->len);
     len += p->len;

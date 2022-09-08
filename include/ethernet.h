@@ -17,4 +17,6 @@ void ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet
 
 #define ETHER_PACKET_LENGTH_MIN    64
 
+extern u8 broadcast_mac[6];
+
 #endif

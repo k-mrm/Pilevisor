@@ -1,6 +1,8 @@
 #include "net.h"
 #include "spinlock.h"
 #include "ethernet.h"
+#include "node.h"
+#include "lib.h"
 
 static struct nic netdev;
 
