@@ -71,6 +71,7 @@ static void initvm() {
 static void node0_init() {
   initmem();
   initvm();
+  node0_msg_init();
 }
 
 static void node0_initvcpu() {
@@ -105,7 +106,6 @@ static struct nodectl node0_ctl = {
   .init = node0_init,
   .initvcpu = node0_initvcpu,
   .start = node0_start,
-  .msg_recv_intr = node0_msg_recv_intr,
 };
 
 void nodectl_init() {

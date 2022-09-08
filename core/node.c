@@ -26,6 +26,8 @@ void pagetrap(struct node *node, u64 ipa, u64 size,
 }
 
 void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc) {
+  vmm_log("node n vCPU: %d total RAM: %p byte\n", nvcpu, nalloc);
+
   u64 *vttbr = alloc_page();
   if(!vttbr)
     panic("vttbr");
@@ -45,6 +47,9 @@ void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc) {
   localnode.vm_desc = vm_desc;
 
   vgic_init();
+
+  msg_sysinit();
+  vsm_init();
 }
 
 void nodedump(struct node *node) {

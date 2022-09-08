@@ -34,7 +34,7 @@ SOBJS = $(patsubst %.c,%.o,$(wildcard $(S)/*.c))
 MAINOBJS = $(COREOBJS) $(DRVOBJS) $(MOBJS)
 SUBOBJS = $(COREOBJS) $(DRVOBJS) $(SOBJS)
 
-QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 512
+QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 256
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic -kernel
 
@@ -52,7 +52,7 @@ MAC_S = $(shell date '+%S')
 %.o: %.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
-#-include: *.d
+-include: *.d
 
 guest/hello.img: guest/hello/Makefile
 	make -C guest/hello

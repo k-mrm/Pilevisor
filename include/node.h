@@ -79,10 +79,10 @@ void pagetrap(struct node *node, u64 va, u64 size,
               int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *));
 
 static inline void remote_macaddr(int nodeid, u8 *buf) {
-  if(localnode.remotes[nodeid].enabled)
+  if(nodeid < NODE_MAX && localnode.remotes[nodeid].enabled)
     memcpy(buf, localnode.remotes[nodeid].mac, 6);
   else
-    panic("uninitialized node");
+    panic("uninitialized node: %d", nodeid);
 }
 
 #endif

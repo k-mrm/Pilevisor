@@ -10,8 +10,6 @@
 
 static u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-static int read_reply_send(u8 *dst_mac, u64 ipa, void *page);
-
 void msg_recv_intr(struct etherframe *eth, u64 len) {
   enum msgtype m = (eth->type >> 8) & 0xff;
   struct recv_msg msg;
@@ -19,9 +17,20 @@ void msg_recv_intr(struct etherframe *eth, u64 len) {
   msg.src_mac = eth->src;
   msg.body = eth->body;
   msg.len = len;
-  msg.data = eth;
 
-  localnode.ctl->msg_recv_intr(&msg);
+  if(m < NUM_MSG && localnode.ctl->msg_recv_handlers[m])
+    localnode.ctl->msg_recv_handlers[m](&msg);
+  else
+    panic("unknown msg received: %d\n", m);
+}
+
+void msg_register_recv_handler(enum msgtype type, void (*handler)(struct recv_msg *)) {
+  if(type >= NUM_MSG)
+    panic("invalid msg type");
+  if(!localnode.ctl)
+    panic("ctlr?");
+
+  localnode.ctl->msg_recv_handlers[type] = handler;
 }
 
 static inline void send_msg_core(struct msg *msg, struct packet *pk) {
@@ -62,16 +71,17 @@ static int send_init_reply(struct msg *msg) {
   return 0;
 }
 
-void init_reply_init(struct init_reply *rep, u8 *mac, u64 allocated) {
+void init_reply_init(struct init_reply *rep, u8 *mac, int nvcpu, u64 allocated) {
   rep->msg.type = MSG_INIT_REPLY;
   remote_macaddr(0, rep->msg.dst_mac);
   rep->msg.send = send_init_reply;
 
   memcpy(rep->body.me_mac, mac, 6);
+  rep->body.nvcpu = nvcpu;
   rep->body.allocated = allocated;
 }
 
-static int send_read_request(struct msg *msg) {
+int send_read_request(struct msg *msg) {
   struct read_req *req = (struct read_req *)msg;
   vmm_log("send read request\n");
 
@@ -83,20 +93,6 @@ static int send_read_request(struct msg *msg) {
   return 0;
 }
 
-void recv_read_request_intr(struct recv_msg *recvmsg) {
-  vmm_log("recv read request\n");
-
-  struct __read_req *rd = (struct __read_req *)recvmsg->body;
-
-  /* TODO: use at instruction */
-  u64 pa = ipa2pa(localnode.vttbr, rd->ipa);
-
-  vmm_log("read ipa @%p -> pa %p\n", rd->ipa, pa);
-
-  /* send read reply */
-  read_reply_send(recvmsg->src_mac, rd->ipa, (void *)pa);
-}
-
 void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa) {
   rmsg->msg.type = MSG_READ;
   remote_macaddr(dst, rmsg->msg.dst_mac);
@@ -104,14 +100,7 @@ void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa) {
   rmsg->body.ipa = ipa;
 }
 
-void recv_read_reply_intr(struct recv_msg *recvmsg) {
-  struct __read_reply *rep = (struct __read_reply *)recvmsg->body;
-  vmm_log("recv remote @%p\n", rep->ipa);
-
-  vsm_set_cache(rep->ipa, rep->page);
-}
-
-static int read_reply_send(u8 *dst_mac, u64 ipa, void *page) {
+int read_reply_send(u8 *dst_mac, u64 ipa, void *page) {
   vmm_log("read reply send\n");
 
   struct msg msg;
@@ -128,6 +117,13 @@ static int read_reply_send(u8 *dst_mac, u64 ipa, void *page) {
   return 0;
 }
 
+static void unknown_msg_recv(struct recv_msg *recvmsg) {
+  panic("msg: unknown msg received: %d", recvmsg->type);
+}
+
 void msg_sysinit() {
-  ;
+  for(int i = 0; i < NUM_MSG; i++) {
+    if(!localnode.ctl->msg_recv_handlers[i])
+      localnode.ctl->msg_recv_handlers[i] = unknown_msg_recv;
+  }
 }

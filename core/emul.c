@@ -120,16 +120,17 @@ static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
   u64 ipa = vcpu->dabt.fault_ipa;
   u64 page = ipa & ~(u64)(PAGESIZE-1);
 
-  vsm_fetch_and_cache_dummy(&localnode, page);
+  vsm_fetch_page(page, 0);
 
   return 1;
 }
 
 static int emul_stxr(struct vcpu *vcpu, u32 inst, int size) {
+  /*
   int rs = (inst >> 16) & 0x1f;
   int rt2 = (inst >> 10) & 0x1f;
   int rn = (inst >> 5) & 0x1f;
-  int rt = inst & 0x1f;
+  int rt = inst & 0x1f; */
 
   panic("stxr?");
 

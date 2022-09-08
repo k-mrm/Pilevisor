@@ -2,10 +2,8 @@
 #define MSG_H
 
 #include "types.h"
-#include "node.h"
 
 struct etherframe;
-void msg_recv_intr(struct etherframe *eth, u64 len);
 
 enum msgtype {
   MSG_NONE          = 0x0,
@@ -19,12 +17,13 @@ enum msgtype {
   MSG_INTERRUPT     = 0x8,
 };
 
+#define NUM_MSG     9
+
 struct recv_msg {
   enum msgtype type;
   u8 *src_mac;
   void *body;
   u32 len;
-  void *data;   /* ethernet frame */
 };
 
 struct msg {
@@ -36,6 +35,9 @@ struct msg {
 
 #define msg_send(m)     (((struct msg *)&(m))->send((struct msg *)&(m)))
 
+void msg_recv_intr(struct etherframe *eth, u64 len);
+void msg_register_recv_handler(enum msgtype type, void (*handler)(struct recv_msg *));
+
 /*
  *  Initialize message
  *  init request: Node 0 --broadcast--> Node n(n!=0)
@@ -45,6 +47,7 @@ struct msg {
  *  init reply:   Node n ---> Node 0
  *    send:
  *      Node n's MAC address
+ *      num of vCPU allocated to VM
  *      allocated ram size to VM from Node n
  */
 
@@ -54,6 +57,7 @@ struct __init_req {
 
 struct __init_reply {
   u8 me_mac[6];
+  int nvcpu;
   u64 allocated;
 };
 
@@ -68,7 +72,7 @@ struct init_reply {
 };
 
 void init_req_init(struct init_req *req, u8 *mac);
-void init_reply_init(struct init_reply *rep, u8 *mac, u64 allocated);
+void init_reply_init(struct init_reply *rep, u8 *mac, int nvcpu, u64 allocated);
 
 /*
  *  Read message
