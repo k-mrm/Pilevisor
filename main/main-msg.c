@@ -6,7 +6,7 @@
 static void node0_recv_init_reply_intr(struct recv_msg *recvmsg) {
   struct __init_reply *body = (struct __init_reply *)recvmsg->body;
 
-  node0_register_remote(recvmsg->src_mac);
+  add_node_to_cluster(recvmsg->src_mac, body->nvcpu, body->allocated);
   vmm_log("Node 1: %d vcpus %p bytes\n", body->nvcpu, body->allocated);
 }
 

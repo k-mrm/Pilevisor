@@ -37,6 +37,11 @@ void send_msg(struct msg *msg) {
   ethernet_xmit(localnode.nic, msg->dst_mac, type, msg->pk);
 }
 
+void broadcast_msg_header_init(struct msg *msg, enum msgtype type) {
+  msg->type = type;
+  msg->dst_mac = broadcast_mac;
+}
+
 static void unknown_msg_recv(struct recv_msg *recvmsg) {
   panic("msg: unknown msg received: %d", recvmsg->type);
 }

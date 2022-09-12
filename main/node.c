@@ -7,7 +7,7 @@
 #include "lib.h"
 #include "log.h"
 #include "main-msg.h"
-#include "cnt.h"
+#include "cluster.h"
 
 /* main node (node0) controller */
 
@@ -21,7 +21,7 @@ void node0_register_remote(u8 *remote_mac) {
   struct rnode_desc *rnode = &localnode.remotes[idx];
 
   memcpy(rnode->mac, remote_mac, 6);
-  rnode->enabled = 1;
+  rnode->possible = true;
 }
 
 static void initmem() {

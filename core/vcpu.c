@@ -12,10 +12,6 @@
 static void save_sysreg(struct vcpu *vcpu);
 static void restore_sysreg(struct vcpu *vcpu);
 
-void vcpu_init() {
-  ;
-}
-
 static void vcpu_features_init(struct vcpu *vcpu) {
   u64 pfr0 = read_sysreg(ID_PFR0_EL1);
 
@@ -48,15 +44,14 @@ void load_new_local_vcpu(void) {
   set_current_vcpu(vcpu);
 
   vcpu->name = "cortex-a72";
-  vcpu->cpuid = localcpuid;
 
   vcpu->vgic = new_vgic_cpu(localcpuid);
   gic_init_state(&vcpu->gic);
 
   vcpu->reg.spsr = 0x3c5;   /* EL1 */
 
-  vcpu->sys.mpidr_el1 = localcpuid; /* TODO: affinity */
-  vcpu->sys.midr_el1 = 0x410fd081;  /* cortex-a72 */
+  vcpu->sys.mpidr_el1 = vcpu->cluster_vcpuid; /* TODO: affinity? */
+  vcpu->sys.midr_el1 = read_sysreg(midr_el1);
   vcpu->sys.sctlr_el1 = 0xc50838;
   vcpu->sys.cntfrq_el0 = 62500000;
 
@@ -139,4 +134,8 @@ void vcpu_dump(struct vcpu *vcpu) {
          vcpu->sys.ttbr0_el1, vcpu->sys.ttbr1_el1, vcpu->sys.tcr_el1);
   printf("vbar_el1  %18p  sctlr_el1 %18p  cntv_ctl_el0 %18p\n",
          vcpu->sys.vbar_el1, vcpu->sys.sctlr_el1, vcpu->sys.cntv_ctl_el0);
+}
+
+void vcpu_init() {
+  ;
 }

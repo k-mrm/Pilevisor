@@ -10,10 +10,9 @@ enum maccsize {
   ACC_DOUBLEWORD = 1 << 3,
 };
 
-struct node_vrange {
-  int nodeid;
+struct memrange {
   u64 start;
-  u64 size; 
+  u64 size;
 };
 
 #endif

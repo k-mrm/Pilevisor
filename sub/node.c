@@ -11,16 +11,12 @@
 void sub_register_node0(u8 *node0_mac) {
   struct rnode_desc *rnode0 = &localnode.remotes[0];
   memcpy(rnode0->mac, node0_mac, 6);
-  rnode0->enabled = 1;
+  rnode0->possible = true;
 }
 
 static int wait_for_node0_init() {
   while(!localnode.remotes[0].enabled)
     wfi();
-}
-
-static void sub_init_done() {
-  ;
 }
 
 static void sub_init() {

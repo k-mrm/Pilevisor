@@ -41,13 +41,16 @@ struct vcpu {
   struct gic_state gic;
   struct vgic_cpu *vgic;
 
-  int cpuid;
+  /* vcpuid on cluster */
+  int vcpuid;
 
   /* when dabort occurs on vCPU, informations will save here */
   struct dabort_info dabt;
 
   bool initialized;
 };
+
+extern int nr_cluster_online_vcpus;
 
 void enter_vcpu(void);
 void vcpu_init(void);

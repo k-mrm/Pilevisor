@@ -10,13 +10,14 @@ enum msgtype {
   MSG_NONE          = 0x0,
   MSG_INIT          = 0x1,
   MSG_INIT_REPLY    = 0x2,
-  MSG_SETUP_DONE    = 0x3,
-  MSG_CPU_WAKEUP    = 0x4,
-  MSG_SHUTDOWN      = 0x5,
-  MSG_READ          = 0x6,
-  MSG_READ_REPLY    = 0x7,
-  MSG_INVALID_SNOOP = 0x8,
-  MSG_INTERRUPT     = 0x9,
+  MSG_CLUSTER_INFO  = 0x3,
+  MSG_SETUP_DONE    = 0x4,
+  MSG_CPU_WAKEUP    = 0x5,
+  MSG_SHUTDOWN      = 0x6,
+  MSG_READ          = 0x7,
+  MSG_READ_REPLY    = 0x8,
+  MSG_INVALID_SNOOP = 0x9,
+  MSG_INTERRUPT     = 0xa,
   NUM_MSG,
 };
 
@@ -37,6 +38,8 @@ void send_msg(struct msg *msg);
 
 void msg_recv_intr(struct etherframe *eth, u64 len);
 void msg_register_recv_handler(enum msgtype type, void (*handler)(struct recv_msg *));
+
+void broadcast_msg_header_init(struct msg *msg, enum msgtype type);
 
 void msg_sysinit(void);
 

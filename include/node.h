@@ -40,6 +40,7 @@ struct node {
   int nvcpu;    /* nvcpu <= npcpu */
   u64 nalloc;
   int nodeid;
+  /* Am I recognized by cluster? */
   bool online;
   /* virtual shared memory */
   struct vsmctl vsm;
@@ -57,13 +58,6 @@ struct node {
   struct nodectl *ctl;
   /* vm's parameter */
   struct vm_desc *vm_desc;
-  /* remote nodes' desc */
-  struct rnode_desc {
-    u8 mac[6];
-    bool enabled;
-    bool online;
-  } remotes[NODE_MAX];
-  int nremotes;
 };
 
 void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc);
@@ -83,17 +77,21 @@ static inline int macaddr_to_nodeid(u8 *mac) {
   struct rnode_desc *r;
   for(int i = 0; i < NODE_MAX; i++) {
     r = &localnode.remotes[i];
-    if(r->enabled && memcmp(r->mac, mac, 6) == 0)
+    if(r->possible && memcmp(r->mac, mac, 6) == 0)
       return i;
   }
   return -1;
 }
 
 static inline void node_online(int nodeid) {
-  if(!localnode.remotes[nodeid].enabled)
+  if(!localnode.remotes[nodeid].possible)
     panic("???: unknown node");
 
   localnode.remotes[nodeid].online = true;
+}
+
+static inline bool node_macaddr_is_me(u8 *mac) {
+  return memcmp(localnode.mac, mac, 6) == 0;
 }
 
 /*
