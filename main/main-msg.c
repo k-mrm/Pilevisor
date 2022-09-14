@@ -2,30 +2,31 @@
 #include "main-msg.h"
 #include "node.h"
 #include "ethernet.h"
+#include "cluster.h"
 
 static void node0_recv_init_reply_intr(struct recv_msg *recvmsg) {
-  struct __init_reply *body = (struct __init_reply *)recvmsg->body;
+  struct __init_ack *body = (struct __init_ack *)recvmsg->body;
 
-  add_node_to_cluster(recvmsg->src_mac, body->nvcpu, body->allocated);
+  cluster_ack_node(recvmsg->src_mac, body->nvcpu, body->allocated);
   vmm_log("Node 1: %d vcpus %p bytes\n", body->nvcpu, body->allocated);
 }
 
 static void node0_recv_sub_setup_done_notify_intr(struct recv_msg *recvmsg) {
   struct setup_done_notify *body = (struct setup_done_notify *)recvmsg->body;
-  int nodeid = macaddr_to_nodeid(recvmsg->src_mac);
+  int nodeid = macaddr_to_node(recvmsg->src_mac)->nodeid;
 
   if(body->status == 0)
     vmm_log("Node %d: setup ran successfully\n", nodeid);
   else
     vmm_log("Node %d: setup failed\n", nodeid);
 
-  node_online(nodeid);
+  cluster_node(nodeid)->status = NODE_ONLINE;
 
   vmm_log("node %d online\n", nodeid);
 }
 
-void send_init_broadcast(void) {
-  printf("send_init_request");
+void broadcast_init_request() {
+  printf("broadcast init request");
   struct msg msg;
   msg.type = MSG_INIT;
   msg.dst_mac = broadcast_mac;

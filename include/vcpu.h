@@ -13,6 +13,7 @@ struct cpu_features {
 };
 
 struct vcpu {
+  /* MUST be first field */
   struct {
     u64 x[31];
     u64 spsr;
@@ -54,9 +55,11 @@ extern int nr_cluster_online_vcpus;
 
 void enter_vcpu(void);
 void vcpu_init(void);
-struct vcpu *vcpu_vcpuid(int vcpuid);
+struct vcpu *vcpu_get_local(int localcpuid);
+struct vcpu *vcpu_get(int vcpuid);
 void load_new_local_vcpu(void);
 void vcpu_dump(struct vcpu *vcpu);
+void vcpuid_init(u32 *vcpuids, int nvcpu);
 
 #define current   ((struct vcpu *)read_sysreg(tpidr_el2))
 

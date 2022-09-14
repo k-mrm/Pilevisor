@@ -7,6 +7,7 @@
 #include "ethernet.h"
 #include "msg.h"
 #include "lib.h"
+#include "cluster.h"
 
 void msg_recv_intr(struct etherframe *eth, u64 len) {
   enum msgtype m = (eth->type >> 8) & 0xff;
@@ -35,11 +36,17 @@ void send_msg(struct msg *msg) {
   u16 type = (msg->type << 8) | 0x19;
 
   ethernet_xmit(localnode.nic, msg->dst_mac, type, msg->pk);
+  intr_enable();
 }
 
 void broadcast_msg_header_init(struct msg *msg, enum msgtype type) {
   msg->type = type;
   msg->dst_mac = broadcast_mac;
+}
+
+void msg_header_init(struct msg *msg, enum msgtype type, int dst_node_id) {
+  msg->type = type;
+  msg->dst_mac = node_macaddr(dst_node_id);
 }
 
 static void unknown_msg_recv(struct recv_msg *recvmsg) {

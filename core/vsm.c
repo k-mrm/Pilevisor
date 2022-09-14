@@ -8,6 +8,7 @@
 #include "node.h"
 #include "vcpu.h"
 #include "msg.h"
+#include "cluster.h"
 
 static void send_read_request(u8 dst, u64 ipa);
 static void send_read_reply(u8 *dst_mac, u64 ipa, void *page);
@@ -50,10 +51,13 @@ void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa);
 
 /* TODO: determine dst_node by ipa */
 static inline int page_owner(u64 ipa) {
-  if(0x40000000+128*1024*1024 <= ipa && ipa <= 0x40000000+128*1024*1024+128*1024*1024)
-    return 1;
-  else
-    return -1;
+  struct cluster_node *node;
+  foreach_cluster_node(node) {
+    if(in_memrange(&node->mem, ipa))
+      return node->nodeid;
+  }
+
+  return -1;
 }
 
 /*
@@ -149,7 +153,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
 static void send_read_request(u8 dst, u64 ipa) {
   struct msg msg;
   msg.type = MSG_READ;
-  msg.dst_mac = remote_macaddr(dst);
+  msg.dst_mac = node_macaddr(dst);
   struct __read_req req;
   req.ipa = ipa;
 
@@ -197,13 +201,12 @@ void vsm_init() {
   msg_register_recv_handler(MSG_READ_REPLY, recv_read_reply_intr);
 }
 
-/* now Node 1 only */
-void vsm_node_init() {
+void vsm_node_init(struct memrange *mem) {
   u64 *vttbr = localnode.vttbr;
-  u64 start = 0x40000000 + 128*1024*1024;
+  u64 start = mem->start, size = mem->size;
   u64 p;
 
-  for(p = 0; p < localnode.nalloc; p += PAGESIZE) {
+  for(p = 0; p < size; p += PAGESIZE) {
     char *page = alloc_page();
     if(!page)
       panic("ram");
@@ -211,5 +214,5 @@ void vsm_node_init() {
     pagemap(vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
   }
 
-  vmm_log("Node 1 mapped: [%p - %p]\n", start, start+p);
+  vmm_log("Node %d mapped: [%p - %p]\n", localnode.nodeid, start, start+p);
 }

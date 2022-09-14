@@ -22,16 +22,30 @@ static void vcpu_features_init(struct vcpu *vcpu) {
   vcpu->features.pfr0 = pfr0;
 }
 
-struct vcpu *vcpu_vcpuid(int vcpuid) {
-  if(vcpuid >= localnode.nvcpu)
-    panic("vcpu");
+struct vcpu *vcpu_get_local(int localcpuid) {
+  if(localcpuid >= localnode.nvcpu)
+    panic("vcpu_get_local");
 
-  struct vcpu *vcpu = &localnode.vcpus[vcpuid];
-
-  if(!vcpu->initialized)
-    panic("got uninit vcpu");
-
+  struct vcpu *vcpu = &localnode.vcpus[localcpuid];
   return vcpu;
+}
+
+struct vcpu *vcpu_get(int vcpuid) {
+  for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[VCPU_PER_NODE_MAX]; v++) {
+    if(v->vcpuid == vcpuid)
+      return v;
+  }
+
+  /* vcpu in remote node */
+  return NULL;
+}
+
+void vcpuid_init(u32 *vcpuids, int nvcpu) {
+  for(int i = 0; i < nvcpu; i++) {
+    struct vcpu *vcpu = &localnode.vcpus[i];
+    vcpu->vcpuid = vcpuids[i];
+    vmm_log("vcpuid is %d\n", vcpu->vcpuid);
+  }
 }
 
 void load_new_local_vcpu(void) {
@@ -39,10 +53,11 @@ void load_new_local_vcpu(void) {
   if(localcpuid >= localnode.nvcpu)
     panic("too many vcpu");
 
-  struct vcpu *vcpu = &localnode.vcpus[localcpuid];
+  struct vcpu *vcpu = vcpu_get_local(localcpuid);
 
   set_current_vcpu(vcpu);
 
+  /* TODO: determine vcpu->name from system register */
   vcpu->name = "cortex-a72";
 
   vcpu->vgic = new_vgic_cpu(localcpuid);
@@ -50,7 +65,7 @@ void load_new_local_vcpu(void) {
 
   vcpu->reg.spsr = 0x3c5;   /* EL1 */
 
-  vcpu->sys.mpidr_el1 = vcpu->cluster_vcpuid; /* TODO: affinity? */
+  vcpu->sys.mpidr_el1 = vcpu->vcpuid;       /* TODO: affinity? */
   vcpu->sys.midr_el1 = read_sysreg(midr_el1);
   vcpu->sys.sctlr_el1 = 0xc50838;
   vcpu->sys.cntfrq_el0 = 62500000;
@@ -63,7 +78,7 @@ void load_new_local_vcpu(void) {
 void trapret(void);
 
 void enter_vcpu() {
-  vmm_log("entering vcpu%d\n", current->cpuid);
+  vmm_log("entering vcpu%d\n", current->vcpuid);
 
   if(current->reg.elr == 0)
     panic("elr maybe uninitalized?");

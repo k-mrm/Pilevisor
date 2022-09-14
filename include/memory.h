@@ -15,4 +15,8 @@ struct memrange {
   u64 size;
 };
 
+static inline bool in_memrange(struct memrange *mem, u64 addr) {
+  return mem->start <= addr && addr < mem->start + mem->size;
+}
+
 #endif

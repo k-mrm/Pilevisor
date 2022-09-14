@@ -7,8 +7,16 @@
 #include "memory.h"
 #include "msg.h"
 
+enum node_status {
+  NODE_NULL,
+  NODE_ACK,
+  NODE_ONLINE,
+  NODE_DEAD,
+};
+
 struct cluster_node {
   int nodeid;
+  enum node_status status;
   u8 mac[6];
   struct memrange mem;
   u32 vcpus[VCPU_PER_NODE_MAX];
@@ -31,6 +39,16 @@ static inline struct cluster_node *vcpuid_to_node(int vcpuid) {
   }
 }
 
+static inline struct cluster_node *macaddr_to_node(u8 *mac) {
+  struct cluster_node *node;
+  foreach_cluster_node(node) {
+    if(memcmp(node->mac, mac, 6) == 0)
+      return node;
+  }
+
+  return NULL;
+}
+
 static inline int vcpuid_to_nodeid(int vcpuid) {
   return vcpuid_to_node(vcpuid)->nodeid;
 }
@@ -39,9 +57,32 @@ static inline bool vcpu_in_localnode(int vcpuid) {
   return vcpuid_to_nodeid(vcpuid) == localnode.nodeid;
 }
 
+static inline struct cluster_node *cluster_node(int nodeid) {
+  if(nodeid >= NODE_MAX)
+    panic("node");
+
+  return &cluster[nodeid];
+}
+
+static inline struct cluster_node *cluster_me() {
+  if(!localnode.acked)
+    panic("?: %d\n", localnode.nodeid);
+  return cluster_node(localnode.nodeid);
+}
+
+static inline u8 *node_macaddr(int nodeid) {
+  return cluster_node(nodeid)->mac;
+}
+
+static inline bool node_is_acked(int nodeid) {
+  return cluster_node(nodeid)->status == NODE_ACK;
+}
+
 void broadcast_cluster_info(void);
 void update_cluster_info(int nnodes, struct cluster_node *c);
-void cluster_add_node(u8 *mac, int nvcpu, u64 allocated);
+void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated);
+
+void cluster_dump(void);
 
 /*
  *  cluster_info_msg: Node 0 -broadcast-> Node n
@@ -53,6 +94,6 @@ void cluster_add_node(u8 *mac, int nvcpu, u64 allocated);
 struct cluster_info_msg {
   int nnodes;
   struct cluster_node cluster_info[NODE_MAX];
-};
+} __attribute__((packed));
 
 #endif

@@ -4,17 +4,17 @@
 #include "node.h"
 #include "cluster.h"
 
-static void init_ack(u8 *node0_mac, int nvcpu, u64 allocated) {
+static void init_ack_reply(u8 *node0_mac, int nvcpu, u64 allocated) {
   vmm_log("send init ack\n");
   struct msg msg;
   msg.type = MSG_INIT_REPLY;
   msg.dst_mac = node0_mac;
-  struct __init_reply rep;
-  rep.nvcpu = nvcpu;
-  rep.allocated = allocated;
+  struct __init_ack ack;
+  ack.nvcpu = nvcpu;
+  ack.allocated = allocated;
 
   struct packet pk;
-  packet_init(&pk, &rep, sizeof(rep));
+  packet_init(&pk, &ack, sizeof(ack));
   msg.pk = &pk;
 
   send_msg(&msg);
@@ -23,7 +23,7 @@ static void init_ack(u8 *node0_mac, int nvcpu, u64 allocated) {
 void send_setup_done_notify(u8 status) {
   struct msg msg;
   msg.type = MSG_SETUP_DONE;
-  msg.dst_mac = remote_macaddr(0);
+  msg.dst_mac = node_macaddr(0);
 
   struct setup_done_notify s;
   s.status = status;
@@ -39,10 +39,10 @@ static void recv_init_request_intr(struct recv_msg *recvmsg) {
   vmm_log("me mac address: %m\n", localnode.nic->mac);
   vmm_log("sub: %d vcpu %p byte RAM\n", localnode.nvcpu, localnode.nalloc);
 
-  init_ack(node0_mac, localnode.nvcpu, localnode.nalloc);
+  init_ack_reply(node0_mac, localnode.nvcpu, localnode.nalloc);
 }
 
-void recv_cluster_info(struct recv_msg *recvmsg) {
+void recv_cluster_info_intr(struct recv_msg *recvmsg) {
   struct cluster_info_msg *c = (struct cluster_info_msg *)recvmsg->body;
 
   update_cluster_info(c->nnodes, c->cluster_info);

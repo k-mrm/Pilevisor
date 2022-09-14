@@ -11,19 +11,6 @@
 
 /* main node (node0) controller */
 
-void node0_register_remote(u8 *remote_mac) {
-  u8 idx = ++localnode.nremotes;
-  if(idx >= NODE_MAX) 
-    panic("remote node");
-
-  vmm_log("Node %d macaddr %m\n", idx, remote_mac);
-
-  struct rnode_desc *rnode = &localnode.remotes[idx];
-
-  memcpy(rnode->mac, remote_mac, 6);
-  rnode->possible = true;
-}
-
 static void initmem() {
   alloc_guestmem(localnode.vttbr, 0x40000000, localnode.nalloc);
 }
@@ -61,16 +48,33 @@ static void initvm() {
     map_guest_image(localnode.vttbr, initrd, desc->initrd_base);
 }
 
+static void wait_for_init_ack() {
+  // TODO: now Node 1 only
+  while(!node_is_acked(1))
+    wfi();
+}
+
 static void node0_init() {
+  localnode.nodeid = 0;
   initmem();
   initvm();
   node0_msg_init();
+
+  /* me */
+  cluster_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
+
+  /* send initialization request to sub-node */
+  broadcast_init_request();
+
+  wait_for_init_ack();
+
+  broadcast_cluster_info();
 }
 
 static void node0_initvcpu() {
   load_new_local_vcpu();
 
-  if(current->cpuid == 0) {
+  if(current->vcpuid == 0) {
     current->reg.elr = localnode.vm_desc->entrypoint;
     current->reg.x[0] = localnode.vm_desc->fdt_base;
   } else {
@@ -81,13 +85,7 @@ static void node0_initvcpu() {
 
 static void node0_start() {
   vmm_log("node0: start\n");
-
-  send_init_broadcast();
-  intr_enable();
-
-  // TODO: now Node 1 only
-  while(!localnode.remotes[1].online)
-    wfi();
+  cluster_dump();
 
   enter_vcpu();
 }

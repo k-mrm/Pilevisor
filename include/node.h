@@ -41,7 +41,7 @@ struct node {
   u64 nalloc;
   int nodeid;
   /* Am I recognized by cluster? */
-  bool online;
+  bool acked;
   /* virtual shared memory */
   struct vsmctl vsm;
   /* stage 2 pagetable */
@@ -66,32 +66,8 @@ void pagetrap(struct node *node, u64 va, u64 size,
               int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
               int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *));
 
-static inline u8 *remote_macaddr(int nodeid) {
-  if(nodeid < NODE_MAX && localnode.remotes[nodeid].enabled)
-    return localnode.remotes[nodeid].mac;
-  else
-    panic("uninitialized node: %d", nodeid);
-}
-
-static inline int macaddr_to_nodeid(u8 *mac) {
-  struct rnode_desc *r;
-  for(int i = 0; i < NODE_MAX; i++) {
-    r = &localnode.remotes[i];
-    if(r->possible && memcmp(r->mac, mac, 6) == 0)
-      return i;
-  }
-  return -1;
-}
-
-static inline void node_online(int nodeid) {
-  if(!localnode.remotes[nodeid].possible)
-    panic("???: unknown node");
-
-  localnode.remotes[nodeid].online = true;
-}
-
 static inline bool node_macaddr_is_me(u8 *mac) {
-  return memcmp(localnode.mac, mac, 6) == 0;
+  return memcmp(localnode.nic->mac, mac, 6) == 0;
 }
 
 /*
@@ -100,13 +76,13 @@ static inline bool node_macaddr_is_me(u8 *mac) {
  *    send:
  *      (nop)
  *
- *  init reply:   Node n ---> Node 0
+ *  init ack:   Node n ---> Node 0
  *    send:
  *      num of vCPU allocated to VM
  *      allocated ram size to VM from Node n
  */
 
-struct __init_reply {
+struct __init_ack {
   int nvcpu;
   u64 allocated;
 };
@@ -117,6 +93,7 @@ struct __init_reply {
  *      status (0 = success, else = failure)
  *
  */
+
 struct setup_done_notify {
   u8 status;
 };

@@ -403,15 +403,15 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmi
       *val = 0;
       return 0;
     case GICR_IIDR:
-      *val = gicr_r32(vcpu->cpuid, GICR_IIDR);
+      *val = gicr_r32(vcpu->vcpuid, GICR_IIDR);
       return 0;
     case GICR_TYPER:
       if(!(mmio->accsize & ACC_DOUBLEWORD))
         goto badwidth;
-      *val = gicr_r64(vcpu->cpuid, GICR_TYPER);
+      *val = gicr_r64(vcpu->vcpuid, GICR_TYPER);
       return 0;
     case GICR_PIDR2:
-      *val = gicr_r32(vcpu->cpuid, GICR_PIDR2);
+      *val = gicr_r32(vcpu->vcpuid, GICR_PIDR2);
       return 0;
     case GICR_ISENABLER0: {
       u32 iser = 0; 
@@ -531,12 +531,9 @@ static int vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
   u32 ridx = offset / 0x20000;
   u32 roffset = offset % 0x20000;
 
-  if(ridx >= localnode.nvcpu) {
-    vmm_warn("invalid rdist access");
-    return -1;
-  }
-
-  vcpu = &localnode.vcpus[ridx];
+  vcpu = vcpu_get(ridx);
+  if(!vcpu)
+    panic("remote access");
 
   return __vgicr_mmio_read(vcpu, roffset, val, mmio);
 }
@@ -545,12 +542,9 @@ static int vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
   u32 ridx = offset / 0x20000;
   u32 roffset = offset % 0x20000;
 
-  if(ridx >= localnode.nvcpu) {
-    vmm_warn("invalid rdist access");
-    return -1;
-  }
-
-  vcpu = &localnode.vcpus[ridx];
+  vcpu = vcpu_get(ridx);
+  if(!vcpu)
+    panic("remote access");
 
   return __vgicr_mmio_write(vcpu, roffset, val, mmio);
 }
