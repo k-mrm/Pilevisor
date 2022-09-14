@@ -50,7 +50,13 @@ static void initvm() {
 
 static void wait_for_init_ack() {
   // TODO: now Node 1 only
-  while(!node_is_acked(1))
+  while(cluster_node(1)->status != NODE_ACK)
+    wfi();
+}
+
+static void wait_for_sub_init_done() {
+  // TODO: now Node 1 only
+  while(cluster_node(1)->status != NODE_ONLINE)
     wfi();
 }
 
@@ -69,6 +75,8 @@ static void node0_init() {
   wait_for_init_ack();
 
   broadcast_cluster_info();
+
+  wait_for_sub_init_done();
 }
 
 static void node0_initvcpu() {

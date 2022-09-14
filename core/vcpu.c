@@ -81,7 +81,7 @@ void enter_vcpu() {
   vmm_log("entering vcpu%d\n", current->vcpuid);
 
   if(current->reg.elr == 0)
-    panic("elr maybe uninitalized?");
+    panic("maybe elr uninitalized");
 
   restore_sysreg(current);
   gic_restore_state(&current->gic);
