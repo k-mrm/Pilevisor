@@ -9,6 +9,7 @@
 #include "net.h"
 #include "node.h"
 #include "ethernet.h"
+#include "msg.h"
 
 struct virtio_net vtnet_dev;
 
@@ -57,17 +58,15 @@ static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
 }
 
 static void fill_recv_queue(struct virtq *rxq) {
-  static struct virtio_net_hdr hdrbuf[NQUEUE/2];
-
   for(int i = 0; i < NQUEUE; i += 2) {
     u16 d0 = virtq_alloc_desc(rxq);
     u16 d1 = virtq_alloc_desc(rxq);
-    rxq->desc[d0].addr = (u64)&hdrbuf[i/2];
-    rxq->desc[d0].len = sizeof(struct virtio_net_hdr);
+    rxq->desc[d0].addr = (u64)alloc_page();
+    rxq->desc[d0].len = sizeof(struct virtio_net_hdr) + sizeof(struct pocv2_frame_header);
     rxq->desc[d0].flags = VIRTQ_DESC_F_WRITE | VIRTQ_DESC_F_NEXT;
     rxq->desc[d0].next = d1;
-    rxq->desc[d1].addr = (u64)alloc_pages(1);
-    rxq->desc[d1].len = 8192;
+    rxq->desc[d1].addr = (u64)alloc_page();
+    rxq->desc[d1].len = 4096;
     rxq->desc[d1].flags = VIRTQ_DESC_F_WRITE;
     rxq->avail->ring[rxq->avail->idx] = d0;
     dsb(sy);
@@ -80,10 +79,13 @@ static void rxintr(struct nic *nic, u16 idx) {
 
   u16 d0 = dev->rx->used->ring[idx].id;
   u16 d1 = dev->rx->desc[d0].next;
-  u32 len = dev->rx->used->ring[idx].len;
+  u32 len = dev->rx->used->ring[idx].len - sizeof(struct virtio_net_hdr);
+
+  void *d0_packet = dev->rx->desc[d0].addr;
+  void *d1_packet = dev->rx->desc[d1].addr;
 
   if(nic->ops->recv_intr_callback)
-    nic->ops->recv_intr_callback(nic, (void *)dev->rx->desc[d1].addr, len - sizeof(struct virtio_net_hdr));
+    nic->ops->recv_intr_callback(nic, &{d0_packet, d1_packet}, &{len}, 2);
 
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d0;
   dsb(sy);
@@ -126,7 +128,7 @@ void virtio_net_intr() {
 }
 
 static void virtio_net_set_recv_intr_callback(struct nic *nic, 
-                                              void (*cb)(struct nic *, void *, u64)) {
+                                              void (*cb)(struct nic *, void **, int *, int)) {
   nic->ops->recv_intr_callback = cb;
 }
 

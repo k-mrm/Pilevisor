@@ -5,7 +5,6 @@
 #include "node.h"
 #include "param.h"
 #include "memory.h"
-#include "msg.h"
 
 enum node_status {
   NODE_NULL,
@@ -65,17 +64,22 @@ static inline struct cluster_node *cluster_node(int nodeid) {
 }
 
 static inline struct cluster_node *cluster_me() {
-  if(!localnode.acked)
-    panic("?: %d\n", localnode.nodeid);
-  return cluster_node(localnode.nodeid);
+  if(localnode.acked)
+    return cluster_node(localnode.nodeid);
+  else
+    return NULL;
+}
+
+struct inline int cluster_me_nodeid() {
+  struct cluster_node *node = cluster_me();
+  if(node)
+    return node->nodeid;
+  else
+    return -1;
 }
 
 static inline u8 *node_macaddr(int nodeid) {
   return cluster_node(nodeid)->mac;
-}
-
-static inline bool node_is_acked(int nodeid) {
-  return cluster_node(nodeid)->status == NODE_ACK;
 }
 
 void broadcast_cluster_info(void);
@@ -86,14 +90,18 @@ void cluster_dump(void);
 
 /*
  *  cluster_info_msg: Node 0 -broadcast-> Node n
- *    send:
+ *    send argv:
  *      num of cluster nodes
+ *    send body:
  *      struct cluster_node cluster[nremote];
  *
  */
-struct cluster_info_msg {
+struct cluster_info_arg {
   int nnodes;
-  struct cluster_node cluster_info[NODE_MAX];
 } __attribute__((packed));
+
+struct cluster_info_body {
+  struct cluster_node cluster_info[NODE_MAX];
+}
 
 #endif

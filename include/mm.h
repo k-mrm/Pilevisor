@@ -83,7 +83,7 @@
 #define PAGE_ALIGNED(p)   ((u64)(p) % PAGESIZE == 0)
 #define PAGEROUNDDOWN(p)  ((u64)(p) & ~(PAGESIZE-1))
 #define PAGEROUNDUP(p)    (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
-#define PAGEOFFSET(p)     ((u64)(p) & (PAGESIZE-1))
+#define PAGE_OFFSET(p)    ((u64)(p) & (PAGESIZE-1))
 
 /* attr index */
 #define AI_DEVICE_nGnRnE_IDX  0x0

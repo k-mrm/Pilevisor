@@ -9,7 +9,7 @@
 #include "main-msg.h"
 #include "cluster.h"
 
-/* main node (node0) controller */
+/* node 0(bootstrap node) controller */
 
 static void initmem() {
   alloc_guestmem(localnode.vttbr, 0x40000000, localnode.nalloc);
@@ -71,11 +71,9 @@ static void node0_init() {
 
   /* send initialization request to sub-node */
   broadcast_init_request();
-
   wait_for_init_ack();
 
   broadcast_cluster_info();
-
   wait_for_sub_init_done();
 }
 

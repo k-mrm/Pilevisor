@@ -15,7 +15,7 @@ QEMU = $(QEMUPREFIX)qemu-system-aarch64
 GIC_VERSION = 3
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 ifndef NCPU
-NCPU = 1
+NCPU = 2
 endif
 
 C = core
@@ -156,6 +156,6 @@ dtb:
 
 clean:
 	make -C guest clean
-	$(RM) $(COREOBJS) $(DRVOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d
+	$(RM) $(COREOBJS) $(DRVOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d *.dtb *.dts
 
 .PHONY: dev-main dev-sub clean dts dtb

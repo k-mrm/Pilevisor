@@ -8,14 +8,11 @@
 
 u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-void ethernet_recv_intr(struct nic *nic, void *data, u64 len) {
-  struct etherframe *eth = (struct etherframe *)data;
-
-  printf("eth len %d %m %x\n", len, eth->dst, eth->type);
+void ethernet_recv_intr(struct nic *nic, void **packets, int *lens, int npackets) {
   if(memcmp(eth->dst, broadcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
     if((eth->type & 0xff) == 0x19) {
       /* this is msg packet */
-      msg_recv_intr(eth, len);
+      msg_recv_intr(packets, lens, npackets);
     }
   }
 }

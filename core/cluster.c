@@ -33,18 +33,15 @@ static void cluster_setup_vsm_memrange(struct memrange *m, u64 alloc) {
 }
 
 void broadcast_cluster_info() {
-  struct msg msg;
-
   vmm_log("broadcast cluster info from Node0\n");
 
-  broadcast_msg_header_init(&msg, MSG_CLUSTER_INFO);
+  struct pocv2_msg msg;
+  struct cluster_info_arg arg;
 
-  struct packet pk_nnodes, pk_c;
-  packet_init(&pk_nnodes, &nr_cluster_nodes, sizeof(nr_cluster_nodes));
-  packet_init(&pk_c, cluster, sizeof(cluster));
-  pk_nnodes.next = &pk_c;
+  arg.nnodes = nr_cluster_nodes;
 
-  msg.pk = &pk_nnodes;
+  pocv2_broadcast_msg_init(&msg, MSG_CLUSTER_INFO, &arg, sizeof(arg), cluster, sizeof(cluster));
+
   send_msg(&msg);
 }
 

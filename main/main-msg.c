@@ -4,15 +4,15 @@
 #include "ethernet.h"
 #include "cluster.h"
 
-static void node0_recv_init_reply_intr(struct recv_msg *recvmsg) {
-  struct __init_ack *body = (struct __init_ack *)recvmsg->body;
+static void node0_recv_init_ack_intr(struct pocv2_msg *msg) {
+  struct init_ack *i = pocv2_msg_argv(msg);
 
-  cluster_ack_node(recvmsg->src_mac, body->nvcpu, body->allocated);
-  vmm_log("Node 1: %d vcpus %p bytes\n", body->nvcpu, body->allocated);
+  cluster_ack_node(msg->mac, i->nvcpu, i->allocated);
+  vmm_log("Node 1: %d vcpus %p bytes\n", i->nvcpu, i->allocated);
 }
 
-static void node0_recv_sub_setup_done_notify_intr(struct recv_msg *recvmsg) {
-  struct setup_done_notify *body = (struct setup_done_notify *)recvmsg->body;
+static void node0_recv_sub_setup_done_notify_intr(struct pocv2_msg *msg) {
+  struct setup_done_notify *s = pocv2_msg_argv(msg);
   int nodeid = macaddr_to_node(recvmsg->src_mac)->nodeid;
 
   if(body->status == 0)
@@ -27,15 +27,13 @@ static void node0_recv_sub_setup_done_notify_intr(struct recv_msg *recvmsg) {
 
 void broadcast_init_request() {
   printf("broadcast init request");
-  struct msg msg;
-  msg.type = MSG_INIT;
-  msg.dst_mac = broadcast_mac;
-  msg.pk = NULL;
+  struct msg_header head;
+  msg_header_init(&head, MSG_INIT);
 
   send_msg(&msg);
 }
 
 void node0_msg_init() {
-  msg_register_recv_handler(MSG_INIT_REPLY, node0_recv_init_reply_intr);
+  msg_register_recv_handler(MSG_INIT_REPLY, node0_recv_init_ack_intr);
   msg_register_recv_handler(MSG_SETUP_DONE, node0_recv_sub_setup_done_notify_intr);
 }

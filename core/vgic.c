@@ -533,7 +533,7 @@ static int vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
 
   vcpu = vcpu_get(ridx);
   if(!vcpu)
-    panic("remote access");
+    return 0;
 
   return __vgicr_mmio_read(vcpu, roffset, val, mmio);
 }
@@ -544,7 +544,7 @@ static int vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
 
   vcpu = vcpu_get(ridx);
   if(!vcpu)
-    panic("remote access");
+    return 0;
 
   return __vgicr_mmio_write(vcpu, roffset, val, mmio);
 }

@@ -3,31 +3,12 @@
 
 #include "types.h"
 
-struct packet {
-  int used;
-  void *data;
-  int len;
-  struct packet *next;
-};
-
-#define foreach_packet(pk, pkhead)  \
-  for((pk) = (pkhead); (pk); (pk) = (pk)->next)
-
-static inline void packet_init(struct packet *p, void *data, int len) {
-  p->data = data;
-  p->len = len;
-  p->next = NULL;
-}
-
-struct packet *allocpacket(void);
-void freepacket(struct packet *packet);
-
 struct nic;
 struct nic_ops {
   void (*xmit)(struct nic *, void *, u64);
-  void (*set_recv_intr_callback)(struct nic *, void (*cb)(struct nic *, void *, u64));
+  void (*set_recv_intr_callback)(struct nic *, void (*cb)(struct nic *, void **, int *, int));
   // private
-  void (*recv_intr_callback)(struct nic *, void *, u64);
+  void (*recv_intr_callback)(struct nic *, void **, int *, int);
 };
 
 struct nic {

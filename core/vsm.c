@@ -27,27 +27,19 @@ static void send_read_reply(u8 *dst_mac, u64 ipa, void *page);
  *      - 4KB page corresponding to ipa
  */
 
-struct __read_req {
+struct read_req_arg {
   u64 ipa;
 };
 
-struct __read_reply {
+struct read_reply_arg {
   u64 ipa;
+};
+
+struct read_reply_body {
   u8 page[4096];
 };
 
-struct read_req {
-  struct msg msg;
-  struct __read_req body;
-};
-
-struct read_reply {
-  struct msg msg;
-  struct __read_reply body;
-};
-
 void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa);
-
 
 /* TODO: determine dst_node by ipa */
 static inline int page_owner(u64 ipa) {
@@ -96,8 +88,7 @@ static void vsm_set_cache(u64 ipa, u8 *page) {
   static int count = 0;
   u64 *vttbr = localnode.vttbr;
 
-  if(!PAGE_ALIGNED(ipa))
-    panic("ipa align");
+  vmm_bug_on(!PAGE_ALIGNED(ipa), "ipa align");
 
   void *c = alloc_page();
   if(!c)
@@ -110,8 +101,7 @@ static void vsm_set_cache(u64 ipa, u8 *page) {
 }
 
 void *vsm_fetch_page(u64 page_ipa, bool wr) {
-  if(page_ipa % PAGESIZE)
-    panic("align error");
+  vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
 
   int dst_node = page_owner(page_ipa);
   if(dst_node < 0)
@@ -122,8 +112,6 @@ void *vsm_fetch_page(u64 page_ipa, bool wr) {
 
   /* send read request */
   send_read_request(dst_node, page_ipa);
-
-  intr_enable();
 
   u64 pa;
   while(!(pa = ipa2pa(vttbr, page_ipa)))
@@ -136,12 +124,12 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   if(!buf)
     panic("null buf");
 
-  u64 page_ipa = ipa & ~(u64)(PAGESIZE-1);
+  u64 page_ipa = PAGE_ALIGN(ipa);
   char *pa_page = vsm_fetch_page(page_ipa, wr);
   if(!pa_page)
     return -1;
 
-  u32 offset = ipa & (PAGESIZE-1);
+  u32 offset = PAGE_OFFSET(ipa);
   if(wr)
     memcpy(pa_page+offset, buf, size);
   else
@@ -151,49 +139,43 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
 }
 
 static void send_read_request(u8 dst, u64 ipa) {
-  struct msg msg;
-  msg.type = MSG_READ;
-  msg.dst_mac = node_macaddr(dst);
-  struct __read_req req;
-  req.ipa = ipa;
+  struct pocv2_msg msg;
+  struct read_req_arg arg;
 
-  struct packet pk;
-  packet_init(&pk, &req, sizeof(req));
-  msg.pk = &pk;
+  arg.ipa = ipa;
+
+  pocv2_msg_init2(&msg, dst, MSG_READ, &arg, sizeof(arg), NULL, 0);
 
   send_msg(&msg);
 }
 
 static void send_read_reply(u8 *dst_mac, u64 ipa, void *page) {
-  struct msg msg;
-  msg.type = MSG_READ_REPLY;
-  msg.dst_mac = dst_mac;
+  struct pocv2_msg msg;
+  struct read_reply_arg arg;
 
-  struct packet p_ipa;
-  packet_init(&p_ipa, &ipa, sizeof(ipa));
-  struct packet p_page;
-  packet_init(&p_page, page, 4096);
-  p_ipa.next = &p_page;
-  msg.pk = &p_ipa;
+  arg.ipa = ipa;
+
+  pocv2_msg_init(&msg, dst_mac, MSG_READ_REPLY, &arg, sizeof(arg), page, PAGESIZE);
 
   send_msg(&msg);
 }
 
-static void recv_read_request_intr(struct recv_msg *recvmsg) {
-  struct __read_req *rd = (struct __read_req *)recvmsg->body;
+static void recv_read_request_intr(struct pocv2_msg *msg) {
+  struct read_req_arg *a = pocv2_msg_argv(msg);
 
   /* TODO: use at instruction */
-  u64 pa = ipa2pa(localnode.vttbr, rd->ipa);
-  vmm_log("read ipa @%p -> pa %p\n", rd->ipa, pa);
+  u64 pa = ipa2pa(localnode.vttbr, a->ipa);
+  vmm_log("read ipa @%p -> pa %p\n", a->ipa, pa);
 
-  send_read_reply(recvmsg->src_mac, rd->ipa, (void *)pa);
+  send_read_reply(pocv2_msg_src_mac(msg), a->ipa, (void *)pa);
 }
 
-static void recv_read_reply_intr(struct recv_msg *recvmsg) {
-  struct __read_reply *rep = (struct __read_reply *)recvmsg->body;
-  vmm_log("recv remote @%p\n", rep->ipa);
+static void recv_read_reply_intr(struct pocv2_msg *msg) {
+  struct read_reply_arg *a = pocv2_msg_argv(msg);
+  struct read_reply_body *b = msg->body;
+  vmm_log("recv remote @%p\n", a->ipa);
 
-  vsm_set_cache(rep->ipa, rep->page);
+  vsm_set_cache(a->ipa, b->page);
 }
 
 void vsm_init() {

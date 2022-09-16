@@ -82,7 +82,7 @@ static inline bool node_macaddr_is_me(u8 *mac) {
  *      allocated ram size to VM from Node n
  */
 
-struct __init_ack {
+struct init_ack {
   int nvcpu;
   u64 allocated;
 };

@@ -42,7 +42,7 @@ static void sub_initvcpu() {
 }
 
 static void sub_start() {
-  vmm_log("nodeN: start\n");
+  vmm_log("node%d: start\n", localnode.nodeid);
 
   intr_enable();
 
