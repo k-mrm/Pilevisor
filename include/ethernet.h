@@ -11,8 +11,7 @@ struct etherheader {
   u16 type;
 } __attribute__((packed));
 
-void ethernet_recv_intr(struct nic *nic, void *data, u64 len);
-void ethernet_xmit(struct nic *nic, u8 *dst_mac, u16 type, struct packet *packet);
+void ethernet_recv_intr(struct nic *nic, void **packets, int *lens, int npackets);
 
 #define ETHER_PACKET_LENGTH_MIN    64
 

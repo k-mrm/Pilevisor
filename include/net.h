@@ -5,7 +5,7 @@
 
 struct nic;
 struct nic_ops {
-  void (*xmit)(struct nic *, void *, u64);
+  void (*xmit)(struct nic *, void **, int *, int);
   void (*set_recv_intr_callback)(struct nic *, void (*cb)(struct nic *, void **, int *, int));
   // private
   void (*recv_intr_callback)(struct nic *, void **, int *, int);

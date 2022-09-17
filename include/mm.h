@@ -79,9 +79,8 @@
 
 #define PAGESIZE          4096  /* 4KB */
 
-#define PAGE_ALIGN(p)     ((u64)(p) & ~(PAGESIZE-1))
+#define PAGE_ADDRESS(p)   ((u64)(p) & ~(PAGESIZE-1))
 #define PAGE_ALIGNED(p)   ((u64)(p) % PAGESIZE == 0)
-#define PAGEROUNDDOWN(p)  ((u64)(p) & ~(PAGESIZE-1))
 #define PAGEROUNDUP(p)    (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
 #define PAGE_OFFSET(p)    ((u64)(p) & (PAGESIZE-1))
 

@@ -19,7 +19,7 @@
   } while(0)
 
 #define build_bug_on(cond) \
-  struct { int:-!!(cond); };
+  (void)(sizeof(struct { int:-!!(cond); }))
 
 
 #endif

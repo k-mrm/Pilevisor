@@ -3,6 +3,6 @@
 
 #include "msg.h"
 
-void sub_msg_recv_intr(struct recv_msg *recvmsg);
+void sub_msg_recv_intr(struct pocv2_msg *msg);
 
 #endif

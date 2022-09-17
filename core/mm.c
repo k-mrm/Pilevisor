@@ -107,7 +107,7 @@ void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
         panic("copy_to_guest_alloc");
     }
 
-    u64 poff = PAGEOFFSET(to_ipa);
+    u64 poff = PAGE_OFFSET(to_ipa);
     u64 n = PAGESIZE - poff;
     if(n > len)
       n = len;
@@ -143,7 +143,7 @@ void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len) {
     u64 pa = ipa2pa(pgt, from_ipa);
     if(pa == 0)
       panic("copy_from_guest pa == 0 from_ipa: %p", from_ipa);
-    u64 poff = PAGEOFFSET(from_ipa);
+    u64 poff = PAGE_OFFSET(from_ipa);
     u64 n = PAGESIZE - poff;
     if(n > len)
       n = len;
@@ -160,7 +160,7 @@ u64 ipa2pa(u64 *pgt, u64 ipa) {
   u64 *pte = pagewalk(pgt, ipa, 0);
   if(!pte)
     return 0;
-  u32 off = PAGEOFFSET(ipa);
+  u32 off = PAGE_OFFSET(ipa);
 
   return PTE_PA(*pte) + off;
 }
@@ -176,7 +176,7 @@ u64 at_uva2pa(u64 uva) {
     // dump_par_el1();
     return 0;
   } else {
-    return (par & 0xfffffffff000) | PAGEOFFSET(uva);
+    return (par & 0xfffffffff000) | PAGE_OFFSET(uva);
   }
 }
 
@@ -191,7 +191,7 @@ u64 at_uva2ipa(u64 uva) {
     // dump_par_el1();
     return 0;
   } else {
-    return (par & 0xfffffffff000) | PAGEOFFSET(uva);
+    return (par & 0xfffffffff000) | PAGE_OFFSET(uva);
   }
 }
 

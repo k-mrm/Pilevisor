@@ -5,30 +5,32 @@
 #include "cluster.h"
 
 static void node0_recv_init_ack_intr(struct pocv2_msg *msg) {
-  struct init_ack *i = pocv2_msg_argv(msg);
+  struct init_ack_hdr *i = (struct init_ack_hdr *)msg->hdr;
 
-  cluster_ack_node(msg->mac, i->nvcpu, i->allocated);
+  cluster_ack_node(pocv2_msg_src_mac(msg), i->nvcpu, i->allocated);
   vmm_log("Node 1: %d vcpus %p bytes\n", i->nvcpu, i->allocated);
 }
 
 static void node0_recv_sub_setup_done_notify_intr(struct pocv2_msg *msg) {
-  struct setup_done_notify *s = pocv2_msg_argv(msg);
-  int nodeid = macaddr_to_node(recvmsg->src_mac)->nodeid;
+  struct setup_done_hdr *s = (struct setup_done_hdr *)msg->hdr;
+  int src_nodeid = pocv2_msg_src_nodeid(msg);
 
-  if(body->status == 0)
-    vmm_log("Node %d: setup ran successfully\n", nodeid);
+  if(s->status == 0)
+    vmm_log("Node %d: setup ran successfully\n", src_nodeid);
   else
-    vmm_log("Node %d: setup failed\n", nodeid);
+    vmm_log("Node %d: setup failed\n", src_nodeid);
 
-  cluster_node(nodeid)->status = NODE_ONLINE;
+  cluster_node(src_nodeid)->status = NODE_ONLINE;
 
-  vmm_log("node %d online\n", nodeid);
+  vmm_log("node %d online\n", src_nodeid);
 }
 
 void broadcast_init_request() {
   printf("broadcast init request");
-  struct msg_header head;
-  msg_header_init(&head, MSG_INIT);
+  struct pocv2_msg msg;
+  struct init_req_hdr hdr;
+
+  pocv2_broadcast_msg_init(&msg, MSG_INIT_REQUEST, &hdr, NULL, 0);
 
   send_msg(&msg);
 }

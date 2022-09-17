@@ -36,6 +36,8 @@ static inline struct cluster_node *vcpuid_to_node(int vcpuid) {
         return node;
     }
   }
+
+  return NULL;
 }
 
 static inline struct cluster_node *macaddr_to_node(u8 *mac) {
@@ -70,7 +72,7 @@ static inline struct cluster_node *cluster_me() {
     return NULL;
 }
 
-struct inline int cluster_me_nodeid() {
+static inline int cluster_me_nodeid() {
   struct cluster_node *node = cluster_me();
   if(node)
     return node->nodeid;
@@ -96,12 +98,13 @@ void cluster_dump(void);
  *      struct cluster_node cluster[nremote];
  *
  */
-struct cluster_info_arg {
+struct cluster_info_hdr {
+  POCV2_MSG_HDR_STRUCT;
   int nnodes;
-} __attribute__((packed));
+};
 
 struct cluster_info_body {
   struct cluster_node cluster_info[NODE_MAX];
-}
+};
 
 #endif

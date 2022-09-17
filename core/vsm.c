@@ -27,19 +27,19 @@ static void send_read_reply(u8 *dst_mac, u64 ipa, void *page);
  *      - 4KB page corresponding to ipa
  */
 
-struct read_req_arg {
+struct read_req_hdr {
+  POCV2_MSG_HDR_STRUCT;
   u64 ipa;
 };
 
-struct read_reply_arg {
+struct read_reply_hdr {
+  POCV2_MSG_HDR_STRUCT;
   u64 ipa;
 };
 
 struct read_reply_body {
   u8 page[4096];
 };
-
-void read_req_init(struct read_req *rmsg, u8 dst, u64 ipa);
 
 /* TODO: determine dst_node by ipa */
 static inline int page_owner(u64 ipa) {
@@ -124,7 +124,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   if(!buf)
     panic("null buf");
 
-  u64 page_ipa = PAGE_ALIGN(ipa);
+  u64 page_ipa = PAGE_ADDRESS(ipa);
   char *pa_page = vsm_fetch_page(page_ipa, wr);
   if(!pa_page)
     return -1;
@@ -140,28 +140,28 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
 
 static void send_read_request(u8 dst, u64 ipa) {
   struct pocv2_msg msg;
-  struct read_req_arg arg;
+  struct read_req_hdr hdr;
 
-  arg.ipa = ipa;
+  hdr.ipa = ipa;
 
-  pocv2_msg_init2(&msg, dst, MSG_READ, &arg, sizeof(arg), NULL, 0);
+  pocv2_msg_init2(&msg, dst, MSG_READ, &hdr, NULL, 0);
 
   send_msg(&msg);
 }
 
 static void send_read_reply(u8 *dst_mac, u64 ipa, void *page) {
   struct pocv2_msg msg;
-  struct read_reply_arg arg;
+  struct read_reply_hdr hdr;
 
-  arg.ipa = ipa;
+  hdr.ipa = ipa;
 
-  pocv2_msg_init(&msg, dst_mac, MSG_READ_REPLY, &arg, sizeof(arg), page, PAGESIZE);
+  pocv2_msg_init(&msg, dst_mac, MSG_READ_REPLY, &hdr, page, PAGESIZE);
 
   send_msg(&msg);
 }
 
 static void recv_read_request_intr(struct pocv2_msg *msg) {
-  struct read_req_arg *a = pocv2_msg_argv(msg);
+  struct read_req_hdr *a = (struct read_req_hdr *)msg->hdr;
 
   /* TODO: use at instruction */
   u64 pa = ipa2pa(localnode.vttbr, a->ipa);
@@ -171,7 +171,7 @@ static void recv_read_request_intr(struct pocv2_msg *msg) {
 }
 
 static void recv_read_reply_intr(struct pocv2_msg *msg) {
-  struct read_reply_arg *a = pocv2_msg_argv(msg);
+  struct read_reply_hdr *a = (struct read_reply_hdr *)msg->hdr;
   struct read_reply_body *b = msg->body;
   vmm_log("recv remote @%p\n", a->ipa);
 

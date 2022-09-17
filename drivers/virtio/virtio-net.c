@@ -1,4 +1,3 @@
-#include "pci.h"
 #include "aarch64.h"
 #include "log.h"
 #include "allocpage.h"
@@ -17,9 +16,7 @@ static inline void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
   memcpy(buf, dev->cfg->mac, sizeof(u8)*6);
 }
 
-static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
-  struct virtio_net *dev = nic->device;
-  u8 *buf = (u8 *)data;
+static struct virtio_net_hdr *virtio_net_hdr_alloc() {
   struct virtio_net_hdr *hdr = alloc_page();
 
   hdr->flags = 0;
@@ -30,8 +27,20 @@ static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
   hdr->csum_offset = 0;
   hdr->num_buffers = 0;
 
+  return hdr;
+}
+
+static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npackets) {
+  struct virtio_net *dev = nic->device;
+  u8 *buf = (u8 *)data;
+  struct virtio_net_hdr *hdr = virtio_net_hdr_alloc();
+
   u8 *body = alloc_pages(1);
-  memcpy(body, buf, len);
+  u32 offset = 0;
+  for(int i = 0; i < npackets; i++) {
+    memcpy(body+offset, packets[i], lens[i]);
+    offset += lens[i];
+  }
   
   /* hdr */
   u16 d0 = virtq_alloc_desc(dev->tx);
@@ -43,7 +52,7 @@ static void virtio_net_xmit(struct nic *nic, void *data, u64 len) {
   /* body */
   u16 d1 = virtq_alloc_desc(dev->tx);
 
-  dev->tx->desc[d1].len = len;
+  dev->tx->desc[d1].len = offset;
   dev->tx->desc[d1].addr = (u64)body;
   dev->tx->desc[d1].flags = 0;
 
@@ -62,7 +71,7 @@ static void fill_recv_queue(struct virtq *rxq) {
     u16 d0 = virtq_alloc_desc(rxq);
     u16 d1 = virtq_alloc_desc(rxq);
     rxq->desc[d0].addr = (u64)alloc_page();
-    rxq->desc[d0].len = sizeof(struct virtio_net_hdr) + sizeof(struct pocv2_frame_header);
+    rxq->desc[d0].len = sizeof(struct virtio_net_hdr) + ETH_POCV2_MSG_HDR_SIZE;
     rxq->desc[d0].flags = VIRTQ_DESC_F_WRITE | VIRTQ_DESC_F_NEXT;
     rxq->desc[d0].next = d1;
     rxq->desc[d1].addr = (u64)alloc_page();

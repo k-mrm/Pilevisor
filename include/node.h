@@ -77,24 +77,30 @@ static inline bool node_macaddr_is_me(u8 *mac) {
  *      (nop)
  *
  *  init ack:   Node n ---> Node 0
- *    send:
+ *    send-arg:
  *      num of vCPU allocated to VM
  *      allocated ram size to VM from Node n
  */
 
-struct init_ack {
+struct init_req_hdr {
+  POCV2_MSG_HDR_STRUCT;
+};
+
+struct init_ack_hdr {
+  POCV2_MSG_HDR_STRUCT;
   int nvcpu;
   u64 allocated;
 };
 
 /*
  *  setup_done_notify: Node n ---> Node 0
- *    send:
+ *    send-arg:
  *      status (0 = success, else = failure)
  *
  */
 
-struct setup_done_notify {
+struct setup_done_hdr {
+  POCV2_MSG_HDR_STRUCT;
   u8 status;
 };
 

@@ -20,6 +20,10 @@ SECTIONS {
 
     .data : {
       *(.data) *(.data.*)
+      . = ALIGN(8);
+      __pocv2_msg_data_start = .;
+      *(.pocv2_msg_data)
+      __pocv2_msg_data_end = .;
     }
 
     . = ALIGN(4096);

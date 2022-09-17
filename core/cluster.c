@@ -36,11 +36,11 @@ void broadcast_cluster_info() {
   vmm_log("broadcast cluster info from Node0\n");
 
   struct pocv2_msg msg;
-  struct cluster_info_arg arg;
+  struct cluster_info_hdr hdr;
 
-  arg.nnodes = nr_cluster_nodes;
+  hdr.nnodes = nr_cluster_nodes;
 
-  pocv2_broadcast_msg_init(&msg, MSG_CLUSTER_INFO, &arg, sizeof(arg), cluster, sizeof(cluster));
+  pocv2_broadcast_msg_init(&msg, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster));
 
   send_msg(&msg);
 }
