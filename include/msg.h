@@ -8,7 +8,7 @@
 enum msgtype {
   MSG_NONE          = 0x0,
   MSG_INIT          = 0x1,
-  MSG_INIT_REPLY    = 0x2,
+  MSG_INIT_ACK      = 0x2,
   MSG_CLUSTER_INFO  = 0x3,
   MSG_SETUP_DONE    = 0x4,
   MSG_CPU_WAKEUP    = 0x5,
@@ -54,14 +54,23 @@ struct pocv2_msg {
 #define pocv2_msg_type(msg)       ((msg)->hdr->type)
 
 #define POCV2_MSG_ETH_PROTO           0x0019
-#define MSG_TYPE_2_ETHER_TYPE(type) (((type) << 8) | 0x19)
-#define ETHER_TYPE_2_MSG_TYPE(type) (((type) >> 8) & 0xff)
-#define IS_POCV2_MSG(ethertype)     ((ethertype) & 0xff == 0x19)
+
+struct pocv2_msg_data {
+  enum msgtype type;
+  u32 msg_hdr_size;
+  void (*recv_handler)(struct pocv2_msg *);
+};
+
+#define DEFINE_POCV2_MSG(ty, hdr_struct, handler)  \
+  struct pocv2_msg_data _mdata_##ty __attribute__((__section__(".pocv2_msg_data"))) = {   \
+    .type = (ty),   \
+    .msg_hdr_size = sizeof(hdr_struct),    \
+    .recv_handler = handler,    \
+  };
 
 void send_msg(struct pocv2_msg *msg);
 
 void msg_recv_intr(void **packets, int *lens, int npackets);
-void msg_register_recv_handler(enum msgtype type, void (*handler)(struct pocv2_msg *));
 
 void pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
                                struct pocv2_msg_header *hdr, void *body, int body_len);

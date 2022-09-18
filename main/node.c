@@ -6,7 +6,6 @@
 #include "msg.h"
 #include "lib.h"
 #include "log.h"
-#include "main-msg.h"
 #include "cluster.h"
 
 /* node 0(bootstrap node) controller */

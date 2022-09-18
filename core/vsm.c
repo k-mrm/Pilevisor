@@ -178,11 +178,6 @@ static void recv_read_reply_intr(struct pocv2_msg *msg) {
   vsm_set_cache(a->ipa, b->page);
 }
 
-void vsm_init() {
-  msg_register_recv_handler(MSG_READ, recv_read_request_intr);
-  msg_register_recv_handler(MSG_READ_REPLY, recv_read_reply_intr);
-}
-
 void vsm_node_init(struct memrange *mem) {
   u64 *vttbr = localnode.vttbr;
   u64 start = mem->start, size = mem->size;
@@ -198,3 +193,6 @@ void vsm_node_init(struct memrange *mem) {
 
   vmm_log("Node %d mapped: [%p - %p]\n", localnode.nodeid, start, start+p);
 }
+
+DEFINE_POCV2_MSG(MSG_READ, struct read_req_hdr, recv_read_request_intr);
+DEFINE_POCV2_MSG(MSG_READ_REPLY, struct read_reply_hdr, recv_read_reply_intr);

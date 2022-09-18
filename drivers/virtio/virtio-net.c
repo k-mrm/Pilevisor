@@ -90,11 +90,22 @@ static void rxintr(struct nic *nic, u16 idx) {
   u16 d1 = dev->rx->desc[d0].next;
   u32 len = dev->rx->used->ring[idx].len - sizeof(struct virtio_net_hdr);
 
-  void *d0_packet = dev->rx->desc[d0].addr;
-  void *d1_packet = dev->rx->desc[d1].addr;
+  void *p[2];
+  int l[2];
+  int np = 1;
+  p[0] = (void *)(dev->rx->desc[d0].addr + sizeof(struct virtio_net_hdr));
+  l[0] = 64;
+
+  if(len > 64) {
+    p[1] = (void *)dev->rx->desc[d1].addr;
+    l[1] = len - 64;
+    np++;
+  }
 
   if(nic->ops->recv_intr_callback)
-    nic->ops->recv_intr_callback(nic, &{d0_packet, d1_packet}, &{len}, 2);
+    nic->ops->recv_intr_callback(nic, p, l, np);
+
+  dev->rx->desc[d1].addr = (u64)alloc_page();
 
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d0;
   dsb(sy);

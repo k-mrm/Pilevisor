@@ -32,20 +32,7 @@ static void cluster_setup_vsm_memrange(struct memrange *m, u64 alloc) {
   ram_start += alloc;
 }
 
-void broadcast_cluster_info() {
-  vmm_log("broadcast cluster info from Node0\n");
-
-  struct pocv2_msg msg;
-  struct cluster_info_hdr hdr;
-
-  hdr.nnodes = nr_cluster_nodes;
-
-  pocv2_broadcast_msg_init(&msg, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster));
-
-  send_msg(&msg);
-}
-
-void update_cluster_info(int nnodes, struct cluster_node *c) {
+static void update_cluster_info(int nnodes, struct cluster_node *c) {
   nr_cluster_nodes = nnodes;
   memcpy(cluster, c, sizeof(cluster));
   cluster_dump();
@@ -77,6 +64,26 @@ void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated) {
     c->vcpus[i] = cluster_alloc_vcpuid();
 }
 
+static void broadcast_cluster_info() {
+  vmm_log("broadcast cluster info from Node0\n");
+
+  struct pocv2_msg msg;
+  struct cluster_info_hdr hdr;
+
+  hdr.nnodes = nr_cluster_nodes;
+
+  pocv2_broadcast_msg_init(&msg, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster));
+
+  send_msg(&msg);
+}
+
+static void recv_cluster_info_intr(struct pocv2_msg *msg) {
+  struct cluster_info_hdr *a = (struct cluster_info_hdr *)msg->hdr;
+  struct cluster_info_body *b = msg->body;
+
+  update_cluster_info(a->nnodes, b->cluster_info);
+}
+
 void cluster_dump() {
   static char *states[] = {
     [NODE_NULL]   "null",
@@ -91,3 +98,5 @@ void cluster_dump() {
     printf("Node %d: %m %s\n", node->nodeid, node->mac, states[node->status]);
   }
 }
+
+DEFINE_POCV2_MSG(MSG_CLUSTER_INFO, struct cluster_info_hdr, recv_cluster_info_intr);

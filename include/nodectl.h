@@ -9,7 +9,6 @@ struct nodectl {
   void (*init)(void);
   void (*initvcpu)(void);
   void (*start)(void);
-  void (*msg_recv_handlers[NUM_MSG])(struct pocv2_msg *);
 };
 
 void nodectl_init(void);

@@ -9,6 +9,10 @@
 #include "lib.h"
 #include "cluster.h"
 
+extern struct pocv2_msg_data __pocv2_msg_data_start[], __pocv2_msg_data_end[];
+
+static struct pocv2_msg_data msg_data[NUM_MSG];
+
 void msg_recv_intr(void **packets, int *lens, int npackets) {
   vmm_bug_on(npackets != 2, "npackets");
   struct pocv2_msg msg;
@@ -25,15 +29,6 @@ void msg_recv_intr(void **packets, int *lens, int npackets) {
     localnode.ctl->msg_recv_handlers[msg.hdr->type](&msg);
   else
     panic("unknown msg received: %d\n", msg.hdr->type);
-}
-
-void msg_register_recv_handler(enum msgtype type, void (*handler)(struct pocv2_msg *)) {
-  if(type >= NUM_MSG)
-    panic("invalid msg type");
-  if(!localnode.ctl)
-    panic("ctlr?");
-
-  localnode.ctl->msg_recv_handlers[type] = handler;
 }
 
 void send_msg(struct pocv2_msg *msg) {
@@ -93,8 +88,16 @@ static void unknown_msg_recv(struct pocv2_msg *msg) {
 }
 
 void msg_sysinit() {
+  struct pocv2_msg_data *d;
+
+  for(d = __pocv2_msg_data_start; d < __pocv2_msg_data_end; d++) {
+    vmm_log("msg: %d sizeof %d\n", d->type, d->msg_hdr_size);
+    memcpy(&msg_data[d->type], d, sizeof(*d));
+  }
+
+  /* fill unused field */
   for(int i = 0; i < NUM_MSG; i++) {
-    if(!localnode.ctl->msg_recv_handlers[i])
-      localnode.ctl->msg_recv_handlers[i] = unknown_msg_recv;
+    if(msg_data[i].recv_handler == NULL)
+      msg_data[i].recv_handler = unknown_msg_recv;
   }
 }

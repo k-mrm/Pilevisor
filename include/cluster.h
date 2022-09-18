@@ -84,10 +84,7 @@ static inline u8 *node_macaddr(int nodeid) {
   return cluster_node(nodeid)->mac;
 }
 
-void broadcast_cluster_info(void);
-void update_cluster_info(int nnodes, struct cluster_node *c);
 void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated);
-
 void cluster_dump(void);
 
 /*

@@ -2,7 +2,6 @@
 #include "vcpu.h"
 #include "node.h"
 #include "nodectl.h"
-#include "sub-msg.h"
 #include "lib.h"
 #include "log.h"
 #include "cluster.h"
