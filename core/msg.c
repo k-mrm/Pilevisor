@@ -31,7 +31,7 @@ static char *msmap[NUM_MSG] = {
 };
 
 void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
-  vmm_bug_on(npackets != 2, "npackets");
+  vmm_bug_on(npackets != 2 && npackets != 1, "npackets");
   struct pocv2_msg msg;
 
   /* Packet 1 */
@@ -40,8 +40,8 @@ void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
   msg.hdr = hdr;
 
   /* Packet 2 */
-  msg.body = packets[1];
-  msg.body_len = lens[1];
+  msg.body = npackets == 2 ? packets[1] : NULL;
+  msg.body_len = npackets == 2 ? lens[1] : 0;
 
   if(msg.hdr->type < NUM_MSG && msg_data[msg.hdr->type].recv_handler)
     msg_data[msg.hdr->type].recv_handler(&msg);
