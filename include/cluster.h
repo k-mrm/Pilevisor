@@ -104,4 +104,6 @@ struct cluster_info_body {
   struct cluster_node cluster_info[NODE_MAX];
 };
 
+void node0_broadcast_cluster_info(void);
+
 #endif

@@ -32,7 +32,6 @@ static struct virtio_net_hdr *virtio_net_hdr_alloc() {
 
 static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npackets) {
   struct virtio_net *dev = nic->device;
-  u8 *buf = (u8 *)data;
   struct virtio_net_hdr *hdr = virtio_net_hdr_alloc();
 
   u8 *body = alloc_pages(1);
@@ -100,12 +99,12 @@ static void rxintr(struct nic *nic, u16 idx) {
     p[1] = (void *)dev->rx->desc[d1].addr;
     l[1] = len - 64;
     np++;
+
+    dev->rx->desc[d1].addr = (u64)alloc_page();
   }
 
   if(nic->ops->recv_intr_callback)
     nic->ops->recv_intr_callback(nic, p, l, np);
-
-  dev->rx->desc[d1].addr = (u64)alloc_page();
 
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d0;
   dsb(sy);

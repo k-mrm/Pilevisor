@@ -64,7 +64,7 @@ void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated) {
     c->vcpus[i] = cluster_alloc_vcpuid();
 }
 
-static void broadcast_cluster_info() {
+void node0_broadcast_cluster_info() {
   vmm_log("broadcast cluster info from Node0\n");
 
   struct pocv2_msg msg;

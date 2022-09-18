@@ -12,9 +12,10 @@ void ether_packet(u8 *dst_mac, u8 *src_mac, u16 type) {
   ;
 }
 
-static void *eth_parse(void *packet, u8 **dst, u16 *ethtype) {
+static void *eth_parse(void *packet, u8 **src, u8 **dst, u16 *ethtype) {
   struct etherheader *eth = (struct etherheader *)packet;
 
+  *src = eth->src;
   *dst = eth->dst;
   *ethtype = eth->type;
 
@@ -22,12 +23,13 @@ static void *eth_parse(void *packet, u8 **dst, u16 *ethtype) {
 }
 
 void ethernet_recv_intr(struct nic *nic, void **packets, int *lens, int npackets) {
+  u8 *src;
   u8 *dst;
   u16 ethtype;
-  packets[0] = eth_parse(packets[0], &dst, &ethtype);
+  packets[0] = eth_parse(packets[0], &src, &dst, &ethtype);
 
   if(memcmp(dst, broadcast_mac, 6) == 0 || memcmp(dst, nic->mac, 6) == 0) {
     if(ethtype == POCV2_MSG_ETH_PROTO)
-      msg_recv_intr(packets, lens, npackets);
+      msg_recv_intr(src, packets, lens, npackets);
   }
 }

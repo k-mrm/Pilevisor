@@ -18,9 +18,6 @@ static int wait_for_acked_me() {
 
 static void sub_init() {
   vmm_log("sub-node init\n");
-
-  sub_msg_init();
-
   vmm_log("Waiting for recognition from cluster...\n");
 
   intr_enable();

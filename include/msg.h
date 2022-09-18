@@ -70,13 +70,22 @@ struct pocv2_msg_data {
 
 void send_msg(struct pocv2_msg *msg);
 
-void msg_recv_intr(void **packets, int *lens, int npackets);
+void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets);
 
-void pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
+#define pocv2_broadcast_msg_init(msg, type, hdr, body, body_len)   \
+  _pocv2_broadcast_msg_init(msg, type, (struct pocv2_msg_header *)hdr, body, body_len)
+
+#define pocv2_msg_init2(msg, dst_nodeid, type, hdr, body, body_len)   \
+  _pocv2_msg_init2(msg, dst_nodeid, type, (struct pocv2_msg_header *)hdr, body, body_len)
+
+#define pocv2_msg_init(msg, dst_mac, type, hdr, body, body_len)   \
+  _pocv2_msg_init(msg, dst_mac, type, (struct pocv2_msg_header *)hdr, body, body_len)
+
+void _pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
                                struct pocv2_msg_header *hdr, void *body, int body_len);
-void pocv2_msg_init2(struct pocv2_msg *msg, int dst_nodeid, enum msgtype type,
+void _pocv2_msg_init2(struct pocv2_msg *msg, int dst_nodeid, enum msgtype type,
                        struct pocv2_msg_header *hdr, void *body, int body_len);
-void pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
+void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
                       struct pocv2_msg_header *hdr, void *body, int body_len);
 
 void msg_sysinit(void);

@@ -101,7 +101,7 @@ void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
     u64 pa = ipa2pa(pgt, to_ipa);
     if(pa == 0) {
       char *page = alloc_page();
-      pagemap(pgt, PAGEROUNDDOWN(to_ipa), (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+      pagemap(pgt, PAGE_ADDRESS(to_ipa), (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
       pa = ipa2pa(pgt, to_ipa);
       if(pa == 0)
         panic("copy_to_guest_alloc");

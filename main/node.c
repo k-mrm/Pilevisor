@@ -63,16 +63,15 @@ static void node0_init() {
   localnode.nodeid = 0;
   initmem();
   initvm();
-  node0_msg_init();
 
   /* me */
   cluster_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
 
   /* send initialization request to sub-node */
-  broadcast_init_request();
+  node0_broadcast_init_request();
   wait_for_init_ack();
 
-  broadcast_cluster_info();
+  node0_broadcast_cluster_info();
   wait_for_sub_init_done();
 }
 

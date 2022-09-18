@@ -50,10 +50,9 @@ void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc) {
   vgic_init();
 
   msg_sysinit();
-  vsm_init();
 }
 
-void broadcast_init_request() {
+void node0_broadcast_init_request() {
   printf("broadcast init request");
   struct pocv2_msg msg;
   struct init_req_hdr hdr;

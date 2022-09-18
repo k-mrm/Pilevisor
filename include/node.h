@@ -104,4 +104,6 @@ struct setup_done_hdr {
   u8 status;
 };
 
+void node0_broadcast_init_request(void);
+
 #endif
