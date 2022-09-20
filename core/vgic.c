@@ -539,7 +539,7 @@ static int vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   vcpu = vcpu_get(ridx);
   if(!vcpu)
-    panic("remote vcpu");
+    return vmmio_forward(ridx, mmio);
 
   return __vgicr_mmio_read(vcpu, mmio);
 }
@@ -551,7 +551,7 @@ static int vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   vcpu = vcpu_get(ridx);
   if(!vcpu)
-    panic("remote vcpu");
+    return vmmio_forward(ridx, mmio);
 
   return __vgicr_mmio_write(vcpu, mmio);
 }

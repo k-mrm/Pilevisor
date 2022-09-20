@@ -4,6 +4,13 @@
 #include "types.h"
 #include "msg.h"
 #include "memory.h"
+#include "mmio.h"
+
+
+enum vmmio_status {
+  VMMIO_OK,
+  VMMIO_FAILED,
+};
 
 /*
  *  MMIO forward request
@@ -11,21 +18,15 @@
  */
 struct mmio_req_hdr {
   POCV2_MSG_HDR_STRUCT;
-  bool wr;
-  u64 addr;
-  u64 val;    /* use if wr == 1 */
-  enum maccsize accsz;
+  struct mmio_access mmio;
+  u32 vcpuid;
 };
 
-struct mmio_read_reply_hdr {
+struct mmio_reply_hdr {
   POCV2_MSG_HDR_STRUCT;
   u64 addr;
   u64 val;
-};
-
-struct mmio_write_reply_hdr {
-  POCV2_MSG_HDR_STRUCT;
-  u64 addr;
+  enum vmmio_status status;
 };
 
 #endif

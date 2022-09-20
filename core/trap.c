@@ -141,7 +141,6 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   struct mmio_access mmio = {
     .ipa = ipa,
-    .pc = vcpu->reg.elr,
     .val = vcpu_x(vcpu, r),
     .accsize = accsz,
     .wnr = wnr,
