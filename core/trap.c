@@ -142,12 +142,16 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   struct mmio_access mmio = {
     .ipa = ipa,
     .pc = vcpu->reg.elr,
+    .val = vcpu_x(vcpu, r),
     .accsize = accsz,
     .wnr = wnr,
   };
 
-  if(mmio_emulate(vcpu, r, &mmio) >= 0)
+  if(mmio_emulate(vcpu, &mmio) >= 0) {
+    if(!mmio.wnr)   // mmio read
+      vcpu_set_x(vcpu, r, mmio.val);
     return 0;
+  }
 
   printf("dabort ipa: %p va: %p elr: %p %s %d %d\n", ipa, far, vcpu->reg.elr, wnr? "write" : "read", r, accsz);
 

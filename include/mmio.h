@@ -7,22 +7,24 @@
 
 struct mmio_access {
   u64 ipa;
+  u64 offset;
   u64 pc;
+  u64 val;
   enum maccsize accsize;
-  int wnr: 1;
+  bool wnr;
 };
 
-struct mmio_info {
-  struct mmio_info *next;
+struct mmio_region {
+  struct mmio_region *next;
   u64 base;
   u64 size;
-  int (*read)(struct vcpu *, u64, u64 *, struct mmio_access *);
-  int (*write)(struct vcpu *, u64, u64, struct mmio_access *);
+  int (*read)(struct vcpu *, struct mmio_access *);
+  int (*write)(struct vcpu *, struct mmio_access *);
 };
 
-int mmio_emulate(struct vcpu *vcpu, int rn, struct mmio_access *mmio);
+int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio);
 int mmio_reg_handler(struct node *node, u64 ipa, u64 size,
-                     int (*read)(struct vcpu *, u64, u64 *, struct mmio_access *),
-                     int (*write)(struct vcpu *, u64, u64, struct mmio_access *));
+                     int (*read)(struct vcpu *, struct mmio_access *),
+                     int (*write)(struct vcpu *, struct mmio_access *));
 
 #endif

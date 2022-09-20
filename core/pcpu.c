@@ -2,14 +2,9 @@
 #include "aarch64.h"
 
 struct pcpu pcpus[NCPU];
-
-struct pcpu *cur_pcpu() {
-  int id = cpuid();
-  return &pcpus[id];
-}
+char _stack[PAGESIZE*NCPU] __attribute__((aligned(PAGESIZE)));
 
 void pcpu_init() {
-  for(int i = 0; i < NCPU; i++) {
-    pcpus[i].cpuid = i;
-  }
+  mycpu->stackbase = _stack + PAGESIZE*cpuid();
+  mycpu->mpidr = cpuid();    /* affinity? */
 }

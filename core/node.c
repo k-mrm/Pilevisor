@@ -13,8 +13,8 @@
 struct node localnode;    /* me */
 
 void pagetrap(struct node *node, u64 ipa, u64 size,
-              int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
-              int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *)) {
+              int (*read_handler)(struct vcpu *, struct mmio_access *),
+              int (*write_handler)(struct vcpu *, struct mmio_access *)) {
   u64 *vttbr = node->vttbr;
 
   if(pagewalk(vttbr, ipa, 0))
@@ -22,8 +22,6 @@ void pagetrap(struct node *node, u64 ipa, u64 size,
 
   if(mmio_reg_handler(node, ipa, size, read_handler, write_handler) < 0)
     panic("?");
-
-  tlb_flush();
 }
 
 void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc) {

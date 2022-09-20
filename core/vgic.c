@@ -180,10 +180,11 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
   return vgic_inject_sgi(vcpu, sgir);
 }
 
-static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
+static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid, idx;
   struct vgic_irq *irq;
   struct vgic *vgic = localnode.vgic;
+  u64 offset = mmio->offset;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -194,17 +195,17 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
 
   switch(offset) {
     case GICD_CTLR:
-      *val = vgic->ctlr;
+      mmio->val = gicd_r(GICD_CTLR);
       goto end;
     case GICD_TYPER:
-      *val = gicd_r(GICD_TYPER);
+      mmio->val = gicd_r(GICD_TYPER);
       goto end;
     case GICD_IIDR:
-      *val = gicd_r(GICD_IIDR);
+      mmio->val = gicd_r(GICD_IIDR);
       goto end;
     case GICD_TYPER2:
       /* linux's gicv3 driver accessed GICD_TYPER2 (offset 0xc) */
-      *val = 0;
+      mmio->val = 0;
       goto end;
     case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3: {
       u32 igrp = 0;
@@ -215,7 +216,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
         igrp |= (u32)irq->igroup << i;
       }
 
-      *val = igrp;
+      mmio->val = igrp;
       goto end;
     }
     case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3: {
@@ -227,7 +228,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
         iser |= (u32)irq->enabled << i;
       }
 
-      *val = iser;
+      mmio->val = iser;
       goto end;
     }
     case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
@@ -245,7 +246,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
         ipr |= (u32)irq->priority << (i * 8);
       }
 
-      *val = ipr;
+      mmio->val = ipr;
       goto end;
     }
     case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3: {
@@ -257,7 +258,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
         itar |= (u32)irq->target << (i * 8);
       }
 
-      *val = itar;
+      mmio->val = itar;
       goto end;
     }
     case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
@@ -267,7 +268,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
     case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3:
       goto unimplemented;
     case GICD_PIDR2:
-      *val = gicd_r(GICD_PIDR2);
+      mmio->val = gicd_r(GICD_PIDR2);
       goto end;
   }
 
@@ -278,12 +279,12 @@ static int vgicd_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
 
 reserved:
   vmm_warn("read reserved\n");
-  *val = 0;
+  mmio->val = 0;
   goto end;
 
 unimplemented:
   vmm_warn("vgicd_mmio_read: unimplemented %p\n", offset);
-  *val = 0;
+  mmio->val = 0;
   goto end;
 
 end:
@@ -291,10 +292,12 @@ end:
   return 0;
 }
 
-static int vgicd_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_access *mmio) {
+static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
   struct vgic *vgic = localnode.vgic;
+  u64 offset = mmio->offset;
+  u64 val = mmio->val;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -303,8 +306,6 @@ static int vgicd_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
 
   switch(offset) {
     case GICD_CTLR:
-      vgic->ctlr = val;
-      goto end;
     case GICD_IIDR:
     case GICD_TYPER:
       goto readonly;
@@ -372,6 +373,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_
   return -1;
 
 readonly:
+  /* write ignored */
   vmm_warn("vgicd_mmio_write: readonly register %p\n", offset);
   goto end;
 
@@ -386,9 +388,10 @@ end:
   return 0;
 }
 
-static int __vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
+static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
+  u64 offset = mmio->offset;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -400,18 +403,18 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmi
     case GICR_WAKER:
     case GICR_IGROUPR0:
       /* no op */
-      *val = 0;
+      mmio->val = 0;
       return 0;
     case GICR_IIDR:
-      *val = gicr_r32(vcpu->vcpuid, GICR_IIDR);
+      mmio->val = gicr_r32(vcpu->vcpuid, GICR_IIDR);
       return 0;
     case GICR_TYPER:
       if(!(mmio->accsize & ACC_DOUBLEWORD))
         goto badwidth;
-      *val = gicr_r64(vcpu->vcpuid, GICR_TYPER);
+      mmio->val = gicr_r64(vcpu->vcpuid, GICR_TYPER);
       return 0;
     case GICR_PIDR2:
-      *val = gicr_r32(vcpu->vcpuid, GICR_PIDR2);
+      mmio->val = gicr_r32(vcpu->vcpuid, GICR_PIDR2);
       return 0;
     case GICR_ISENABLER0: {
       u32 iser = 0; 
@@ -421,17 +424,17 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmi
         iser |= irq->enabled << i;
       }
 
-      *val = iser;
+      mmio->val = iser;
       return 0;
     }
     case GICR_ICENABLER0:
       goto unimplemented;
     case GICR_ICPENDR0:
-      *val = 0;
+      mmio->val = 0;
       return 0;
     case GICR_ISACTIVER0:
     case GICR_ICACTIVER0:
-      *val = 0;
+      mmio->val = 0;
       return 0;
     case GICR_IPRIORITYR(0) ... GICR_IPRIORITYR(7): {
       u32 ipr = 0;
@@ -442,13 +445,13 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmi
         ipr |= irq->priority << (i * 8);
       }
 
-      *val = ipr;
+      mmio->val = ipr;
       return 0;
     }
     case GICR_ICFGR0:
     case GICR_ICFGR1:
     case GICR_IGRPMODR0:
-      *val = 0;
+      mmio->val = 0;
       return 0;
   }
 
@@ -457,21 +460,23 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmi
 
 unimplemented:
   vmm_warn("vgicr_mmio_read: unimplemented %p\n", offset);
-  *val = 0;
+  mmio->val = 0;
   goto end;
 
 badwidth:
   vmm_warn("bad width: %d %p", mmio->accsize*8, offset);
-  *val = 0;
+  mmio->val = 0;
   goto end;
 
 end:
   return 0;
 }
 
-static int __vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_access *mmio) {
+static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
+  u64 offset = mmio->offset;
+  u64 val = mmio->val;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -527,33 +532,35 @@ readonly:
   return 0;
 }
 
-static int vgicr_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
-  u32 ridx = offset / 0x20000;
-  u32 roffset = offset % 0x20000;
+static int vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  u32 ridx = mmio->offset / 0x20000;
+  u32 roffset = mmio->offset % 0x20000;
+  mmio->offset = roffset;
 
   vcpu = vcpu_get(ridx);
   if(!vcpu)
-    return 0;
+    panic("remote vcpu");
 
-  return __vgicr_mmio_read(vcpu, roffset, val, mmio);
+  return __vgicr_mmio_read(vcpu, mmio);
 }
 
-static int vgicr_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_access *mmio) {
-  u32 ridx = offset / 0x20000;
-  u32 roffset = offset % 0x20000;
+static int vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
+  u32 ridx = mmio->offset / 0x20000;
+  u32 roffset = mmio->offset % 0x20000;
+  mmio->offset = roffset;
 
   vcpu = vcpu_get(ridx);
   if(!vcpu)
-    return 0;
+    panic("remote vcpu");
 
-  return __vgicr_mmio_write(vcpu, roffset, val, mmio);
+  return __vgicr_mmio_write(vcpu, mmio);
 }
 
-static int vgits_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_access *mmio) {
-  switch(offset) {
+static int vgits_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  switch(mmio->offset) {
     case GITS_PIDR2:
       /* GITS unsupported */
-      *val = 0;
+      mmio->val = 0;
       return 0;
     default:
       vmm_log("vgits_mmio_read unknown\n");
@@ -562,7 +569,7 @@ static int vgits_mmio_read(struct vcpu *vcpu, u64 offset, u64 *val, struct mmio_
   return -1;
 }
 
-static int vgits_mmio_write(struct vcpu *vcpu, u64 offset, u64 val, struct mmio_access *mmio) {
+static int vgits_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   return -1;
 }
 

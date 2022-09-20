@@ -139,7 +139,6 @@ static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
   *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset) = val;
 }
 
-
 struct gic_state {
   u64 lr[16];
   u64 vmcr;
@@ -147,7 +146,7 @@ struct gic_state {
 };
 
 void gic_init(void);
-void gic_init_cpu(int cpuid);
+void gic_init_cpu(void);
 
 u32 gic_read_iar(void);
 int gic_max_spi(void);

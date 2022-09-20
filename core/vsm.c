@@ -84,21 +84,28 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
   return 0;
 } */
 
-static void vsm_set_cache(u64 ipa, u8 *page) {
+static void vsm_set_cache_fast(u64 ipa, u8 *page) {
   static int count = 0;
   u64 *vttbr = localnode.vttbr;
 
   vmm_bug_on(!PAGE_ALIGNED(ipa), "ipa align");
 
-  void *c = alloc_page();
-  if(!c)
-    panic("cache");
-
-  memcpy(c, page, PAGESIZE);
-
   vmm_log("vsm: cache @%p %d\n", ipa, ++count);
-  pagemap(vttbr, ipa, (u64)c, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  pagemap(vttbr, ipa, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
 }
+
+/*
+static void vsm_set_cache(u64 ipa, u8 *page, bool noncopy) {
+  if(noncopy) {
+    c = page;
+  } else {
+    c = alloc_page();
+    if(!c)
+      panic("cache");
+    memcpy(c, page, PAGESIZE);
+  }
+}
+*/
 
 void *vsm_fetch_page(u64 page_ipa, bool wr) {
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
@@ -173,9 +180,9 @@ static void recv_read_request_intr(struct pocv2_msg *msg) {
 static void recv_read_reply_intr(struct pocv2_msg *msg) {
   struct read_reply_hdr *a = (struct read_reply_hdr *)msg->hdr;
   struct read_reply_body *b = msg->body;
-  vmm_log("recv remote @%p\n", a->ipa);
+  vmm_log("recv remote @%p page %p\n", a->ipa, b->page);
 
-  vsm_set_cache(a->ipa, b->page);
+  vsm_set_cache_fast(a->ipa, b->page);
 }
 
 void vsm_node_init(struct memrange *mem) {

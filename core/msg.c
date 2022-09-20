@@ -30,6 +30,20 @@ static char *msmap[NUM_MSG] = {
   [MSG_GIC_CONFIG]    "msg:gic_config",
 };
 
+static u32 msg_hdr_size(struct pocv2_msg *msg) {
+  if(msg->hdr->type < NUM_MSG)
+    return msg_data[msg->hdr->type].msg_hdr_size;
+  else
+    panic("msg_hdr_size");
+}
+
+static void call_msg_recv_handler(struct pocv2_msg *msg) {
+  if(msg->hdr->type < NUM_MSG && msg_data[msg->hdr->type].recv_handler)
+    msg_data[msg->hdr->type].recv_handler(msg);
+  else
+    panic("unknown msg received: %d\n", msg->hdr->type);
+}
+
 void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
   vmm_bug_on(npackets != 2 && npackets != 1, "npackets");
   struct pocv2_msg msg;
@@ -43,18 +57,8 @@ void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
   msg.body = npackets == 2 ? packets[1] : NULL;
   msg.body_len = npackets == 2 ? lens[1] : 0;
 
-  if(msg.hdr->type < NUM_MSG && msg_data[msg.hdr->type].recv_handler)
-    msg_data[msg.hdr->type].recv_handler(&msg);
-  else
-    panic("unknown msg received: %d\n", msg.hdr->type);
+  call_msg_recv_handler(&msg);
 }
-
-static u32 msg_hdr_size(struct pocv2_msg *msg) {
-  if(msg->hdr->type < NUM_MSG)
-    return msg_data[msg->hdr->type].msg_hdr_size;
-  else
-    panic("msg_hdr_size");
-} 
 
 void send_msg(struct pocv2_msg *msg) {
   /* build header */

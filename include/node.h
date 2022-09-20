@@ -63,8 +63,8 @@ struct node {
 void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc);
 
 void pagetrap(struct node *node, u64 va, u64 size,
-              int (*read_handler)(struct vcpu *, u64, u64 *, struct mmio_access *),
-              int (*write_handler)(struct vcpu *, u64, u64, struct mmio_access *));
+              int (*read_handler)(struct vcpu *, struct mmio_access *),
+              int (*write_handler)(struct vcpu *, struct mmio_access *));
 
 static inline bool node_macaddr_is_me(u8 *mac) {
   return memcmp(localnode.nic->mac, mac, 6) == 0;

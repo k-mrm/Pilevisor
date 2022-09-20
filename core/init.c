@@ -25,8 +25,6 @@ extern struct guest rootfs_img;
 void _start(void);
 void vectable();
 
-__attribute__((aligned(4096))) char _stack[4096*NCPU];
-
 volatile static int cpu0_ready = 0;
 
 static void hcr_setup() {
@@ -41,7 +39,7 @@ static void hcr_setup() {
 int vmm_init_secondary() {
   vmm_log("cpu%d activated\n", cpuid());
   write_sysreg(vbar_el2, (u64)vectable);
-  gic_init_cpu(cpuid());
+  gic_init_cpu();
   s2mmu_init();
   hcr_setup();
   write_sysreg(vttbr_el2, localnode.vttbr);
@@ -54,11 +52,12 @@ int vmm_init_secondary() {
 int vmm_init_cpu0() {
   uart_init();
   vmm_log("vmm booting...\n");
+  pcpu_init();
   pageallocator_init();
   write_sysreg(vbar_el2, (u64)vectable);
   hcr_setup();
   gic_init();
-  gic_init_cpu(0);
+  gic_init_cpu();
   vtimer_init();
   s2mmu_init();
   // pci_init();

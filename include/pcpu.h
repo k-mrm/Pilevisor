@@ -4,14 +4,23 @@
 #include "types.h"
 #include "vcpu.h"
 #include "param.h"
+#include "mm.h"
+
+extern char _stack[PAGESIZE] __attribute__((aligned(PAGESIZE)));
 
 struct pcpu {
-  int cpuid;
+  void *stackbase;
+  int mpidr;
+
+  struct {
+    void *base;
+  } gicr;
 };
 
 extern struct pcpu pcpus[NCPU];
 
-struct pcpu *cur_pcpu(void);
 void pcpu_init(void);
+
+#define mycpu     (&pcpus[cpuid()])
 
 #endif

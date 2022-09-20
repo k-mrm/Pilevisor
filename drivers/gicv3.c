@@ -288,9 +288,9 @@ static void gich_init(void) {
   isb();
 }
 
-void gic_init_cpu(int cpuid) {
+void gic_init_cpu() {
   gicc_init();
-  gicr_init(cpuid);
+  gicr_init(cpuid());
   gich_init();
 }
 
