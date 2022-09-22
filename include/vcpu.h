@@ -16,14 +16,12 @@ struct vcpu {
   /* MUST be first field */
   struct {
     u64 x[31];
-    u64 spsr;
-    u64 elr;
+    u64 spsr;   /* spsr_el2 */
+    u64 elr;    /* elr_el2 */
   } reg;
   struct {
     u64 spsr_el1;
     u64 elr_el1;
-    u64 mpidr_el1;
-    u64 midr_el1;
     u64 sp_el0;
     u64 sp_el1;
     u64 ttbr0_el1;
@@ -36,28 +34,24 @@ struct vcpu {
     u64 cntfrq_el0;
   } sys;
 
+  /* vcpuid on cluster */
+  u64 vmpidr;
+
   struct cpu_features features;
-  const char *name;
 
   struct gic_state gic;
-  struct vgic_cpu *vgic;
-
-  /* vcpuid on cluster */
-  int vcpuid;
+  struct vgic_cpu vgic;
 
   /* when dabort occurs on vCPU, informations will save here */
   struct dabort_info dabt;
 
   bool initialized;
+  bool online;
 };
 
 extern int nr_cluster_online_vcpus;
 
-void enter_vcpu(void);
-void vcpu_init(void);
-struct vcpu *vcpu_get_local(int localcpuid);
-struct vcpu *vcpu_get(int vcpuid);
-void load_new_local_vcpu(void);
+void vcpu_entry(void);
 void vcpu_dump(struct vcpu *vcpu);
 void vcpuid_init(u32 *vcpuids, int nvcpu);
 

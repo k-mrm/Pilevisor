@@ -37,7 +37,7 @@ static void vmmio_req_recv_intr(struct pocv2_msg *msg) {
   struct mmio_req_hdr *hdr = (struct mmio_req_hdr *)msg->hdr;
   enum vmmio_status status = VMMIO_OK;
 
-  struct vcpu *vcpu = vcpu_get(hdr->vcpuid);
+  struct vcpu *vcpu = node_vcpu(hdr->vcpuid);
   if(!vcpu)
     panic("mmio????????");
 

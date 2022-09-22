@@ -60,6 +60,27 @@ struct node {
   struct vm_desc *vm_desc;
 };
 
+static inline struct vcpu *node_vcpu(int vcpuid) {
+  for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[VCPU_PER_NODE_MAX]; v++) {
+    if(v->vmpidr == vcpuid)
+      return v;
+  }
+
+  /* vcpu in remote node */
+  return NULL;
+}
+
+static inline int vcpu_localid(struct vcpu *v) {
+  return (int)(v - localnode.vcpus);
+}
+
+static inline struct vcpu *node_vcpu_by_localid(int localcpuid) {
+  if(localcpuid >= localnode.nvcpu)
+    panic("vcpu_get_local");
+
+  return &localnode.vcpus[localcpuid];
+}
+
 void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc);
 
 void pagetrap(struct node *node, u64 va, u64 size,

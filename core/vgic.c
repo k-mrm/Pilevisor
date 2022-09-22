@@ -9,43 +9,9 @@
 #include "lib.h"
 #include "node.h"
 
-static struct vgic vgics[NODE_MAX];
-static struct vgic_cpu vgic_cpus[VCPU_MAX];
-static spinlock_t vgic_cpus_lock;
+static struct vgic vgic_dist;
 
 extern int gic_lr_max;
-
-static struct vgic *allocvgic() {
-  for(struct vgic *vgic = vgics; vgic < &vgics[NODE_MAX]; vgic++) {
-    acquire(&vgic->lock);
-    if(vgic->used == 0) {
-      vgic->used = 1;
-      release(&vgic->lock);
-      return vgic;
-    }
-    release(&vgic->lock);
-  }
-
-  vmm_warn("null vgic");
-  return NULL;
-}
-
-static struct vgic_cpu *allocvgic_cpu() {
-  acquire(&vgic_cpus_lock);
-
-  for(struct vgic_cpu *v = vgic_cpus; v < &vgic_cpus[VCPU_MAX]; v++) {
-    if(v->used == 0) {
-      v->used = 1;
-      release(&vgic_cpus_lock);
-      return v;
-    }
-  }
-
-  release(&vgic_cpus_lock);
-
-  vmm_warn("null vgic_cpu");
-  return NULL;
-}
 
 static int vgic_cpu_alloc_lr(struct vgic_cpu *vgic) {
   for(int i = 0; i < gic_lr_max; i++) {
@@ -60,7 +26,7 @@ static int vgic_cpu_alloc_lr(struct vgic_cpu *vgic) {
 }
 
 void vgic_irq_enter(struct vcpu *vcpu) {
-  struct vgic_cpu *vgic = vcpu->vgic;
+  struct vgic_cpu *vgic = &vcpu->vgic;
 
   for(int i = 0; i < gic_lr_max; i++) {
     if((vgic->used_lr & BIT(i)) != 0) {
@@ -143,13 +109,14 @@ static void vgic_dump_irq_state(struct vcpu *vcpu, int intid) {
 }
 
 static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
+  /*
   struct node *node = &localnode;
 
   u16 targetlist = ICC_SGI1R_TargetList(sgir); 
   u8 intid = ICC_SGI1R_INTID(sgir);
   bool broadcast = ICC_SGI1R_IRM(sgir);
 
-  /* TODO: support Affinity */
+  // TODO: support Affinity
   for(int i = 0; i < 16; i++) {
     if(targetlist & BIT(i)) {
       if(i >= node->nvcpu)
@@ -163,7 +130,11 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
 
   gic_set_sgi1r(sgir);
 
-  return 0;
+  return 0
+  */
+  panic("unimplemented vgic_inject_sgi");
+
+  return -1;
 }
 
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
@@ -255,7 +226,8 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = offset - GICD_ITARGETSR(0);
       for(int i = 0; i < 4; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
-        itar |= (u32)irq->target << (i * 8);
+        u32 t = irq->target->vmpidr;
+        itar |= (u32)t << (i * 8);
       }
 
       mmio->val = itar;
@@ -355,7 +327,10 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICD_ITARGETSR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
-        irq->target = (val >> (i * 8)) & 0xff;
+        u32 t = (val >> (i * 8)) & 0xff;
+        irq->target = node_vcpu(t);
+        if(!irq->target)
+          panic("target remote");
         vgic_set_target(vcpu, intid+i, irq->target);
       }
       goto end;
@@ -406,15 +381,15 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = 0;
       return 0;
     case GICR_IIDR:
-      mmio->val = gicr_r32(vcpu->vcpuid, GICR_IIDR);
+      mmio->val = gicr_r32(vcpu->vmpidr, GICR_IIDR);
       return 0;
     case GICR_TYPER:
       if(!(mmio->accsize & ACC_DOUBLEWORD))
         goto badwidth;
-      mmio->val = gicr_r64(vcpu->vcpuid, GICR_TYPER);
+      mmio->val = gicr_r64(vcpu->vmpidr, GICR_TYPER);
       return 0;
     case GICR_PIDR2:
-      mmio->val = gicr_r32(vcpu->vcpuid, GICR_PIDR2);
+      mmio->val = gicr_r32(vcpu->vmpidr, GICR_PIDR2);
       return 0;
     case GICR_ISENABLER0: {
       u32 iser = 0; 
@@ -537,7 +512,7 @@ static int vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   u32 roffset = mmio->offset % 0x20000;
   mmio->offset = roffset;
 
-  vcpu = vcpu_get(ridx);
+  vcpu = node_vcpu(ridx);
   if(!vcpu)
     return vmmio_forward(ridx, mmio);
 
@@ -549,7 +524,7 @@ static int vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   u32 roffset = mmio->offset % 0x20000;
   mmio->offset = roffset;
 
-  vcpu = vcpu_get(ridx);
+  vcpu = node_vcpu(ridx);
   if(!vcpu)
     return vmmio_forward(ridx, mmio);
 
@@ -574,7 +549,8 @@ static int vgits_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 }
 
 static void load_new_vgic(void) {
-  struct vgic *vgic = allocvgic();
+  struct vgic *vgic = &vgic_dist;
+
   vgic->spi_max = gic_max_spi();
   vgic->nspis = vgic->spi_max - 31;
   vgic->ctlr = 0;
@@ -591,22 +567,20 @@ static void load_new_vgic(void) {
   localnode.vgic = vgic;
 }
 
-struct vgic_cpu *new_vgic_cpu(int vcpuid) {
-  struct vgic_cpu *vgic = allocvgic_cpu();
+struct void vgic_cpu_init(struct vcpu *vcpu) {
+  struct vgic_cpu *vgic = &vcpu->vgic;
 
   vgic->used_lr = 0;
 
   for(struct vgic_irq *v = vgic->sgis; v < &vgic->sgis[GIC_NSGI]; v++) {
     v->enabled = 1;
-    v->target = 1 << vcpuid;
+    v->target = vcpu;
   }
 
   for(struct vgic_irq *v = vgic->ppis; v < &vgic->ppis[GIC_NPPI]; v++) {
     v->enabled = 0;
-    v->target = 1 << vcpuid;
+    v->target = vcpu;
   }
-
-  return vgic;
 }
 
 void vgic_init() {

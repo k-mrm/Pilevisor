@@ -25,30 +25,23 @@ static void sub_init() {
 
   vmm_log("Node %d initializing...\n", cluster_me()->nodeid);
 
-  vsm_node_init(&cluster_me()->mem);
-  vcpuid_init(cluster_me()->vcpus, cluster_me()->nvcpu);
+  cluster_node_me_init();
 
   send_setup_done_notify(0);
 }
 
-static void sub_initvcpu() {
-  load_new_local_vcpu();
-
-  /* TODO: handle psci call (from remote) */
-}
-
 static void sub_start() {
-  vmm_log("node%d: start\n", localnode.nodeid);
+  vmm_log("node%d@cpu%d: start\n", localnode.nodeid, cpuid());
 
   intr_enable();
 
-  for(;;)
-    wfi();
+  wait_for_current_vcpu_online();
+
+  vcpu_entry();
 }
 
 struct nodectl subnode_ctl = {
   .init = sub_init,
-  .initvcpu = sub_initvcpu,
   .start = sub_start,
 };
 

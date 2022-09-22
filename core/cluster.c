@@ -2,6 +2,7 @@
 #include "vcpu.h"
 #include "node.h"
 #include "msg.h"
+#include "vsm.h"
 
 struct cluster_node cluster[NODE_MAX];
 int nr_cluster_nodes = 0;
@@ -64,6 +65,17 @@ void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated) {
     c->vcpus[i] = cluster_alloc_vcpuid();
 }
 
+void cluster_node_me_init() {
+  struct cluster_node *me = cluster_me();
+
+  vmm_log("cluster node%d init\n", me->nodeid);
+  cluster_dump();
+
+  vsm_node_init(&me->mem);
+
+  vcpuid_init(me->vcpus, me->nvcpu);
+}
+
 void node0_broadcast_cluster_info() {
   vmm_log("broadcast cluster info from Node0\n");
 
@@ -95,7 +107,8 @@ void cluster_dump() {
   struct cluster_node *node;
   printf("nr cluster: %d\n", nr_cluster_nodes);
   foreach_cluster_node(node) {
-    printf("Node %d: %m %s\n", node->nodeid, node->mac, states[node->status]);
+    char *isme = localnode.nodeid == node->nodeid ? "(me)" : "";
+    printf("Node %d: %m %s%s\n", node->nodeid, node->mac, states[node->status], isme);
   }
 }
 

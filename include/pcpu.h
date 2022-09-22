@@ -11,6 +11,7 @@ extern char _stack[PAGESIZE] __attribute__((aligned(PAGESIZE)));
 struct pcpu {
   void *stackbase;
   int mpidr;
+  bool wakeup;
 
   struct {
     void *base;
@@ -21,6 +22,7 @@ extern struct pcpu pcpus[NCPU];
 
 void pcpu_init(void);
 
-#define mycpu     (&pcpus[cpuid()])
+#define mycpu         (&pcpus[cpuid()])
+#define localcpu(id)  (&pcpus[id]) 
 
 #endif

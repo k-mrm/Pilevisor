@@ -10,10 +10,6 @@
 
 /* node 0(bootstrap node) controller */
 
-static void initmem() {
-  alloc_guestmem(localnode.vttbr, 0x40000000, localnode.nalloc);
-}
-
 static void initvm() {
   struct vm_desc *desc = localnode.vm_desc;
 
@@ -59,9 +55,18 @@ static void wait_for_sub_init_done() {
     wfi();
 }
 
+static void node0_init_vcpu0() {
+  vcpu_initstate();
+
+  current->reg.elr = localnode.vm_desc->entrypoint;
+  current->reg.x[0] = localnode.vm_desc->fdt_base;
+
+  current->online = true;
+}
+
 static void node0_init() {
   localnode.nodeid = 0;
-  initmem();
+
   initvm();
 
   /* me */
@@ -71,32 +76,29 @@ static void node0_init() {
   node0_broadcast_init_request();
   wait_for_init_ack();
 
+  /* broadcast cluster information to sub-node */
   node0_broadcast_cluster_info();
   wait_for_sub_init_done();
-}
 
-static void node0_initvcpu() {
-  load_new_local_vcpu();
+  cluster_node_me_init();
 
-  if(current->vcpuid == 0) {
-    current->reg.elr = localnode.vm_desc->entrypoint;
-    current->reg.x[0] = localnode.vm_desc->fdt_base;
-  } else {
-    /* TODO: handle psci call */
-    ;
-  }
+  /* init vcpu0 */
+  node0_init_vcpu0();
 }
 
 static void node0_start() {
-  vmm_log("node0: start\n");
+  vmm_log("node0@cpu%d: start\n", cpuid());
   cluster_dump();
 
-  enter_vcpu();
+  intr_enable();
+
+  wait_for_current_vcpu_online();
+
+  vcpu_entry();
 }
 
 static struct nodectl node0_ctl = {
   .init = node0_init,
-  .initvcpu = node0_initvcpu,
   .start = node0_start,
 };
 

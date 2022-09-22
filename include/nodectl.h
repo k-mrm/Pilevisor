@@ -7,7 +7,6 @@
 struct recv_msg;
 struct nodectl {
   void (*init)(void);
-  void (*initvcpu)(void);
   void (*start)(void);
 };
 
