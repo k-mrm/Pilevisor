@@ -66,10 +66,7 @@ static inline struct cluster_node *cluster_node(int nodeid) {
 }
 
 static inline struct cluster_node *cluster_me() {
-  if(localnode.acked)
-    return cluster_node(localnode.nodeid);
-  else
-    return NULL;
+  return cluster_node(localnode.nodeid);
 }
 
 static inline int cluster_me_nodeid() {

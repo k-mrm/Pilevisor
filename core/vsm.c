@@ -191,11 +191,14 @@ void vsm_node_init(struct memrange *mem) {
   u64 p;
 
   for(p = 0; p < size; p += PAGESIZE) {
-    char *page = alloc_page();
-    if(!page)
-      panic("ram");
+    u64 *pte = pagewalk(vttbr, start+p, 0);
+    if(!pte || *pte == 0) {
+      char *page = alloc_page();
+      if(!page)
+        panic("ram");
 
-    pagemap(vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+      pagemap(vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+    }
   }
 
   vmm_log("Node %d mapped: [%p - %p]\n", localnode.nodeid, start, start+p);

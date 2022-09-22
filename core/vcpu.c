@@ -72,12 +72,12 @@ void vcpu_initstate() {
   vgic_cpu_init(current);
   gic_init_state(&current->gic);
 
-  vcpu->reg.spsr = 0x3c5;   /* EL1 */
+  current->reg.spsr = 0x3c5;   /* EL1 */
 
-  vcpu->sys.sctlr_el1 = 0xc50838;
-  vcpu->sys.cntfrq_el0 = 62500000;
+  current->sys.sctlr_el1 = 0xc50838;
+  current->sys.cntfrq_el0 = 62500000;
 
-  vcpu->initialized = true;
+  current->initialized = true;
 }
 
 void vcpu_init_core() {
@@ -87,6 +87,8 @@ void vcpu_init_core() {
 }
 
 void wait_for_current_vcpu_online() {
+  vmm_log("current online: %d\n", current->online);
+
   while(!current->online)
     wfi();
 }
@@ -96,8 +98,6 @@ void vcpu_dump(struct vcpu *vcpu) {
     vmm_log("null vcpu\n");
     return;
   }
-
-  save_sysreg(vcpu);
 
   vmm_log("vcpu register dump %p id: %d\n", vcpu, vcpu->vmpidr);
   for(int i = 0; i < 31; i++) {

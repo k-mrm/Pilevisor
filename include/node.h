@@ -75,9 +75,6 @@ static inline int vcpu_localid(struct vcpu *v) {
 }
 
 static inline struct vcpu *node_vcpu_by_localid(int localcpuid) {
-  if(localcpuid >= localnode.nvcpu)
-    panic("vcpu_get_local");
-
   return &localnode.vcpus[localcpuid];
 }
 

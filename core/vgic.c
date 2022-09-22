@@ -77,7 +77,7 @@ int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp) {
     return -1;
   }*/
 
-  struct vgic_cpu *vgic = vcpu->vgic;
+  struct vgic_cpu *vgic = &vcpu->vgic;
 
   u64 lr = gic_make_lr(pirq, virq, grp);
 
@@ -92,9 +92,9 @@ int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp) {
 
 static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
   if(is_sgi(intid))
-    return &vcpu->vgic->sgis[intid];
+    return &vcpu->vgic.sgis[intid];
   else if(is_ppi(intid))
-    return &vcpu->vgic->ppis[intid - 16];
+    return &vcpu->vgic.ppis[intid - 16];
   else if(is_spi(intid))
     return &localnode.vgic->spis[intid - 32];
 
@@ -331,7 +331,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         irq->target = node_vcpu(t);
         if(!irq->target)
           panic("target remote");
-        vgic_set_target(vcpu, intid+i, irq->target);
+        vgic_set_target(vcpu, intid+i, t);
       }
       goto end;
     case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
@@ -567,7 +567,7 @@ static void load_new_vgic(void) {
   localnode.vgic = vgic;
 }
 
-struct void vgic_cpu_init(struct vcpu *vcpu) {
+void vgic_cpu_init(struct vcpu *vcpu) {
   struct vgic_cpu *vgic = &vcpu->vgic;
 
   vgic->used_lr = 0;
@@ -584,12 +584,5 @@ struct void vgic_cpu_init(struct vcpu *vcpu) {
 }
 
 void vgic_init() {
-  vmm_log("vgicinit\n");
-  for(struct vgic *vgic = vgics; vgic < &vgics[NODE_MAX]; vgic++) {
-    spinlock_init(&vgic->lock);
-  }
-
-  spinlock_init(&vgic_cpus_lock);
-
   load_new_vgic();
 }

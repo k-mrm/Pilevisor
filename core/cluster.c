@@ -68,7 +68,7 @@ void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated) {
 void cluster_node_me_init() {
   struct cluster_node *me = cluster_me();
 
-  vmm_log("cluster node%d init\n", me->nodeid);
+  vmm_log("cluster node%p %d init\n", me, me->nodeid);
   cluster_dump();
 
   vsm_node_init(&me->mem);

@@ -52,8 +52,13 @@ struct vcpu {
 extern int nr_cluster_online_vcpus;
 
 void vcpu_entry(void);
-void vcpu_dump(struct vcpu *vcpu);
+
 void vcpuid_init(u32 *vcpuids, int nvcpu);
+
+void vcpu_initstate(void);
+void wait_for_current_vcpu_online(void);
+
+void vcpu_dump(struct vcpu *vcpu);
 
 #define current   ((struct vcpu *)read_sysreg(tpidr_el2))
 
