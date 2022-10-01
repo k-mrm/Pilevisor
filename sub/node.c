@@ -10,7 +10,7 @@
 
 static int wait_for_acked_me() {
   isb();
-  vmm_log("hey %d", localnode.acked);
+  vmm_log("hey %d\n", localnode.acked);
   while(localnode.acked == 0)
     wfi();
   isb();

@@ -8,6 +8,7 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
 
   struct pocv2_msg msg;
   struct mmio_req_hdr hdr;
+  struct mmio_reply_hdr rep;
 
   hdr.vcpuid = target_vcpuid;
   memcpy(&hdr.mmio, mmio, sizeof(*mmio));
@@ -16,8 +17,9 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
 
   send_msg(&msg);
 
-  for(;;)
-    wfi();
+  pocv2_recv_reply(&msg, (struct pocv2_msg_header *)&rep);
+
+  panic("rep!!!!!!!!!!!!!! %p %p %d\n", rep.addr, rep.val, rep.status);
 }
 
 static void vmmio_reply(u8 *dst_mac, enum vmmio_status status, u64 addr, u64 val) {
@@ -48,12 +50,7 @@ static void vmmio_req_recv_intr(struct pocv2_msg *msg) {
 }
 
 static void vmmio_reply_recv_intr(struct pocv2_msg *msg) {
-  struct mmio_reply_hdr *hdr = (struct mmio_reply_hdr *)msg->hdr;
-
-  if(hdr->status == VMMIO_OK)
-    vmm_log("vmmio recv ok: @%p : %p\n", hdr->addr, hdr->val);
-  else
-    vmm_log("vmmio failed\n");
+  msgenqueue(msg);
 }
 
 DEFINE_POCV2_MSG(MSG_MMIO_REQUEST, struct mmio_req_hdr, vmmio_req_recv_intr);

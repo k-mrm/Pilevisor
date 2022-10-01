@@ -17,10 +17,14 @@
 #define MiB   (1024 * 1024)
 #define GiB   (1024 * 1024 * 1024)
 
-extern struct guest xv6_img;
-extern struct guest linux_img;
-extern struct guest virt_dtb;
-extern struct guest rootfs_img;
+extern char _binary_virt_dtb_start[];
+extern char _binary_virt_dtb_size[];
+
+struct guest virt_dtb = {
+  .name = "virt dtb",
+  .start = (u64)_binary_virt_dtb_start,
+  .size = (u64)_binary_virt_dtb_size,
+};
 
 void _start(void);
 void vectable();
@@ -66,22 +70,9 @@ int vmm_init_cpu0() {
   // pci_init();
   virtio_mmio_init();
 
-  struct vm_desc vm_desc = {
-    .os_img = &linux_img,
-    .fdt_img = &virt_dtb,
-    .initrd_img = &rootfs_img,
-    /* TODO: determine parameters by fdt file */
-    .nvcpu = 1,
-    .nallocate = 256 * MiB,
-    .ram_start = 0x40000000,
-    .entrypoint = 0x40200000,
-    .fdt_base = 0x48400000,
-    .initrd_base = 0x48000000,
-  };
-
   nodectl_init();
 
-  node_preinit(1, 128 * MiB, &vm_desc);
+  node_preinit(1, 128 * MiB, &virt_dtb);
 
   localnode.ctl->init();
   localnode.ctl->start();

@@ -13,22 +13,21 @@ extern struct pocv2_msg_data __pocv2_msg_data_start[], __pocv2_msg_data_end[];
 
 static struct pocv2_msg_data msg_data[NUM_MSG];
 
-static char *msmap[NUM_MSG] = {
-  [MSG_NONE]          "msg:none",
-  [MSG_INIT]          "msg:init",
-  [MSG_INIT_ACK]      "msg:init_ack",
-  [MSG_CLUSTER_INFO]  "msg:cluster_info",
-  [MSG_SETUP_DONE]    "msg:setup_done",
-  [MSG_CPU_WAKEUP]    "msg:cpu_wakeup",
-  [MSG_SHUTDOWN]      "msg:shutdown",
-  [MSG_READ]          "msg:read",
-  [MSG_READ_REPLY]    "msg:read_reply",
-  [MSG_INVALID_SNOOP] "msg:invalid_snoop",
-  [MSG_INTERRUPT]     "msg:interrupt",
-  [MSG_MMIO_REQUEST]  "msg:mmio_request",
-  [MSG_MMIO_REPLY]    "msg:mmio_reply",
-  [MSG_GIC_CONFIG]    "msg:gic_config",
+static enum msgtype reqrep[NUM_MSG] = {
+  [MSG_INIT]          MSG_INIT_ACK,
+  [MSG_CPU_WAKEUP]    MSG_CPU_WAKEUP_ACK,
+  [MSG_READ]          MSG_READ_REPLY,
+  [MSG_MMIO_REQUEST]  MSG_MMIO_REPLY,
 };
+
+/* msg ring queue */
+static struct mq {
+  char rq[16][64];
+  int rear;
+  int front;
+  int nelem;
+  spinlock_t lk;
+} recvq[NUM_MSG];
 
 static u32 msg_hdr_size(struct pocv2_msg *msg) {
   if(msg->hdr->type < NUM_MSG)
@@ -37,11 +36,11 @@ static u32 msg_hdr_size(struct pocv2_msg *msg) {
     panic("msg_hdr_size");
 }
 
-static void call_msg_recv_handler(struct pocv2_msg *msg) {
-  if(msg->hdr->type < NUM_MSG && msg_data[msg->hdr->type].recv_handler)
-    msg_data[msg->hdr->type].recv_handler(msg);
+static u32 msg_type_hdr_size(enum msgtype type) {
+  if(type < NUM_MSG)
+    return msg_data[type].msg_hdr_size;
   else
-    panic("unknown msg received: %d\n", msg->hdr->type);
+    panic("msg_hdr_size");
 }
 
 void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
@@ -57,12 +56,15 @@ void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
   msg.body = npackets == 2 ? packets[1] : NULL;
   msg.body_len = npackets == 2 ? lens[1] : 0;
 
-  call_msg_recv_handler(&msg);
+  if(hdr->type < NUM_MSG && msg_data[hdr->type].recv_handler)
+    msg_data[hdr->type].recv_handler(&msg);
+  else
+    panic("unknown msg received: %d\n", hdr->type);
 }
 
 void send_msg(struct pocv2_msg *msg) {
   /* build header */
-  void *p[2];
+  void *ps[2];
   int ls[2], np;
   char header[ETH_POCV2_MSG_HDR_SIZE] = {0};
 
@@ -72,18 +74,68 @@ void send_msg(struct pocv2_msg *msg) {
   eth->type = POCV2_MSG_ETH_PROTO;
   memcpy(header+sizeof(struct etherheader), msg->hdr, msg_hdr_size(msg));
 
-  p[0] = header;
+  ps[0] = header;
   ls[0] = sizeof(header);
   np = 1;
+
   if(msg->body) {
-    p[1] = msg->body;
+    ps[1] = msg->body;
     ls[1] = msg->body_len;
     np++;
   }
 
-  localnode.nic->ops->xmit(localnode.nic, p, ls, np);
+  localnode.nic->ops->xmit(localnode.nic, ps, ls, np);
 
   intr_enable();
+}
+
+static inline bool mq_is_empty(struct mq *mq) {
+  return mq->nelem == 0;
+}
+
+static inline bool mq_is_full(struct mq *mq) {
+  return mq->nelem == 16;
+}
+
+void msgenqueue(struct pocv2_msg *msg) {
+  struct mq *mq = &recvq[msg->hdr->type];
+
+  if(mq_is_full(mq)) {
+    panic("mq is full");
+  }
+
+  memcpy(mq->rq[mq->rear], msg->hdr, msg_hdr_size(msg));
+  mq->rear = (mq->rear + 1) % 16;
+  mq->nelem++;
+}
+
+static int msgdequeue(enum msgtype type, struct pocv2_msg_header *buf, int size) {
+  struct mq *mq = &recvq[type];
+
+  while(mq_is_empty(mq))
+    return -1;
+
+  struct pocv2_msg_header *h = (struct pocv2_msg_header *)mq->rq[mq->front];
+
+  memcpy(buf, h, size);
+
+  mq->front = (mq->front + 1) % 16;
+  mq->nelem--;
+
+  return 0;
+}
+
+int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg_header *buf) {
+  enum msgtype reptype = reqrep[msg->hdr->type];
+  if(reptype == 0)
+    return -1;
+
+  int cpsize = msg_type_hdr_size(reptype);
+
+  while(msgdequeue(reptype, buf, cpsize) < 0)
+    wfi();
+
+  return cpsize;
 }
 
 void _pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
@@ -115,6 +167,23 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
 static void unknown_msg_recv(struct pocv2_msg *msg) {
   panic("msg: unknown msg received: %d", pocv2_msg_type(msg));
 }
+
+static char *msmap[NUM_MSG] = {
+  [MSG_NONE]          "msg:none",
+  [MSG_INIT]          "msg:init",
+  [MSG_INIT_ACK]      "msg:init_ack",
+  [MSG_CLUSTER_INFO]  "msg:cluster_info",
+  [MSG_SETUP_DONE]    "msg:setup_done",
+  [MSG_CPU_WAKEUP]    "msg:cpu_wakeup",
+  [MSG_SHUTDOWN]      "msg:shutdown",
+  [MSG_READ]          "msg:read",
+  [MSG_READ_REPLY]    "msg:read_reply",
+  [MSG_INVALID_SNOOP] "msg:invalid_snoop",
+  [MSG_INTERRUPT]     "msg:interrupt",
+  [MSG_MMIO_REQUEST]  "msg:mmio_request",
+  [MSG_MMIO_REPLY]    "msg:mmio_reply",
+  [MSG_GIC_CONFIG]    "msg:gic_config",
+};
 
 void msg_sysinit() {
   struct pocv2_msg_data *d;

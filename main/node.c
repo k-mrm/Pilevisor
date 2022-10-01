@@ -7,12 +7,15 @@
 #include "lib.h"
 #include "log.h"
 #include "cluster.h"
+#include "guest.h"
+
+#define KiB   (1024)
+#define MiB   (1024 * 1024)
+#define GiB   (1024 * 1024 * 1024)
 
 /* node 0(bootstrap node) controller */
 
-static void initvm() {
-  struct vm_desc *desc = localnode.vm_desc;
-
+static void initvm(struct vm_desc *desc) {
   struct guest *os = desc->os_img;
   struct guest *fdt = desc->fdt_img;
   struct guest *initrd = desc->initrd_img;
@@ -55,19 +58,32 @@ static void wait_for_sub_init_done() {
     wfi();
 }
 
-static void node0_init_vcpu0() {
+static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
   vcpu_initstate();
 
-  current->reg.elr = localnode.vm_desc->entrypoint;
-  current->reg.x[0] = localnode.vm_desc->fdt_base;
+  current->reg.elr = ep;
+  current->reg.x[0] = fdt_base;
 
   current->online = true;
 }
 
 static void node0_init() {
+  struct vm_desc vm_desc = {
+    .os_img = &linux_img,
+    .fdt_img = &virt_dtb,
+    .initrd_img = &rootfs_img,
+    /* TODO: determine parameters by fdt file */
+    .nvcpu = 1,
+    .nallocate = 256 * MiB,
+    .ram_start = 0x40000000,
+    .entrypoint = 0x40200000,
+    .fdt_base = 0x48400000,
+    .initrd_base = 0x48000000,
+  };
+
   localnode.nodeid = 0;
 
-  initvm();
+  initvm(&vm_desc);
 
   /* me */
   cluster_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
@@ -83,7 +99,7 @@ static void node0_init() {
   cluster_node_me_init();
 
   /* init vcpu0 */
-  node0_init_vcpu0();
+  node0_init_vcpu0(vm_desc.entrypoint, vm_desc.fdt_base);
 }
 
 static void node0_start() {

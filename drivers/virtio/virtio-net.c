@@ -69,7 +69,7 @@ static void fill_recv_queue(struct virtq *rxq) {
   for(int i = 0; i < NQUEUE; i += 2) {
     u16 d0 = virtq_alloc_desc(rxq);
     u16 d1 = virtq_alloc_desc(rxq);
-    rxq->desc[d0].addr = (u64)alloc_page();
+    rxq->desc[d0].addr = (u64)alloc_page();     // FIXME
     rxq->desc[d0].len = sizeof(struct virtio_net_hdr) + ETH_POCV2_MSG_HDR_SIZE;
     rxq->desc[d0].flags = VIRTQ_DESC_F_WRITE | VIRTQ_DESC_F_NEXT;
     rxq->desc[d0].next = d1;

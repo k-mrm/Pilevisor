@@ -42,7 +42,7 @@ struct pocv2_msg_header {
 #define ETH_POCV2_MSG_HDR_SIZE    64
 
 struct pocv2_msg {
-  u8 *mac;
+  u8 *mac;      /* dst or src */
   struct pocv2_msg_header *hdr;
   void *body;
   u32 body_len;
@@ -54,7 +54,7 @@ struct pocv2_msg {
 #define pocv2_msg_src_nodeid(msg) ((msg)->hdr->src_nodeid)
 #define pocv2_msg_type(msg)       ((msg)->hdr->type)
 
-#define POCV2_MSG_ETH_PROTO           0x0019
+#define POCV2_MSG_ETH_PROTO       0x0019
 
 struct pocv2_msg_data {
   enum msgtype type;
@@ -90,5 +90,8 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
                       struct pocv2_msg_header *hdr, void *body, int body_len);
 
 void msg_sysinit(void);
+
+void msgenqueue(struct pocv2_msg *msg);
+int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg_header *buf);
 
 #endif

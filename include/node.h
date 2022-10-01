@@ -56,8 +56,6 @@ struct node {
   int npmap;
   /* node control dispatcher */
   struct nodectl *ctl;
-  /* vm's parameter */
-  struct vm_desc *vm_desc;
 };
 
 static inline struct vcpu *node_vcpu(int vcpuid) {
@@ -78,7 +76,7 @@ static inline struct vcpu *node_vcpu_by_localid(int localcpuid) {
   return &localnode.vcpus[localcpuid];
 }
 
-void node_preinit(int nvcpu, u64 nalloc, struct vm_desc *vm_desc);
+void node_preinit(int nvcpu, u64 nalloc, struct guest *guest_fdt);
 
 void pagetrap(struct node *node, u64 va, u64 size,
               int (*read_handler)(struct vcpu *, struct mmio_access *),
