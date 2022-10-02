@@ -29,7 +29,7 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
   hdr.contextid = contextid;
 
   int nodeid = vcpuid_to_nodeid(target_cpuid);
-  vmm_log("wakeup vcpu%d@node@d\n", target_cpuid, nodeid);
+  vmm_log("wakeup vcpu%d@node%d\n", target_cpuid, nodeid);
 
   pocv2_msg_init2(&msg, nodeid, MSG_CPU_WAKEUP, &hdr, NULL, 0);
 

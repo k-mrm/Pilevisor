@@ -24,50 +24,8 @@ void hyp_sync_handler() {
   panic("sync el2");
 }
 
-void uartintr(void);
-void hyp_irq_handler() {
-  u32 iar = gic_read_iar();
-  u32 irq = iar & 0x3ff;
-
-  switch(irq) {
-    case 33:
-      uartintr();
-      break;
-    case 48:
-      virtio_net_intr();
-      break;
-    case 1023:
-      vmm_warn("sprious interrupt");
-      return;
-    default:
-      panic("unknown interrupt");
-  }
-
-  gic_host_eoi(irq, 1);
-}
-
-void virtio_dev_intr(struct vcpu *vcpu);
-
-void vm_irq_handler() {
-  vgic_irq_enter(current);
-
-  u32 iar = gic_read_iar();
-  u32 pirq = iar & 0x3ff;
-  u32 virq = pirq;
-
-  // vmm_log("cpu%d: vm_irq_handler %d\n", cpuid(), iar);
-  
-  if(pirq == 48) {
-    /* virtio-net interrupt */
-    virtio_net_intr();
-  }
-
-  gic_guest_eoi(pirq, 1);
-
-  if(vgic_inject_virq(current, pirq, virq, 1) < 0)
-    gic_deactive_irq(pirq);
-
-  isb();
+void fiq_handler() {
+  panic("fiq");
 }
 
 static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {

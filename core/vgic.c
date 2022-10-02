@@ -98,7 +98,7 @@ static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
   else if(is_spi(intid))
     return &localnode.vgic->spis[intid - 32];
 
-  panic("unknown %d", intid);
+  panic("vgic_get_irq unknown %d", intid);
   return NULL;
 }
 

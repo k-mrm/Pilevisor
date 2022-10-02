@@ -2,6 +2,7 @@
 #include "gic.h"
 #include "log.h"
 #include "memmap.h"
+#include "irq.h"
 
 #define __fallthrough __attribute__((fallthrough))
 
@@ -124,16 +125,16 @@ static void gic_eoi(u32 iar, int grp) {
     panic("?");
 }
 
-void gic_deactive_irq(u32 irq) {
+static void gic_deactive_irq(u32 irq) {
   write_sysreg(icc_dir_el1, irq);
 }
 
-void gic_host_eoi(u32 iar, int grp) {
+static void gic_host_eoi(u32 iar, int grp) {
   gic_eoi(iar, grp);
   gic_deactive_irq(iar);
 }
 
-void gic_guest_eoi(u32 iar, int grp) {
+static void gic_guest_eoi(u32 iar, int grp) {
   gic_eoi(iar, grp);
 }
 
@@ -221,8 +222,33 @@ static void gic_setup_spi(u32 irq) {
   gic_irq_enable(irq);
 }
 
+void gic_irq_handler() {
+  while(1) {
+    u32 iar = gic_read_iar();
+    u32 pirq = iar & 0x3ff;
+
+    if(pirq == 1023)    /* spurious interrupt */
+      break;
+
+    if(is_sgi(pirq)) {
+      panic("gic_irq_handler sgi");
+    } else if(is_ppi_spi(pirq)) {
+      int host = handle_irq(pirq);
+
+      isb();
+
+      if(host)
+        gic_host_eoi(pirq, 1);
+      else
+        gic_guest_eoi(pirq, 1);
+    } else {
+      panic("???????");
+    }
+  }
+}
+
 static void hyp_intr_setup() {
-  gic_setup_spi(33);
+  // gic_setup_spi(33);
   gic_setup_spi(48);
 }
 

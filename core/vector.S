@@ -147,7 +147,7 @@ el2_sync:
 el2_irq:
   hyp_save_reg
 
-  bl hyp_irq_handler
+  bl gic_irq_handler
 
   hyp_restore_reg
 
@@ -167,7 +167,7 @@ trapret:
 el1_irq:
   vm_save_reg
 
-  bl vm_irq_handler
+  bl gic_irq_handler
 
   vm_restore_reg
 

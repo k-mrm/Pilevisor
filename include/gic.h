@@ -5,15 +5,16 @@
 #include "memmap.h"
 #include "aarch64.h"
 
-#define GIC_NSGI     16
-#define GIC_SGI_MAX  15
-#define GIC_NPPI     16
-#define GIC_PPI_MAX  31
+#define GIC_NSGI          16
+#define GIC_SGI_MAX       15
+#define GIC_NPPI          16
+#define GIC_PPI_MAX       31
 
 #define is_sgi(intid)     (0 <= (intid) && (intid) < 16)
 #define is_ppi(intid)     (16 <= (intid) && (intid) < 32)
 #define is_sgi_ppi(intid) (is_sgi(intid) || is_ppi(intid))
-#define is_spi(intid)     (32 <= (intid))
+#define is_ppi_spi(intid) (16 <= (intid) && (intid) < 1020)
+#define is_spi(intid)     (32 <= (intid) && (intid) < 1020)
 
 #define ich_hcr_el2   arm_sysreg(4, c12, c11, 0)
 #define ich_vtr_el2   arm_sysreg(4, c12, c11, 1)
@@ -164,11 +165,6 @@ void gic_init_cpu(void);
 
 u32 gic_read_iar(void);
 int gic_max_spi(void);
-
-void gic_deactive_irq(u32 irq);
-
-void gic_host_eoi(u32 iar, int grp);
-void gic_guest_eoi(u32 iar, int grp);
 
 void gic_set_target(u32 irq, u8 target);
 
