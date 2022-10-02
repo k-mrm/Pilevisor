@@ -155,7 +155,7 @@ int printf(const char *fmt, ...) {
 }
 
 static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
-  if(sp >= mycpu->stackbase || bsp > sp)
+  if(sp >= (u64)mycpu->stackbase || bsp > sp)
     return -1;
 
   u64 x29 = *(u64 *)(sp);
@@ -168,10 +168,19 @@ static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
   return 0;
 }
 
-void stacktrace() {
+void panic(const char *fmt, ...) {
+  intr_disable();
+
+  va_list ap;
+  va_start(ap, fmt);
+
+  printf("!!!!!!vmm panic: ");
+  vprintf(fmt, ap);
+  printf("\n");
+
   printf("stack trace:\n");
 
-  register u64 current_sp asm("sp");
+  register const u64 current_sp asm("sp");
   u64 sp, bsp, next;
   sp = bsp = current_sp;
 
@@ -183,19 +192,6 @@ void stacktrace() {
   }
 
   printf("stack trace done\n");
-}
-
-void panic(const char *fmt, ...) {
-  intr_disable();
-
-  va_list ap;
-  va_start(ap, fmt);
-
-  printf("!!!!!!vmm panic: ");
-  vprintf(fmt, ap);
-  printf("\n");
-
-  stacktrace();
 
   vcpu_dump(current);
 

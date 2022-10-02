@@ -301,7 +301,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       }
       goto end;
     case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3:
-      intid = (offset - GICD_ISENABLER(0)) / sizeof(u32) * 32;
+      intid = (offset - GICD_ICENABLER(0)) / sizeof(u32) * 32;
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
         if((val >> i) & 0x1) {
