@@ -171,9 +171,9 @@ static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
 void stacktrace() {
   printf("stack trace:\n");
 
-  register u64 sp asm("sp");
-  u64 bsp = sp;
-  u64 next;
+  register u64 current_sp asm("sp");
+  u64 sp, bsp, next;
+  sp = bsp = current_sp;
 
   while(1) {
     if(__stacktrace(sp, bsp, &next) < 0)
