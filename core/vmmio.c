@@ -19,7 +19,9 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
 
   pocv2_recv_reply(&msg, (struct pocv2_msg_header *)&rep);
 
-  panic("rep!!!!!!!!!!!!!! %p %p %d\n", rep.addr, rep.val, rep.status);
+  vmm_log("rep!!!!!!!!!!!!!! %p %p %d\n", rep.addr, rep.val, rep.status);
+
+  mmio->val = rep.val;
 }
 
 static void vmmio_reply(u8 *dst_mac, enum vmmio_status status, u64 addr, u64 val) {

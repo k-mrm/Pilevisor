@@ -44,7 +44,6 @@
 #define MPIDR_AFFINITY_LEVEL2(m)    (((m) >> 16) & 0xff)
 #define MPIDR_AFFINITY_LEVEL3(m)    (((m) >> 32) & 0xff)
 
-
 static inline int cpuid() {
   int mpidr = read_sysreg(mpidr_el1);
   return mpidr & 0xf;

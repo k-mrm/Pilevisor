@@ -12,6 +12,7 @@ struct cpu_features {
   u64 pfr0;
 };
 
+/* aarch64 vcpu */
 struct vcpu {
   /* MUST be first field */
   struct {
