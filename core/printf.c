@@ -1,6 +1,7 @@
 #include "types.h"
 #include "uart.h"
 #include "aarch64.h"
+#include "pcpu.h"
 #include "vcpu.h"
 #include "lib.h"
 
@@ -153,6 +154,37 @@ int printf(const char *fmt, ...) {
   return 0;
 }
 
+static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
+  if(sp >= mycpu->stackbase || bsp > sp)
+    return -1;
+
+  u64 x29 = *(u64 *)(sp);
+  u64 x30 = *(u64 *)(sp + 8);
+
+  printf("\tfrom: %p\n", x30 - 4);
+
+  *nextsp = x29;
+
+  return 0;
+}
+
+void stacktrace() {
+  printf("stack trace:\n");
+
+  register u64 sp asm("sp");
+  u64 bsp = sp;
+  u64 next;
+
+  while(1) {
+    if(__stacktrace(sp, bsp, &next) < 0)
+      break;
+
+    sp = next;
+  }
+
+  printf("stack trace done\n");
+}
+
 void panic(const char *fmt, ...) {
   intr_disable();
 
@@ -162,6 +194,8 @@ void panic(const char *fmt, ...) {
   printf("!!!!!!vmm panic: ");
   vprintf(fmt, ap);
   printf("\n");
+
+  stacktrace();
 
   vcpu_dump(current);
 
