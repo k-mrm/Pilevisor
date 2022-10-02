@@ -46,6 +46,8 @@ static void vmmio_req_recv_intr(struct pocv2_msg *msg) {
   if(mmio_emulate(vcpu, &hdr->mmio) < 0)
     status = VMMIO_FAILED;
 
+  vmm_log("mmio access %s %p %p\n", hdr->mmio.wnr ? "write" : "read", hdr->mmio.ipa, hdr->mmio.val);
+
   vmmio_reply(pocv2_msg_src_mac(msg), status, hdr->mmio.ipa, hdr->mmio.val);
 }
 

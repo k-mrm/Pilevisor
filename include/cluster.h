@@ -24,6 +24,7 @@ struct cluster_node {
 
 extern struct cluster_node cluster[NODE_MAX];
 extern int nr_cluster_nodes;
+extern int nr_cluster_vcpus;
 
 #define foreach_cluster_node(c)   \
   for(c = cluster; c < &cluster[nr_cluster_nodes]; c++)
@@ -81,7 +82,7 @@ static inline u8 *node_macaddr(int nodeid) {
   return cluster_node(nodeid)->mac;
 }
 
-void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated);
+void cluster_node0_ack_node(u8 *mac, int nvcpu, u64 allocated);
 void cluster_dump(void);
 void cluster_node_me_init(void);
 
@@ -96,6 +97,7 @@ void cluster_node_me_init(void);
 struct cluster_info_hdr {
   POCV2_MSG_HDR_STRUCT;
   int nnodes;
+  int nvcpus;
 };
 
 struct cluster_info_body {

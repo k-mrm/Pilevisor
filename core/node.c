@@ -63,7 +63,7 @@ void node0_broadcast_init_request() {
 static void node0_recv_init_ack_intr(struct pocv2_msg *msg) {
   struct init_ack_hdr *i = (struct init_ack_hdr *)msg->hdr;
 
-  cluster_ack_node(pocv2_msg_src_mac(msg), i->nvcpu, i->allocated);
+  cluster_node0_ack_node(pocv2_msg_src_mac(msg), i->nvcpu, i->allocated);
   vmm_log("Node 1: %d vcpus %p bytes\n", i->nvcpu, i->allocated);
 }
 

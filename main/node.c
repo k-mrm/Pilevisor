@@ -86,7 +86,7 @@ static void node0_init() {
   initvm(&vm_desc);
 
   /* me */
-  cluster_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
+  cluster_node0_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
 
   /* send initialization request to sub-node */
   node0_broadcast_init_request();

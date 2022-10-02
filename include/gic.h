@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "memmap.h"
+#include "aarch64.h"
 
 #define GIC_NSGI     16
 #define GIC_SGI_MAX  15
@@ -114,6 +115,19 @@
 #define GICR_ICFGR0         (SGI_BASE+0xc00)
 #define GICR_ICFGR1         (SGI_BASE+0xc04)
 #define GICR_IGRPMODR0      (SGI_BASE+0xd00)
+
+#define GICR_TYPER_PLPIS        (1 << 0)
+#define GICR_TYPER_VLPIS        (1 << 1)
+#define GICR_TYPER_LAST         (1 << 4)
+#define GICR_TYPER_DPGS         (1 << 5)
+#define GICR_TYPER_PROC_NUM(p)  (((p) & 0xffff) << 8)
+
+static inline u64 gicr_typer_affinity(u64 mpidr) {
+  return (u64)MPIDR_AFFINITY_LEVEL0(mpidr) << 32 |
+         (u64)MPIDR_AFFINITY_LEVEL1(mpidr) << 40 |
+         (u64)MPIDR_AFFINITY_LEVEL2(mpidr) << 48 |
+         (u64)MPIDR_AFFINITY_LEVEL3(mpidr) << 56;
+}
 
 static inline u32 gicd_r(u32 offset) {
   return *(volatile u32 *)(u64)(GICDBASE + offset);

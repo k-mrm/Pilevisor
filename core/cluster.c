@@ -33,8 +33,9 @@ static void cluster_setup_vsm_memrange(struct memrange *m, u64 alloc) {
   ram_start += alloc;
 }
 
-static void update_cluster_info(int nnodes, struct cluster_node *c) {
+static void update_cluster_info(int nnodes, int nvcpus, struct cluster_node *c) {
   nr_cluster_nodes = nnodes;
+  nr_cluster_vcpus = nvcpus;
   memcpy(cluster, c, sizeof(cluster));
   cluster_dump();
 
@@ -51,7 +52,7 @@ static void update_cluster_info(int nnodes, struct cluster_node *c) {
   panic("whoami??????");
 }
 
-void cluster_ack_node(u8 *mac, int nvcpu, u64 allocated) {
+void cluster_node0_ack_node(u8 *mac, int nvcpu, u64 allocated) {
   int nodeid = cluster_alloc_nodeid();
 
   struct cluster_node *c = &cluster[nodeid];
@@ -83,6 +84,7 @@ void node0_broadcast_cluster_info() {
   struct cluster_info_hdr hdr;
 
   hdr.nnodes = nr_cluster_nodes;
+  hdr.nvcpus = nr_cluster_vcpus;
 
   pocv2_broadcast_msg_init(&msg, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster));
 
@@ -90,10 +92,10 @@ void node0_broadcast_cluster_info() {
 }
 
 static void recv_cluster_info_intr(struct pocv2_msg *msg) {
-  struct cluster_info_hdr *a = (struct cluster_info_hdr *)msg->hdr;
+  struct cluster_info_hdr *h = (struct cluster_info_hdr *)msg->hdr;
   struct cluster_info_body *b = msg->body;
 
-  update_cluster_info(a->nnodes, b->cluster_info);
+  update_cluster_info(h->nnodes, h->nvcpus, b->cluster_info);
 }
 
 void cluster_dump() {
@@ -105,7 +107,7 @@ void cluster_dump() {
   };
 
   struct cluster_node *node;
-  printf("nr cluster: %d\n", nr_cluster_nodes);
+  printf("nr cluster: %d nvcpus: %d\n", nr_cluster_nodes, nr_cluster_vcpus);
   foreach_cluster_node(node) {
     char *isme = localnode.nodeid == node->nodeid ? "(me)" : "";
     printf("Node %d: %m %s%s\n", node->nodeid, node->mac, states[node->status], isme);

@@ -35,6 +35,8 @@ struct vcpu {
   } sys;
 
   /* vcpuid on cluster */
+  int vcpuid;
+
   u64 vmpidr;
 
   struct cpu_features features;
@@ -47,6 +49,7 @@ struct vcpu {
 
   bool initialized;
   bool online;
+  bool last;
 };
 
 extern int nr_cluster_online_vcpus;

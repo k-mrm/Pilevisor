@@ -383,11 +383,23 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICR_IIDR:
       mmio->val = gicr_r32(vcpu->vmpidr, GICR_IIDR);
       return 0;
-    case GICR_TYPER:
+    case GICR_TYPER: {
+      u64 typer;
+
       if(!(mmio->accsize & ACC_DOUBLEWORD))
         goto badwidth;
-      mmio->val = gicr_r64(vcpu->vmpidr, GICR_TYPER);
+
+      typer = gicr_typer_affinity(vcpu->vmpidr);
+
+      typer |= GICR_TYPER_PROC_NUM(vcpu->vcpuid);
+
+      if(vcpu->last)
+        typer |= GICR_TYPER_LAST;
+
+      mmio->val = typer;
+
       return 0;
+    }
     case GICR_PIDR2:
       mmio->val = gicr_r32(vcpu->vmpidr, GICR_PIDR2);
       return 0;

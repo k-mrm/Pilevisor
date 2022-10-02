@@ -8,6 +8,7 @@
 #include "spinlock.h"
 #include "memmap.h"
 #include "node.h"
+#include "cluster.h"
 
 static void save_sysreg(struct vcpu *vcpu);
 static void restore_sysreg(struct vcpu *vcpu);
@@ -23,11 +24,23 @@ static void vcpu_features_init(struct vcpu *vcpu) {
   vcpu->features.pfr0 = pfr0;
 }
 */
+
+static inline u64 vcpuid_to_vaff(int vcpuid) {
+  /* TODO */
+  return vcpuid;
+}
  
 void vcpuid_init(u32 *vcpuids, int nvcpu) {
   for(int i = 0; i < nvcpu; i++) {
     struct vcpu *vcpu = &localnode.vcpus[i];
-    vcpu->vmpidr = vcpuids[i];
+    vcpu->vcpuid = vcpuids[i];
+    vcpu->vmpidr = vcpuid_to_vaff(vcpu->vcpuid);
+
+    if(vcpu->vcpuid == nr_cluster_vcpus - 1)    // last vcpu
+      vcpu->last = true;
+    else
+      vcpu->last = false;
+
     vmm_log("vcpuid is %d\n", vcpu->vmpidr);
   }
 }
