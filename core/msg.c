@@ -169,20 +169,21 @@ static void unknown_msg_recv(struct pocv2_msg *msg) {
 }
 
 static char *msmap[NUM_MSG] = {
-  [MSG_NONE]          "msg:none",
-  [MSG_INIT]          "msg:init",
-  [MSG_INIT_ACK]      "msg:init_ack",
-  [MSG_CLUSTER_INFO]  "msg:cluster_info",
-  [MSG_SETUP_DONE]    "msg:setup_done",
-  [MSG_CPU_WAKEUP]    "msg:cpu_wakeup",
-  [MSG_SHUTDOWN]      "msg:shutdown",
-  [MSG_READ]          "msg:read",
-  [MSG_READ_REPLY]    "msg:read_reply",
-  [MSG_INVALID_SNOOP] "msg:invalid_snoop",
-  [MSG_INTERRUPT]     "msg:interrupt",
-  [MSG_MMIO_REQUEST]  "msg:mmio_request",
-  [MSG_MMIO_REPLY]    "msg:mmio_reply",
-  [MSG_GIC_CONFIG]    "msg:gic_config",
+  [MSG_NONE]            "msg:none",
+  [MSG_INIT]            "msg:init",
+  [MSG_INIT_ACK]        "msg:init_ack",
+  [MSG_CLUSTER_INFO]    "msg:cluster_info",
+  [MSG_SETUP_DONE]      "msg:setup_done",
+  [MSG_CPU_WAKEUP]      "msg:cpu_wakeup",
+  [MSG_CPU_WAKEUP_ACK]  "msg:cpu_wakeup_ack",
+  [MSG_SHUTDOWN]        "msg:shutdown",
+  [MSG_READ]            "msg:read",
+  [MSG_READ_REPLY]      "msg:read_reply",
+  [MSG_INVALID_SNOOP]   "msg:invalid_snoop",
+  [MSG_INTERRUPT]       "msg:interrupt",
+  [MSG_MMIO_REQUEST]    "msg:mmio_request",
+  [MSG_MMIO_REPLY]      "msg:mmio_reply",
+  [MSG_GIC_CONFIG]      "msg:gic_config",
 };
 
 void msg_sysinit() {

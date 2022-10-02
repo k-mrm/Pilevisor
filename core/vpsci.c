@@ -47,7 +47,7 @@ static int vcpu_wakeup(struct vcpu *vcpu, u64 ep) {
 
   int localid = vcpu_localid(vcpu);
 
-  vmm_log("wakeup vcpu%d@cpu%d\n", vcpu->vmpidr, localid);
+  vmm_log("wakeup vcpu%d(cpu%d)\n", vcpu->vmpidr, localid);
 
   int status;
   if(vcpu->online) {

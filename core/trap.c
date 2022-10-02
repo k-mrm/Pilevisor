@@ -35,18 +35,16 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(fnv)
     panic("fnv");
 
+  u64 faultpage = faulting_ipa_page();
+
   if(s1ptw) {
     /* fetch pagetable */
-    u64 pgt_ipa = faulting_ipa_page();
-    vmm_log("iabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
-    vsm_fetch_page(pgt_ipa, 0);
-
-    return 0;
+    vmm_log("iabort fetch pgt ipa %p %p\n", faultpage, vcpu->reg.elr);
   }
 
-  vcpu->reg.elr += 4;
+  vsm_fetch_page(faultpage, 0);
 
-  return -1;
+  return 0;
 }
 
 static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
