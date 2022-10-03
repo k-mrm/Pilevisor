@@ -1,4 +1,5 @@
 #include "log.h"
+#include "aarch64.h"
 #include "node.h"
 #include "net.h"
 #include "pcpu.h"

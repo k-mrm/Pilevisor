@@ -23,6 +23,7 @@ struct cpu_wakeup_ack_hdr {
 static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid) {
   struct pocv2_msg msg;
   struct cpu_wakeup_msg_hdr hdr;
+  struct cpu_wakeup_ack_hdr ack;
 
   hdr.vcpuid = target_cpuid;
   hdr.entrypoint = ep_addr;
@@ -35,8 +36,11 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 
   send_msg(&msg);
 
-  for(;;)
-    ;
+  pocv2_recv_reply(&msg, (struct pocv2_msg_header *)&ack);
+
+  vmm_log("remote vcpu wakeup status=%d\n", ack.ret);
+
+  return ack.ret;
 }
 
 static int vcpu_wakeup(struct vcpu *vcpu, u64 ep) {
@@ -82,6 +86,8 @@ static void cpu_wakeup_recv_intr(struct pocv2_msg *msg) {
   struct cpu_wakeup_ack_hdr ackhdr;
 
   ackhdr.ret = ret;
+
+  vmm_log("cpu wakeup status=%d\n", ret);
 
   pocv2_msg_init(&ack, pocv2_msg_src_mac(msg), MSG_CPU_WAKEUP_ACK, &ackhdr, NULL, 0);
 
@@ -142,6 +148,8 @@ u64 vpsci_emulate(struct vcpu *vcpu, struct vpsci_argv *argv) {
     default:
       panic("unknown funcid: %p\n", argv->funcid);
   }
+
+  return 0;
 }
 
 DEFINE_POCV2_MSG(MSG_CPU_WAKEUP, struct cpu_wakeup_msg_hdr, cpu_wakeup_recv_intr);

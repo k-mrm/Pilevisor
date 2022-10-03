@@ -75,6 +75,8 @@ void vcpu_entry() {
 
   vcpu_dump(current);
 
+  intr_enable();
+
   isb();
 
   /* vmentry */
