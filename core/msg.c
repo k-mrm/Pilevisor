@@ -21,6 +21,24 @@ static enum msgtype reqrep[NUM_MSG] = {
   [MSG_MMIO_REQUEST]  MSG_MMIO_REPLY,
 };
 
+static char *msmap[NUM_MSG] = {
+  [MSG_NONE]            "msg:none",
+  [MSG_INIT]            "msg:init",
+  [MSG_INIT_ACK]        "msg:init_ack",
+  [MSG_CLUSTER_INFO]    "msg:cluster_info",
+  [MSG_SETUP_DONE]      "msg:setup_done",
+  [MSG_CPU_WAKEUP]      "msg:cpu_wakeup",
+  [MSG_CPU_WAKEUP_ACK]  "msg:cpu_wakeup_ack",
+  [MSG_SHUTDOWN]        "msg:shutdown",
+  [MSG_READ]            "msg:read",
+  [MSG_READ_REPLY]      "msg:read_reply",
+  [MSG_INVALID_SNOOP]   "msg:invalid_snoop",
+  [MSG_INTERRUPT]       "msg:interrupt",
+  [MSG_MMIO_REQUEST]    "msg:mmio_request",
+  [MSG_MMIO_REPLY]      "msg:mmio_reply",
+  [MSG_GIC_CONFIG]      "msg:gic_config",
+};
+
 /* msg ring queue */
 static struct mq {
   char rq[16][64];
@@ -72,7 +90,7 @@ void send_msg(struct pocv2_msg *msg) {
   struct etherheader *eth = (struct etherheader *)header;
   memcpy(eth->dst, pocv2_msg_dst_mac(msg), 6);
   memcpy(eth->src, localnode.nic->mac, 6);
-  eth->type = POCV2_MSG_ETH_PROTO;
+  eth->type = POCV2_MSG_ETH_PROTO | (msg->hdr->type << 8);
   memcpy(header+sizeof(struct etherheader), msg->hdr, msg_hdr_size(msg));
 
   ps[0] = header;
@@ -84,6 +102,8 @@ void send_msg(struct pocv2_msg *msg) {
     ls[1] = msg->body_len;
     np++;
   }
+
+  vmm_log("send msg............ %s(%d)\n", msmap[msg->hdr->type], msg->hdr->type);
 
   localnode.nic->ops->xmit(localnode.nic, ps, ls, np);
 
@@ -133,6 +153,7 @@ int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg_header *buf) {
 
   int cpsize = msg_type_hdr_size(reptype);
 
+  printf("waiting recv %s........... (%p)\n", msmap[reptype], read_sysreg(daif));
   while(msgdequeue(reptype, buf, cpsize) < 0)
     wfi();
 
@@ -168,24 +189,6 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
 static void unknown_msg_recv(struct pocv2_msg *msg) {
   panic("msg: unknown msg received: %d", pocv2_msg_type(msg));
 }
-
-static char *msmap[NUM_MSG] = {
-  [MSG_NONE]            "msg:none",
-  [MSG_INIT]            "msg:init",
-  [MSG_INIT_ACK]        "msg:init_ack",
-  [MSG_CLUSTER_INFO]    "msg:cluster_info",
-  [MSG_SETUP_DONE]      "msg:setup_done",
-  [MSG_CPU_WAKEUP]      "msg:cpu_wakeup",
-  [MSG_CPU_WAKEUP_ACK]  "msg:cpu_wakeup_ack",
-  [MSG_SHUTDOWN]        "msg:shutdown",
-  [MSG_READ]            "msg:read",
-  [MSG_READ_REPLY]      "msg:read_reply",
-  [MSG_INVALID_SNOOP]   "msg:invalid_snoop",
-  [MSG_INTERRUPT]       "msg:interrupt",
-  [MSG_MMIO_REQUEST]    "msg:mmio_request",
-  [MSG_MMIO_REPLY]      "msg:mmio_reply",
-  [MSG_GIC_CONFIG]      "msg:gic_config",
-};
 
 void msg_sysinit() {
   struct pocv2_msg_data *d;

@@ -104,7 +104,15 @@ static void gic_save_lr(struct gic_state *gic) {
 }
 
 u64 gic_make_lr(u32 pirq, u32 virq, int grp) {
-  return ICH_LR_STATE(LR_PENDING) | ICH_LR_HW | ICH_LR_GROUP(grp) | ICH_LR_PINTID(pirq) | ICH_LR_VINTID(virq);
+  u64 lr = ICH_LR_VINTID(virq) | ICH_LR_STATE(LR_PENDING) | ICH_LR_GROUP(grp);
+  
+  if(!is_sgi(pirq)) {
+    /* this is hw irq */
+    lr |= ICH_LR_HW;
+    lr |= ICH_LR_PINTID(pirq);
+  }
+
+  return lr;
 }
 
 static bool gic_irq_pending(u32 irq) {
@@ -129,12 +137,12 @@ static void gic_deactive_irq(u32 irq) {
   write_sysreg(icc_dir_el1, irq);
 }
 
-static void gic_host_eoi(u32 iar, int grp) {
+void gic_host_eoi(u32 iar, int grp) {
   gic_eoi(iar, grp);
   gic_deactive_irq(iar);
 }
 
-static void gic_guest_eoi(u32 iar, int grp) {
+void gic_guest_eoi(u32 iar, int grp) {
   gic_eoi(iar, grp);
 }
 
@@ -233,14 +241,12 @@ void gic_irq_handler() {
     if(is_sgi(pirq)) {
       panic("gic_irq_handler sgi");
     } else if(is_ppi_spi(pirq)) {
-      int host = handle_irq(pirq);
-
       isb();
 
-      if(host)
+      int handled = handle_irq(pirq);
+
+      if(handled)
         gic_host_eoi(pirq, 1);
-      else
-        gic_guest_eoi(pirq, 1);
     } else {
       panic("???????");
     }
@@ -248,7 +254,7 @@ void gic_irq_handler() {
 }
 
 static void hyp_intr_setup() {
-  // gic_setup_spi(33);
+  gic_setup_spi(33);
   gic_setup_spi(48);
 }
 

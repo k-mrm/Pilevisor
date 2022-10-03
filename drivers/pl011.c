@@ -50,6 +50,8 @@ void uartintr() {
       int c = uart_getc();
       if(c < 0)
         break;
+
+      printf("uartintr\n");
     }
   }
 

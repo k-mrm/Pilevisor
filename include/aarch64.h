@@ -54,6 +54,10 @@ static inline u64 vttbr_ipa2pa(u64 ipa) {
   return read_sysreg(par_el1);
 }
 
+static inline bool irq_enabled() {
+  return (read_sysreg(daif) >> 3) & 0x1;
+}
+
 static inline u64 r_sp() {
   u64 x;
   asm volatile("mov %0, sp" : "=r"(x));

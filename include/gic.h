@@ -18,6 +18,7 @@
 
 #define ich_hcr_el2   arm_sysreg(4, c12, c11, 0)
 #define ich_vtr_el2   arm_sysreg(4, c12, c11, 1)
+#define ich_elsr_el2  arm_sysreg(4, c12, c11, 5)
 #define ich_vmcr_el2  arm_sysreg(4, c12, c11, 7)
 #define ich_lr0_el2   arm_sysreg(4, c12, c12, 0)
 #define ich_lr1_el2   arm_sysreg(4, c12, c12, 1)
@@ -175,6 +176,8 @@ u64 gic_make_lr(u32 pirq, u32 virq, int grp);
 void gic_irq_enable(u32 irq);
 void gic_irq_disable(u32 irq);
 void gic_irq_enable_redist(u32 cpuid, u32 irq);
+void gic_host_eoi(u32 iar, int grp);
+void gic_guest_eoi(u32 iar, int grp);
 
 void gic_restore_state(struct gic_state *gic);
 void gic_init_state(struct gic_state *gic);

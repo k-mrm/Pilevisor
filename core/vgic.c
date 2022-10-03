@@ -13,6 +13,8 @@ static struct vgic vgic_dist;
 
 extern int gic_lr_max;
 
+static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
+
 static int vgic_cpu_alloc_lr(struct vgic_cpu *vgic) {
   for(int i = 0; i < gic_lr_max; i++) {
     if((vgic->used_lr & BIT(i)) == 0) {
@@ -77,15 +79,42 @@ int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp) {
     return -1;
   }*/
 
+  if(pirq != virq)
+    panic("unimplemented");
+
   struct vgic_cpu *vgic = &vcpu->vgic;
 
-  u64 lr = gic_make_lr(pirq, virq, grp);
+  struct vgic_irq *irq = vgic_get_irq(vcpu, pirq);
+  if(!irq->enabled)
+    return -1;
 
-  int n = vgic_cpu_alloc_lr(vgic);
-  if(n < 0)
-    panic("no lr");
+  if(vcpu == current) {
+    u64 elsr = read_sysreg(ich_elsr_el2);
+    int freelr = -1;
+    u64 lr;
 
-  gic_write_lr(n, lr);
+    for(int i = 0; i < gic_lr_max; i++) {
+      if((elsr >> i) & 0x1) {   // free area in lr
+        if(freelr < 0)
+          freelr = i;
+
+        continue;
+      }
+
+      if((u32)gic_read_lr(i) == pirq)
+        panic("busy %d", pirq);
+    }
+
+    if(freelr < 0)
+      panic("no free lr ;;");
+
+    lr = gic_make_lr(pirq, virq, grp);
+
+    printf("inject lr %d+++++++%d\n", pirq, freelr);
+    gic_write_lr(freelr, lr);
+  } else {
+    panic("unimplmented");
+  }
 
   return 0;
 }
