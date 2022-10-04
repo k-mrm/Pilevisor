@@ -115,7 +115,7 @@ u64 gic_make_lr(u32 pirq, u32 virq, int grp) {
   return lr;
 }
 
-static bool gic_irq_pending(u32 irq) {
+bool gic_irq_pending(u32 irq) {
   u32 is = gicd_r(GICD_ISPENDR(irq / 32));
   return (is & (1 << (irq % 32))) != 0;
 }
@@ -230,9 +230,8 @@ static void gic_setup_spi(u32 irq) {
   gic_irq_enable(irq);
 }
 
+extern int nest;
 void gic_irq_handler() {
-  printf("vmexit reason irq\n");
-
   while(1) {
     u32 iar = gic_read_iar();
     u32 pirq = iar & 0x3ff;
@@ -253,8 +252,6 @@ void gic_irq_handler() {
       panic("???????");
     }
   }
-
-  printf("irq vmeeeeeeeeeeentry %p\n", read_sysreg(daif));
 }
 
 static void hyp_intr_setup() {

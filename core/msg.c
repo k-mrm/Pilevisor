@@ -106,8 +106,6 @@ void send_msg(struct pocv2_msg *msg) {
   vmm_log("send msg............ %s(%d)\n", msmap[msg->hdr->type], msg->hdr->type);
 
   localnode.nic->ops->xmit(localnode.nic, ps, ls, np);
-
-  intr_enable();
 }
 
 static inline bool mq_is_empty(struct mq *mq) {

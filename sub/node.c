@@ -21,6 +21,7 @@ static void sub_init() {
   vmm_log("Waiting for recognition from cluster...\n");
 
   intr_enable();
+
   wait_for_acked_me();
 
   vmm_log("Node %d initializing...\n", cluster_me()->nodeid);
@@ -32,8 +33,6 @@ static void sub_init() {
 
 static void sub_start() {
   vmm_log("node%d@cpu%d: start\n", localnode.nodeid, cpuid());
-
-  intr_enable();
 
   wait_for_current_vcpu_online();
 

@@ -88,9 +88,13 @@ static void node0_init() {
   /* me */
   cluster_node0_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
 
+  intr_enable();
+
   /* send initialization request to sub-node */
   node0_broadcast_init_request();
   wait_for_init_ack();
+
+  printf("node00000000000000000000000 %p\n", read_sysreg(daif));
 
   /* broadcast cluster information to sub-node */
   node0_broadcast_cluster_info();
@@ -105,8 +109,6 @@ static void node0_init() {
 static void node0_start() {
   vmm_log("node0@cpu%d: start\n", cpuid());
   cluster_dump();
-
-  intr_enable();
 
   wait_for_current_vcpu_online();
 

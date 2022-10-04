@@ -75,8 +75,6 @@ void vcpu_entry() {
 
   vcpu_dump(current);
 
-  intr_enable();
-
   isb();
 
   /* vmentry */
@@ -87,7 +85,7 @@ void vcpu_initstate() {
   vgic_cpu_init(current);
   gic_init_state(&current->gic);
 
-  current->reg.spsr = 0x3c5;   /* EL1 */
+  current->reg.spsr = PSR_EL1H;     /* EL1h */
 
   current->sys.sctlr_el1 = 0xc50838;
   current->sys.cntfrq_el0 = 62500000;
