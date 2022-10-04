@@ -324,6 +324,9 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
         if((val >> i) & 0x1) {
+          if(intid+i == 27)
+            break;
+
           irq->enabled = 1;
           vgic_irq_enable(vcpu, intid+i);
         }
@@ -512,6 +515,8 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
         if((val >> i) & 0x1) {
+          if(i == 27)
+            break;
           irq->enabled = 1;
           vgic_irq_enable(vcpu, i);
         }

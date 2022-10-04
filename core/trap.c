@@ -164,6 +164,8 @@ static void iabort_iss_dump(u64 iss) {
 int vsysreg_emulate(struct vcpu *vcpu, u64 iss);
 
 void vm_sync_handler() {
+  printf("vmexit reason trap %p %p\n", read_sysreg(spsr_el2), read_sysreg(daif));
+
   // vmm_log("el0/1 sync!\n");
   u64 esr = read_sysreg(esr_el2);
   u64 elr = read_sysreg(elr_el2);
@@ -217,4 +219,6 @@ void vm_sync_handler() {
       vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
       panic("unknown sync");
   }
+
+  printf("vmentry sayonra\n");
 }

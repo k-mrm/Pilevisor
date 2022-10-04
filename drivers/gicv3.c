@@ -231,6 +231,8 @@ static void gic_setup_spi(u32 irq) {
 }
 
 void gic_irq_handler() {
+  printf("vmexit reason irq\n");
+
   while(1) {
     u32 iar = gic_read_iar();
     u32 pirq = iar & 0x3ff;
@@ -251,6 +253,8 @@ void gic_irq_handler() {
       panic("???????");
     }
   }
+
+  printf("irq vmeeeeeeeeeeentry %p\n", read_sysreg(daif));
 }
 
 static void hyp_intr_setup() {

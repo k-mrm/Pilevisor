@@ -17,8 +17,8 @@
 #define write_sysreg(reg, val)  \
   do { u64 x = (u64)(val); __write_sysreg(reg, x); } while(0)
 
-#define intr_enable()   asm volatile("msr daifclr, #2" ::: "memory")
-#define intr_disable()  asm volatile("msr daifset, #2" ::: "memory")
+#define intr_enable()   asm volatile("msr daifclr, #0xf" ::: "memory")
+#define intr_disable()  asm volatile("msr daifset, #0xf" ::: "memory")
 
 #define isb()     asm volatile("isb");
 #define dsb(ty)   asm volatile("dsb " #ty);

@@ -7,6 +7,9 @@
 int handle_irq(u32 pirq) {
   /* interrupt to vmm */
   switch(pirq) {
+    case 33:
+      uartintr();
+      return 1;
     case 48:
       virtio_net_intr();
       return 1;
