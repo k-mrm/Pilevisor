@@ -39,12 +39,15 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   u64 faultpage = faulting_ipa_page();
 
+  vmm_log("fetch page faultipa %p elr %p\n", faultpage, far, vcpu->reg.elr);
+
   if(s1ptw) {
     /* fetch pagetable */
     vmm_log("iabort fetch pgt ipa %p %p\n", faultpage, vcpu->reg.elr);
   }
 
-  vsm_fetch_page(faultpage, 0);
+  if(!vsm_fetch_page(faultpage, 0))
+    panic("no page %p %p %p", faultpage, far, vcpu->reg.elr);
 
   return 0;
 }

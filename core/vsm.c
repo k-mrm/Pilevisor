@@ -115,7 +115,7 @@ void *vsm_fetch_page(u64 page_ipa, bool wr) {
     return NULL;
 
   u64 *vttbr = localnode.vttbr;
-  vmm_log("request remote fetch!!!!: %p\n", page_ipa);
+  vmm_log("request remote fetch!!!!: %p dst node %d\n", page_ipa, dst_node);
 
   /* send read request */
   send_read_request(dst_node, page_ipa);
@@ -123,6 +123,10 @@ void *vsm_fetch_page(u64 page_ipa, bool wr) {
   u64 pa;
   while(!(pa = ipa2pa(vttbr, page_ipa)))
     wfi();
+
+  if(page_ipa == 0x4058e000) {
+    bin_dump(pa, 1024);
+  }
 
   return (void *)pa;
 }

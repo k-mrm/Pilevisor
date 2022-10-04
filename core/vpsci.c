@@ -104,7 +104,7 @@ static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci_argv *argv) {
   u64 vcpuid = argv->x1;
   u64 ep_addr = argv->x2;
   u64 contextid = argv->x3;
-  vmm_log("vcpu%d on: entrypoint %p\n", vcpuid, ep_addr);
+  vmm_log("vcpu%d on: entrypoint %p %p\n", vcpuid, ep_addr, vcpu->reg.x[30]);
 
   struct vcpu *target = node_vcpu(vcpuid);
   if(!target)

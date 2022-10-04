@@ -255,7 +255,6 @@ void gic_irq_handler() {
 }
 
 static void hyp_intr_setup() {
-  gic_setup_spi(33);
   gic_setup_spi(48);
 }
 

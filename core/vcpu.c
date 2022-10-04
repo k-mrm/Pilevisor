@@ -10,9 +10,6 @@
 #include "node.h"
 #include "cluster.h"
 
-static void save_sysreg(struct vcpu *vcpu);
-static void restore_sysreg(struct vcpu *vcpu);
-
 /*
 static void vcpu_features_init(struct vcpu *vcpu) {
   u64 pfr0 = read_sysreg(ID_PFR0_EL1);
@@ -121,10 +118,13 @@ void vcpu_dump(struct vcpu *vcpu) {
   printf("\n");
   printf("spsr_el2  %18p  elr_el2   %18p\n", vcpu->reg.spsr, vcpu->reg.elr);
   printf("spsr_el1  %18p  elr_el1   %18p  mpdir_el1    %18p\n",
-         vcpu->sys.spsr_el1, vcpu->sys.elr_el1, vcpu->vmpidr);
-  printf("sp_el0    %18p  sp_el1    %18p\n", vcpu->sys.sp_el0, vcpu->sys.sp_el1);
+         read_sysreg(spsr_el1), read_sysreg(elr_el1), vcpu->vmpidr);
+
+  u64 esr = read_sysreg(esr_el1);
+
+  printf("esr_el1   %18p  (EC %p ISS %p)\n", esr, (esr >> 26) & 0x3f, esr & 0xffffff);
   printf("ttbr0_el1 %18p  ttbr1_el1 %18p  tcr_el1      %18p\n",
          vcpu->sys.ttbr0_el1, vcpu->sys.ttbr1_el1, vcpu->sys.tcr_el1);
   printf("vbar_el1  %18p  sctlr_el1 %18p  cntv_ctl_el0 %18p\n",
-         vcpu->sys.vbar_el1, vcpu->sys.sctlr_el1, vcpu->sys.cntv_ctl_el0);
+         vcpu->sys.vbar_el1, read_sysreg(sctlr_el1), vcpu->sys.cntv_ctl_el0);
 }
