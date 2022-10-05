@@ -1,12 +1,9 @@
-#include "irq.h"
 #include "aarch64.h"
+#include "irq.h"
 #include "gic.h"
 #include "vgic.h"
 #include "vcpu.h"
 #include "pcpu.h"
-
-#define NLOCALIRQ   32
-#define NIRQ        256
 
 static struct irq irqlist[NIRQ];
 
@@ -25,9 +22,9 @@ void irq_register(u32 pirq, void (*handler)(void)) {
 
   struct irq *irq = irq_get(pirq);
 
-  gic_setup_spi(pirq);
-
   irq->handler = handler;
+
+  gic_setup_spi(pirq);
 }
 
 int handle_irq(u32 pirq) {

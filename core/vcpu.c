@@ -124,7 +124,7 @@ void vcpu_dump(struct vcpu *vcpu) {
 
   printf("esr_el1   %18p  (EC %p ISS %p)\n", esr, (esr >> 26) & 0x3f, esr & 0xffffff);
   printf("ttbr0_el1 %18p  ttbr1_el1 %18p  tcr_el1      %18p\n",
-         vcpu->sys.ttbr0_el1, vcpu->sys.ttbr1_el1, vcpu->sys.tcr_el1);
+         read_sysreg(ttbr0_el1), read_sysreg(ttbr1_el1), read_sysreg(tcr_el1));
   printf("vbar_el1  %18p  sctlr_el1 %18p  cntv_ctl_el0 %18p\n",
-         vcpu->sys.vbar_el1, read_sysreg(sctlr_el1), vcpu->sys.cntv_ctl_el0);
+         read_sysreg(vbar_el1), read_sysreg(sctlr_el1), vcpu->sys.cntv_ctl_el0);
 }

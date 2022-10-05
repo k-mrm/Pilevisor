@@ -3,7 +3,8 @@
 
 #include "types.h"
 
-#define NIRQ    256
+#define NLOCALIRQ   32
+#define NIRQ        256
 
 struct irq {
   int irq;

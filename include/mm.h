@@ -68,6 +68,7 @@
 /* stage 2 attribute */
 #define S2PTE_AF          (1 << 10)
 #define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
+#define S2PTE_S2AP_MASK   (u64)(3 << 6)
 #define S2PTE_RO          S2PTE_S2AP(1)
 #define S2PTE_WO          S2PTE_S2AP(2)
 #define S2PTE_RW          S2PTE_S2AP(3)
@@ -108,6 +109,9 @@ void pageunmap(u64 *pgt, u64 va, u64 size);
 u64 ipa2pa(u64 *pgt, u64 ipa);
 u64 at_uva2pa(u64 uva);
 u64 at_uva2ipa(u64 uva);
+
+void page_access_invalidate(u64 *pgt, u64 va);
+void page_access_ro(u64 *pgt, u64 val);
 
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);

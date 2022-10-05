@@ -96,6 +96,29 @@ void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
   pagemap(pgt, va, pa, size, attr);
 }
 
+void page_access_invalidate(u64 *pgt, u64 va) {
+  if(!PAGE_ALIGNED(va))
+    panic("page_invalidate");
+
+  u64 *pte = pagewalk(pgt, va, 0);
+  if(!pte)
+    panic("no entry");
+
+  *pte &= S2PTE_AF;
+}
+
+void page_access_ro(u64 *pgt, u64 va) {
+  if(!PAGE_ALIGNED(va))
+    panic("page_invalidate");
+
+  u64 *pte = pagewalk(pgt, va, 0);
+  if(!pte)
+    panic("no entry");
+
+  *pte &= ~S2PTE_S2AP_MASK;
+  *pte |= S2PTE_RO;
+}
+
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
   while(len > 0) {
     u64 pa = ipa2pa(pgt, to_ipa);

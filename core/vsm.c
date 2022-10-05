@@ -10,7 +10,7 @@
 #include "msg.h"
 #include "cluster.h"
 
-static void send_read_request(u8 dst, u64 ipa);
+static void send_read_request(u8 dst, u64 ipa, bool wnr);
 static void send_read_reply(u8 *dst_mac, u64 ipa, void *page);
 
 /* virtual shared memory */
@@ -30,11 +30,14 @@ static void send_read_reply(u8 *dst_mac, u64 ipa, void *page);
 struct read_req_hdr {
   POCV2_MSG_HDR_STRUCT;
   u64 ipa;
+  bool wnr;     // 0 read 1 write fetch
 };
 
 struct read_reply_hdr {
   POCV2_MSG_HDR_STRUCT;
   u64 ipa;
+  u64 copyset;
+  bool wnr;     // 0 read 1 write fetch
 };
 
 struct read_reply_body {
@@ -84,14 +87,18 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
   return 0;
 } */
 
-static void vsm_set_cache_fast(u64 ipa, u8 *page) {
+static void vsm_set_cache_fast(u64 ipa, u8 *page, bool wr) {
   static int count = 0;
   u64 *vttbr = localnode.vttbr;
+  u64 flag = S2PTE_NORMAL;
 
   vmm_bug_on(!PAGE_ALIGNED(ipa), "ipa align");
 
   vmm_log("vsm: cache @%p %d\n", ipa, ++count);
-  pagemap(vttbr, ipa, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+
+  flag |= wr ? S2PTE_RW : S2PTE_RO;
+
+  pagemap(vttbr, ipa, (u64)page, PAGESIZE, flag);
 }
 
 /*
@@ -118,14 +125,14 @@ void *vsm_fetch_page(u64 page_ipa, bool wr) {
   vmm_log("request remote fetch!!!!: %p dst node %d\n", page_ipa, dst_node);
 
   /* send read request */
-  send_read_request(dst_node, page_ipa);
+  send_read_request(dst_node, page_ipa, wr);
 
   u64 pa;
   while(!(pa = ipa2pa(vttbr, page_ipa)))
     wfi();
 
   if(page_ipa == 0x4058e000) {
-    bin_dump(pa, 1024);
+    bin_dump(pa, 3072);
   }
 
   return (void *)pa;
@@ -149,48 +156,52 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   return 0;
 }
 
-static void send_read_request(u8 dst, u64 ipa) {
+static void send_read_request(u8 dst, u64 ipa, bool wnr) {
   struct pocv2_msg msg;
   struct read_req_hdr hdr;
 
   hdr.ipa = ipa;
+  hdr.wnr = wnr;
 
   pocv2_msg_init2(&msg, dst, MSG_READ, &hdr, NULL, 0);
 
   send_msg(&msg);
 }
 
-static void send_read_reply(u8 *dst_mac, u64 ipa, void *page) {
+static void send_fetch_reply(u8 *dst_mac, u64 ipa, void *page, bool wnr) {
   struct pocv2_msg msg;
   struct read_reply_hdr hdr;
 
   hdr.ipa = ipa;
+  hdr.wnr = wnr;
 
   pocv2_msg_init(&msg, dst_mac, MSG_READ_REPLY, &hdr, page, PAGESIZE);
 
   send_msg(&msg);
 }
 
-static void recv_read_request_intr(struct pocv2_msg *msg) {
+/* read/write server */
+static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct read_req_hdr *a = (struct read_req_hdr *)msg->hdr;
 
   /* TODO: use at instruction */
   u64 pa = ipa2pa(localnode.vttbr, a->ipa);
-  vmm_log("read ipa @%p -> pa %p\n", a->ipa, pa);
+  vmm_log("%s fetch ipa @%p -> pa %p\n", a->wnr ? "write" : "read", a->ipa, pa);
 
-  if(a->ipa == 0x4058e000) {
-    bin_dump((void *)pa, 512);
-  }
+  if(a->wnr)
+    page_access_invalidate(localnode.vttbr, a->ipa);
+  else
+    page_access_ro(localnode.vttbr, a->ipa);
 
-  send_read_reply(pocv2_msg_src_mac(msg), a->ipa, (void *)pa);
+  send_fetch_reply(pocv2_msg_src_mac(msg), a->ipa, (void *)pa, a->wnr);
 }
 
-static void recv_read_reply_intr(struct pocv2_msg *msg) {
+static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
   struct read_reply_hdr *a = (struct read_reply_hdr *)msg->hdr;
   struct read_reply_body *b = msg->body;
   vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
 
-  vsm_set_cache_fast(a->ipa, b->page);
+  vsm_set_cache_fast(a->ipa, b->page, a->wnr);
 }
 
 void vsm_node_init(struct memrange *mem) {
@@ -212,5 +223,5 @@ void vsm_node_init(struct memrange *mem) {
   vmm_log("Node %d mapped: [%p - %p]\n", localnode.nodeid, start, start+p);
 }
 
-DEFINE_POCV2_MSG(MSG_READ, struct read_req_hdr, recv_read_request_intr);
-DEFINE_POCV2_MSG(MSG_READ_REPLY, struct read_reply_hdr, recv_read_reply_intr);
+DEFINE_POCV2_MSG(MSG_READ, struct read_req_hdr, recv_fetch_request_intr);
+DEFINE_POCV2_MSG(MSG_READ_REPLY, struct read_reply_hdr, recv_fetch_reply_intr);
