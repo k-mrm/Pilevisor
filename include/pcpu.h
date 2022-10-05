@@ -5,6 +5,7 @@
 #include "vcpu.h"
 #include "param.h"
 #include "mm.h"
+#include "irq.h"
 
 extern char _stack[PAGESIZE] __attribute__((aligned(PAGESIZE)));
 
@@ -16,6 +17,8 @@ struct pcpu {
   struct {
     void *base;
   } gicr;
+
+  struct irq local_irq[32];
 };
 
 extern struct pcpu pcpus[NCPU];

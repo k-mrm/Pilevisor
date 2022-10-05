@@ -110,7 +110,6 @@ int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp) {
 
     lr = gic_make_lr(pirq, virq, grp);
 
-    printf("inject lr %d+++++++%d\n", pirq, freelr);
     gic_write_lr(freelr, lr);
   } else {
     panic("unimplmented");
@@ -514,8 +513,6 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
         if((val >> i) & 0x1) {
-          if(i == 27)
-            break;
           irq->enabled = 1;
           vgic_irq_enable(vcpu, i);
         }

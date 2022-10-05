@@ -153,7 +153,7 @@ int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg_header *buf) {
 
   printf("waiting recv %s........... (%p)\n", msmap[reptype], read_sysreg(daif));
   while(msgdequeue(reptype, buf, cpsize) < 0)
-    ;
+    wfi();
 
   return cpsize;
 }

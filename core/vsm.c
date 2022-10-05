@@ -178,13 +178,17 @@ static void recv_read_request_intr(struct pocv2_msg *msg) {
   u64 pa = ipa2pa(localnode.vttbr, a->ipa);
   vmm_log("read ipa @%p -> pa %p\n", a->ipa, pa);
 
+  if(a->ipa == 0x4058e000) {
+    bin_dump((void *)pa, 512);
+  }
+
   send_read_reply(pocv2_msg_src_mac(msg), a->ipa, (void *)pa);
 }
 
 static void recv_read_reply_intr(struct pocv2_msg *msg) {
   struct read_reply_hdr *a = (struct read_reply_hdr *)msg->hdr;
   struct read_reply_body *b = msg->body;
-  vmm_log("recv remote @%p page %p\n", a->ipa, b->page);
+  vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
 
   vsm_set_cache_fast(a->ipa, b->page);
 }

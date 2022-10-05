@@ -9,6 +9,7 @@
 #include "node.h"
 #include "ethernet.h"
 #include "msg.h"
+#include "irq.h"
 
 struct virtio_net vtnet_dev;
 
@@ -126,7 +127,7 @@ static void txintr(struct nic *nic, u16 idx) {
   virtq_free_desc(dev->tx, d1);
 }
 
-void virtio_net_intr() {
+static void virtio_net_intr() {
   struct nic *nic = localnode.nic;
   struct virtio_net *dev = nic->device;
 
@@ -216,6 +217,8 @@ int virtio_net_init(void *base, int intid) {
   virtio_net_get_mac(&vtnet_dev, mac);
 
   net_init("virtio-net", mac, intid, &vtnet_dev, &virtio_net_ops);
+
+  irq_register(48, virtio_net_intr);
 
   return 0;
 }

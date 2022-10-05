@@ -3,13 +3,16 @@
 
 #include "types.h"
 
-struct irq_guest {
+#define NIRQ    256
+
+struct irq {
   int irq;
-  bool guest_enabled;
+  int count;
+  void (*handler)(void);
 };
 
-struct irq_guest irq_guests[256];
-
+struct irq *irq_get(u32 pirq);
 int handle_irq(u32 pirq);
+void irq_register(u32 pirq, void (*handler)(void));
 
 #endif

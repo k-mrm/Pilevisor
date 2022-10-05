@@ -2,6 +2,7 @@
 #include "types.h"
 #include "uart.h"
 #include "vcpu.h"
+#include "irq.h"
 
 #define R(reg)  (volatile u32 *)(UARTBASE+reg)
 
@@ -64,4 +65,6 @@ void uart_init() {
   *R(LCRH) = LCRH_FEN | LCRH_WLEN_8BIT;
   *R(CR) = 0x301;   /* RXE, TXE, UARTEN */
   *R(IMSC) = (1<<4);
+
+  // irq_register(33, uartintr);
 }

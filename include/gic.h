@@ -167,6 +167,8 @@ void gic_init_cpu(void);
 u32 gic_read_iar(void);
 int gic_max_spi(void);
 
+void gic_setup_spi(u32 irq);
+
 void gic_set_target(u32 irq, u8 target);
 
 u64 gic_read_lr(int n);

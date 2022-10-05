@@ -225,12 +225,11 @@ int gic_max_spi() {
   return max_spi < 1020? max_spi : 1019;
 }
 
-static void gic_setup_spi(u32 irq) {
+void gic_setup_spi(u32 irq) {
   gic_set_target(irq, 0);
   gic_irq_enable(irq);
 }
 
-extern int nest;
 void gic_irq_handler() {
   while(1) {
     u32 iar = gic_read_iar();
@@ -252,10 +251,6 @@ void gic_irq_handler() {
       panic("???????");
     }
   }
-}
-
-static void hyp_intr_setup() {
-  gic_setup_spi(48);
 }
 
 static void gicc_init(void) {
@@ -330,5 +325,4 @@ void gic_init(void) {
   vmm_log("gic init...\n");
 
   gicd_init();
-  hyp_intr_setup();
 }
