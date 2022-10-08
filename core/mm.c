@@ -111,7 +111,7 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
 }
 
 bool page_accessible(u64 *pgt, u64 va) {
-  return !!page_accessble_pte(pgt, va);
+  return !!page_accessible_pte(pgt, va);
 }
 
 void page_access_invalidate(u64 *pgt, u64 va) {

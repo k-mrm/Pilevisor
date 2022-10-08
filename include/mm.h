@@ -79,10 +79,11 @@
 #define S2PTE_DBM         (1UL << 51)
 
 #define PAGESIZE          4096  /* 4KB */
+#define PAGESHIFT         12    /* 1 << 12 */
 
 #define PAGE_ADDRESS(p)   ((u64)(p) & ~(PAGESIZE-1))
 #define PAGE_ALIGNED(p)   ((u64)(p) % PAGESIZE == 0)
-#define PAGEROUNDUP(p)    (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
+#define PAGE_ALIGN(p)     (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
 #define PAGE_OFFSET(p)    ((u64)(p) & (PAGESIZE-1))
 
 /* attr index */

@@ -31,8 +31,11 @@ struct cache_page {
   u64 flags;
 };
 
+#define CACHE_PAGE_LOCK_BIT(p)  (((p)->flags >> 37) & 0x1)
+#define CACHE_PAGE_COPYSET(p)   ((p)->flags & 0xffffffff)
 #define CACHE_PAGE_OWNER_SHIFT  32
 #define CACHE_PAGE_OWNER_MASK   0x1f
+#define CACHE_PAGE_OWNER(p)     (((p)->flags >> CACHE_PAGE_OWNER_SHIFT) & CACHE_PAGE_OWNER_MASK)
 
 /* 128 MiB per Node */
 struct cache_page pages[128 * 1024 * 1024 / PAGESIZE];
