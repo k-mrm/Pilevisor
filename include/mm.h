@@ -112,6 +112,8 @@ u64 at_uva2ipa(u64 uva);
 
 void page_access_invalidate(u64 *pgt, u64 va);
 void page_access_ro(u64 *pgt, u64 val);
+bool page_accessible(u64 *pgt, u64 va);
+u64 *page_accessible_pte(u64 *pgt, u64 va);
 
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
@@ -125,9 +127,17 @@ void dump_par_el1(void);
 
 u64 faulting_ipa_page(void);
 
-static inline bool page_is_accessible(u64 *vttbr, u64 ipa) {
-  u64 *pte = pagewalk(vttbr, ipa, 0);
-  return !!(*pte & S2PTE_AF);
+static inline void pte_invalidate(u64 *pte) {
+  *pte &= ~S2PTE_AF;
+}
+
+static inline void pte_ro(u64 *pte) {
+  *pte &= ~S2PTE_S2AP_MASK;
+  *pte |= S2PTE_RO;
+}
+
+static inline void pte_rw(u64 *pte) {
+  *pte |= S2PTE_RW;
 }
 
 #endif

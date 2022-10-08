@@ -42,8 +42,6 @@ struct node {
   int nodeid;
   /* Am I recognized by cluster? */
   bool acked;
-  /* virtual shared memory */
-  struct vsmctl vsm;
   /* stage 2 pagetable */
   u64 *vttbr;
   /* interrupt controller */

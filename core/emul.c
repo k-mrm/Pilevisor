@@ -120,7 +120,7 @@ static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
   u64 ipa = vcpu->dabt.fault_ipa;
   u64 page = ipa & ~(u64)(PAGESIZE-1);
 
-  vsm_fetch_page(page, 0);
+  vsm_read_fetch_page(page);
 
   return 1;
 }

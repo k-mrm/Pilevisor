@@ -35,7 +35,7 @@ void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
     u64 *pte = pagewalk(pgt, va, 1);
-    if(*pte & PTE_AF)
+    if(*pte & S2PTE_AF)
       panic("this entry has been used");
 
     *pte = PTE_PA(pa) | S2PTE_AF | attr | PTE_V;
@@ -96,27 +96,44 @@ void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
   pagemap(pgt, va, pa, size, attr);
 }
 
-void page_access_invalidate(u64 *pgt, u64 va) {
+u64 *page_accessible_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page_invalidate");
 
   u64 *pte = pagewalk(pgt, va, 0);
   if(!pte)
+    return NULL;
+
+  if(*pte & S2PTE_AF)
+    return pte;
+    
+  return NULL;
+}
+
+bool page_accessible(u64 *pgt, u64 va) {
+  return !!page_accessble_pte(pgt, va);
+}
+
+void page_access_invalidate(u64 *pgt, u64 va) {
+  if(!PAGE_ALIGNED(va))
+    panic("page_access_invalidate");
+
+  u64 *pte = pagewalk(pgt, va, 0);
+  if(!pte)
     panic("no entry");
 
-  *pte &= S2PTE_AF;
+  pte_invalidate(pte);
 }
 
 void page_access_ro(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
-    panic("page_invalidate");
+    panic("page_access_ro");
 
   u64 *pte = pagewalk(pgt, va, 0);
   if(!pte)
     panic("no entry");
 
-  *pte &= ~S2PTE_S2AP_MASK;
-  *pte |= S2PTE_RO;
+  pte_ro(pte);
 }
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {

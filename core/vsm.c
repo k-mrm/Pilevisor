@@ -10,8 +10,8 @@
 #include "msg.h"
 #include "cluster.h"
 
-static void send_read_request(u8 dst, u64 ipa, bool wnr);
-static void send_read_reply(u8 *dst_mac, u64 ipa, void *page);
+static void send_fetch_request(u8 dst, u64 ipa, bool wnr);
+static void send_fetch_reply(u8 *dst_mac, u64 ipa, void *page, bool wnr);
 
 /* virtual shared memory */
 
@@ -44,8 +44,24 @@ struct read_reply_body {
   u8 page[4096];
 };
 
-/* TODO: determine dst_node by ipa */
-static inline int page_owner(u64 ipa) {
+static inline struct cache_page *ipa_to_page(u64 ipa) {
+  if(!in_memrange(&cluster_me()->mem, ipa))
+    panic("ipa_to_page");
+  return pages + ((ipa - cluster_me()->mem.start) >> 12);
+}
+
+static inline void cache_page_lock(struct cache_page *p) {
+  /* TODO */
+  ;
+}
+
+static inline void cache_page_unlock(struct cache_page *p) {
+  /* TODO */
+  ;
+}
+
+/* determine manager's node of page by ipa */
+static inline int page_manager(u64 ipa) {
   struct cluster_node *node;
   foreach_cluster_node(node) {
     if(in_memrange(&node->mem, ipa))
@@ -87,55 +103,90 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
   return 0;
 } */
 
-static void vsm_set_cache_fast(u64 ipa, u8 *page, bool wr) {
+static void vsm_set_cache_fast(u64 ipa_page, u8 *page) {
   static int count = 0;
   u64 *vttbr = localnode.vttbr;
-  u64 flag = S2PTE_NORMAL;
 
-  vmm_bug_on(!PAGE_ALIGNED(ipa), "ipa align");
+  vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
 
-  vmm_log("vsm: cache @%p %d\n", ipa, ++count);
+  vmm_log("vsm: cache @%p %d\n", ipa_page, ++count);
 
-  flag |= wr ? S2PTE_RW : S2PTE_RO;
-
-  pagemap(vttbr, ipa, (u64)page, PAGESIZE, flag);
+  /* set access permission later */
+  pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, S2PTE_NORMAL);
 }
 
-/*
-static void vsm_set_cache(u64 ipa, u8 *page, bool noncopy) {
-  if(noncopy) {
-    c = page;
-  } else {
-    c = alloc_page();
-    if(!c)
-      panic("cache");
-    memcpy(c, page, PAGESIZE);
-  }
-}
-*/
+/* read fault handler */
+void *vsm_read_fetch_page(u64 page_ipa) {
+  u64 *vttbr = localnode.vttbr;
+  int owner = -1;
+  int manager = -1;
 
-void *vsm_fetch_page(u64 page_ipa, bool wr) {
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
 
-  int dst_node = page_owner(page_ipa);
-  if(dst_node < 0)
+  manager = page_manager(page_ipa);
+  if(manager < 0)
     return NULL;
 
-  u64 *vttbr = localnode.vttbr;
-  vmm_log("request remote fetch!!!!: %p dst node %d\n", page_ipa, dst_node);
+  if(manager == localnode.nodeid) {   /* I am manager */
+    /* receive page from owner of page */
+    struct cache_page *page = ipa_to_page(page_ipa);
+    owner = (page->flags >> CACHE_PAGE_OWNER_SHIFT) & CACHE_PAGE_OWNER_MASK;
 
-  /* send read request */
-  send_read_request(dst_node, page_ipa, wr);
+    vmm_log("request remote fetch!!!!: %p owner %d\n", page_ipa, owner);
+    send_fetch_request(owner, page_ipa, wr);
+  } else {
+    /* ask manager for read access to page and a copy of page */
 
-  u64 pa;
-  while(!(pa = ipa2pa(vttbr, page_ipa)))
-    wfi();
-
-  if(page_ipa == 0x4058e000) {
-    bin_dump(pa, 3072);
+    vmm_log("request remote fetch!!!!: %p manager %d\n", page_ipa, manager);
+    send_fetch_request(manager, page_ipa, wr);
   }
 
-  return (void *)pa;
+  u64 *pte;
+  while(!(pte = page_accessible_pte(vttbr, page_ipa)))
+    wfi();
+
+  pte_ro(pte);
+
+  return PTE_PA(*pte);
+}
+
+/* write fault handler */
+void *vsm_write_fetch_page(u64 page_ipa) {
+  u64 *vttbr = localnode.vttbr;
+  int owner = -1;
+  int manager = -1;
+
+  vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
+
+  if(page_accessible(vttbr, page_ipa)) {
+    panic("oioioioio %p", page_ipa);
+  }
+
+  manager = page_manager(page_ipa);
+  if(manager < 0)
+    return NULL;
+
+  if(manager == localnode.nodeid) {   /* I am manager */
+    /* receive page from owner of page */
+    struct cache_page *page = ipa_to_page(page_ipa);
+    owner = (page->flags >> CACHE_PAGE_OWNER_SHIFT) & CACHE_PAGE_OWNER_MASK;
+
+    vmm_log("request remote fetch!!!!: %p owner %d\n", page_ipa, owner);
+    send_fetch_request(owner, page_ipa, wr);
+  } else {
+    /* ask manager for write access to page and a copy of page */
+
+    vmm_log("request remote fetch!!!!: %p manager %d\n", page_ipa, manager);
+    send_fetch_request(manager, page_ipa, wr);
+  }
+
+  u64 *pte;
+  while(!(pte = page_accessible_pte(vttbr, page_ipa)))
+    wfi();
+
+  pte_rw(pte);
+
+  return PTE_PA(*pte);
 }
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
@@ -143,7 +194,13 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
     panic("null buf");
 
   u64 page_ipa = PAGE_ADDRESS(ipa);
-  char *pa_page = vsm_fetch_page(page_ipa, wr);
+  char *pa_page;
+
+  if(wr)
+    pa_page = vsm_write_fetch_page(page_ipa);
+  else
+    pa_page = vsm_read_fetch_page(page_ipa);
+
   if(!pa_page)
     return -1;
 
@@ -156,7 +213,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   return 0;
 }
 
-static void send_read_request(u8 dst, u64 ipa, bool wnr) {
+static u64 *send_fetch_request(u8 dst, u64 ipa, bool wnr) {
   struct pocv2_msg msg;
   struct read_req_hdr hdr;
 
@@ -166,6 +223,8 @@ static void send_read_request(u8 dst, u64 ipa, bool wnr) {
   pocv2_msg_init2(&msg, dst, MSG_READ, &hdr, NULL, 0);
 
   send_msg(&msg);
+
+  while(!p)
 }
 
 static void send_fetch_reply(u8 *dst_mac, u64 ipa, void *page, bool wnr) {
@@ -201,7 +260,7 @@ static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
   struct read_reply_body *b = msg->body;
   vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
 
-  vsm_set_cache_fast(a->ipa, b->page, a->wnr);
+  vsm_set_cache_fast(a->ipa, b->page);
 }
 
 void vsm_node_init(struct memrange *mem) {
