@@ -1,5 +1,5 @@
-#ifndef MVMM_MM_H
-#define MVMM_MM_H
+#ifndef CORE_MM_H
+#define CORE_MM_H
 
 #include "types.h"
 #include "guest.h"
@@ -66,7 +66,6 @@
 #define PTE_UXN       (1UL << 54)
 
 /* stage 2 attribute */
-#define S2PTE_AF          (1 << 10)
 #define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
 #define S2PTE_S2AP_MASK   (u64)(3 << 6)
 #define S2PTE_RO          S2PTE_S2AP(1)
@@ -77,6 +76,8 @@
 #define S2PTE_DEVICE      S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
 
 #define S2PTE_DBM         (1UL << 51)
+/* use bit[58:55] to keep page's owner node  */
+#define S2PTE_OWNER(owner)   (((owner) & 0xf) << 55)
 
 #define PAGESIZE          4096  /* 4KB */
 #define PAGESHIFT         12    /* 1 << 12 */
@@ -129,7 +130,7 @@ void dump_par_el1(void);
 u64 faulting_ipa_page(void);
 
 static inline void pte_invalidate(u64 *pte) {
-  *pte &= ~S2PTE_AF;
+  *pte &= ~PTE_AF;
 }
 
 static inline void pte_ro(u64 *pte) {

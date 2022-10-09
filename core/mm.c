@@ -35,10 +35,10 @@ void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
     u64 *pte = pagewalk(pgt, va, 1);
-    if(*pte & S2PTE_AF)
+    if(*pte & PTE_AF)
       panic("this entry has been used");
 
-    *pte = PTE_PA(pa) | S2PTE_AF | attr | PTE_V;
+    *pte = PTE_PA(pa) | PTE_AF | attr | PTE_V;
   }
 }
 
@@ -104,7 +104,7 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
   if(!pte)
     return NULL;
 
-  if(*pte & S2PTE_AF)
+  if(*pte & PTE_AF)
     return pte;
     
   return NULL;
