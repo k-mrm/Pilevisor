@@ -10,6 +10,8 @@
 #include "msg.h"
 #include "cluster.h"
 
+void *vsm_read_fetch_page(u64 page_ipa);
+void *vsm_write_fetch_page(u64 page_ipa);
 static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
 
 static struct cache_page pages[NR_CACHE_PAGES];
@@ -143,12 +145,10 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
 }
 
 static void vsm_invalidate_server(u64 ipa, u64 copyset) {
-  u64 *vttbr = localnode.vttbr;
-
   if(!(copyset & (1 << localnode.nodeid)))
     return;
 
-  page_access_invalidate(vttbr, ipa);
+  page_access_invalidate(localnode.vttbr, ipa);
 }
 
 /* read fault handler */
@@ -388,7 +388,7 @@ void vsm_node_init(struct memrange *mem) {
   struct cache_page *c;
   for(c = pages; c < &pages[NR_CACHE_PAGES]; c++) {
     /* now owner is me */
-    c->flags = (localnode.nodeid & CACHE_PAGE_OWNER_MASK) << CACHE_PAGE_OWNER_SHIFT;
+    c->flags = ((u64)localnode.nodeid & CACHE_PAGE_OWNER_MASK) << CACHE_PAGE_OWNER_SHIFT;
   }
 }
 

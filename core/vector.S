@@ -56,6 +56,35 @@
 
 #define VCPU_REG_OFFSET 0x0
 
+.macro vm_save_sp_elx, el, savereg
+  cmp \el, 0 
+  b.eq 1f
+  cmp \el, 1
+  b.eq 2f
+  b .     // panic
+1:
+  mrs \savereg, sp_el0
+  b 3f
+2:
+  mrs \savereg, sp_el1
+3:
+.endm
+
+.macro vm_restore_sp_elx, el, reg
+  cmp \el, 0
+  b.eq 4f
+  cmp \el, 1
+  b.eq 5f
+  b .
+4:
+  msr sp_el0, \reg
+  b 6f
+5:
+  msr sp_el1, \reg
+  b 6f
+6:
+.endm
+
 .macro vm_save_reg
   stp x0, x1, [sp, #-16]!
   mrs x0, tpidr_el2
@@ -76,12 +105,18 @@
   stp x26, x27, [x0, #16 * 13]
   stp x28, x29, [x0, #16 * 14]
   
-  mrs x1, spsr_el2
-  mrs x2, elr_el2
-  ldp x3, x4, [sp], #16       /* x3: x0, x4: x1 */
-  stp x30, x1, [x0, #16 * 15]
-  str x2, [x0, #16 * 16]
-  stp x3, x4, [x0, #16 * 0]
+  mrs x19, spsr_el2
+  mrs x20, elr_el2
+
+  /* extract M[3:2](=el) from spsr_el2 */
+  ubfx x21, x19, #2, #0x3
+
+  vm_save_sp_elx x21, x22
+
+  ldp x23, x24, [sp], #16       /* x23: x0, x24: x1 */
+  stp x30, x19, [x0, #16 * 15]
+  stp x20, x22, [x0, #16 * 16]
+  stp x23, x24, [x0, #16 * 0]
 .endm
 
 .macro vm_restore_reg
@@ -89,11 +124,16 @@
   add x0, x0, #VCPU_REG_OFFSET  /* x0 = &vcpu->reg */
   
   ldp x30, x1, [x0, #16 * 15]  /* x1: spsr */
-  ldr x2, [x0, #16 * 16]       /* x2: elr */
-  ldp x3, x4, [x0, #16 * 0]    /* x3: x0, x4: x1 */
-  stp x3, x4, [sp, #-16]!      /* save x0, x1 in stack */
+  ldp x2, x3, [x0, #16 * 16]   /* x2: elr x3: sp */
+  ldp x4, x5, [x0, #16 * 0]    /* x4: x0, x5: x1 */
+  stp x4, x5, [sp, #-16]!      /* save x0, x1 in stack */
   msr spsr_el2, x1
   msr elr_el2, x2
+
+  /* extract M[3:2](=el) from spsr_el2 */
+  ubfx x6, x1, #2, #0x3
+
+  vm_restore_sp_elx x6, x3
   
   ldp x2, x3, [x0, #16 * 1]
   ldp x4, x5, [x0, #16 * 2]
@@ -113,47 +153,37 @@
   ldp x0, x1, [sp], #16
 .endm
 
+.macro ventry, label
+.balign 0x80
+  b \label
+.endm
+
 .global vectable
 .balign 0x800
 vectable:
 /* current EL with sp0 */
-  b .
-.balign 0x80
-  b .
-.balign 0x80
-  b .
-.balign 0x80
-  b .
+  ventry  .
+  ventry  .
+  ventry  .
+  ventry  .
 
 /* current EL with spx */
-.balign 0x80
-  b el2_sync
-.balign 0x80
-  b el2_irq
-.balign 0x80
-  b .
-.balign 0x80
-  b .
+  ventry  el2_sync
+  ventry  el2_irq
+  ventry  .
+  ventry  .
 
 /* lower EL using aarch64 */
-.balign 0x80
-  b el1_sync
-.balign 0x80
-  b el1_irq
-.balign 0x80
-  b .
-.balign 0x80
-  b .
+  ventry  guest_sync
+  ventry  guest_irq
+  ventry  .
+  ventry  .
 
 /* lower EL using aarch32 */
-.balign 0x80
-  b .
-.balign 0x80
-  b .
-.balign 0x80
-  b .
-.balign 0x80
-  b .
+  ventry  .
+  ventry  .
+  ventry  .
+  ventry  .
 
 el2_sync:
   bl hyp_sync_handler
@@ -169,7 +199,7 @@ el2_irq:
 
   eret
 
-el1_sync:
+guest_sync:
   vm_save_reg
 
   bl vm_sync_handler
@@ -180,7 +210,7 @@ trapret:
 
   eret
 
-el1_irq:
+guest_irq:
   vm_save_reg
 
   bl gic_irq_handler

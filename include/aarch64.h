@@ -46,6 +46,8 @@
 
 #define PSR_EL1H      (5)
 
+#define SPSR_EL(spsr) (((spsr) & 0xf) >> 2)
+
 static inline int cpuid() {
   int mpidr = read_sysreg(mpidr_el1);
   return mpidr & 0xf;

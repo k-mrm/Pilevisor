@@ -14,11 +14,12 @@ struct cpu_features {
 
 /* aarch64 vcpu */
 struct vcpu {
-  /* MUST be first field */
+  /* !!! MUST be first field !!! */
   struct {
     u64 x[31];
     u64 spsr;   /* spsr_el2 */
     u64 elr;    /* elr_el2 */
+    u64 sp;     /* stack pointer */
   } reg;
   struct {
     u64 spsr_el1;
