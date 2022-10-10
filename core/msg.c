@@ -32,7 +32,7 @@ static char *msmap[NUM_MSG] = {
   [MSG_SHUTDOWN]        "msg:shutdown",
   [MSG_FETCH]           "msg:fetch",
   [MSG_FETCH_REPLY]     "msg:fetch_reply",
-  [MSG_INVALID_SNOOP]   "msg:invalid_snoop",
+  [MSG_INVALIDATE]      "msg:invalidate",
   [MSG_INTERRUPT]       "msg:interrupt",
   [MSG_MMIO_REQUEST]    "msg:mmio_request",
   [MSG_MMIO_REPLY]      "msg:mmio_reply",

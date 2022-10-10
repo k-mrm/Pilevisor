@@ -47,6 +47,12 @@ struct fetch_reply_body {
   u8 page[PAGESIZE];
 };
 
+struct invalidate_hdr {
+  POCV2_MSG_HDR_STRUCT;
+  u64 ipa;
+  u64 copyset;
+};
+
 static inline struct cache_page *ipa_cache_page(u64 ipa) {
   if(!in_memrange(&cluster_me()->mem, ipa))
     panic("ipa_cache_page");
@@ -124,6 +130,27 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
   pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_COPYSET(copyset));
 }
 
+static void vsm_invalidate(u64 ipa, u64 copyset) {
+  struct pocv2_msg msg;
+  struct invalidate_hdr hdr;
+
+  hdr.ipa = ipa;
+  hdr.copyset = copyset;
+
+  pocv2_broadcast_msg_init(&msg, MSG_INVALIDATE, &hdr, NULL, 0);
+
+  send_msg(&msg);
+}
+
+static void vsm_invalidate_server(u64 ipa, u64 copyset) {
+  u64 *vttbr = localnode.vttbr;
+
+  if(!(copyset & (1 << localnode.nodeid)))
+    return;
+
+  page_access_invalidate(vttbr, ipa);
+}
+
 /* read fault handler */
 void *vsm_read_fetch_page(u64 page_ipa) {
   u64 *vttbr = localnode.vttbr;
@@ -190,6 +217,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
     wfi();
 
   // TODO: invalidate multicast to copyset
+  vsm_invalidate(page_ipa, s2pte_copyset(pte));
   s2pte_clear_copyset(pte);
   s2pte_rw(pte);
 
@@ -333,6 +361,12 @@ static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
   vsm_set_cache_fast(a->ipa, b->page, a->copyset);
 }
 
+static void recv_invalidate_intr(struct pocv2_msg *msg) {
+  struct invalidate_hdr *h = (struct invalidate_hdr *)msg->hdr;
+
+  vsm_invalidate_server(h->ipa, h->copyset);
+}
+
 void vsm_node_init(struct memrange *mem) {
   u64 *vttbr = localnode.vttbr;
   u64 start = mem->start, size = mem->size;
@@ -360,3 +394,4 @@ void vsm_node_init(struct memrange *mem) {
 
 DEFINE_POCV2_MSG(MSG_FETCH, struct fetch_req_hdr, recv_fetch_request_intr);
 DEFINE_POCV2_MSG(MSG_FETCH_REPLY, struct fetch_reply_hdr, recv_fetch_reply_intr);
+DEFINE_POCV2_MSG(MSG_INVALIDATE, struct invalidate_hdr, recv_invalidate_intr);

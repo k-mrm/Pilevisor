@@ -16,7 +16,7 @@ enum msgtype {
   MSG_SHUTDOWN        = 0x7,
   MSG_FETCH           = 0x8,
   MSG_FETCH_REPLY     = 0x9,
-  MSG_INVALID_SNOOP   = 0xa,
+  MSG_INVALIDATE      = 0xa,
   MSG_INTERRUPT       = 0xb,
   MSG_MMIO_REQUEST    = 0xc,
   MSG_MMIO_REPLY      = 0xd,
@@ -92,6 +92,7 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
 void msg_sysinit(void);
 
 void msgenqueue(struct pocv2_msg *msg);
+
 int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg_header *buf);
 
 #endif
