@@ -122,7 +122,7 @@ void page_access_invalidate(u64 *pgt, u64 va) {
   if(!pte)
     panic("no entry");
 
-  pte_invalidate(pte);
+  s2pte_invalidate(pte);
 }
 
 void page_access_ro(u64 *pgt, u64 va) {
@@ -133,7 +133,7 @@ void page_access_ro(u64 *pgt, u64 va) {
   if(!pte)
     panic("no entry");
 
-  pte_ro(pte);
+  s2pte_ro(pte);
 }
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {

@@ -17,7 +17,7 @@ static struct pocv2_msg_data msg_data[NUM_MSG];
 static enum msgtype reqrep[NUM_MSG] = {
   [MSG_INIT]          MSG_INIT_ACK,
   [MSG_CPU_WAKEUP]    MSG_CPU_WAKEUP_ACK,
-  [MSG_READ]          MSG_READ_REPLY,
+  [MSG_FETCH]         MSG_FETCH_REPLY,
   [MSG_MMIO_REQUEST]  MSG_MMIO_REPLY,
 };
 
@@ -30,8 +30,8 @@ static char *msmap[NUM_MSG] = {
   [MSG_CPU_WAKEUP]      "msg:cpu_wakeup",
   [MSG_CPU_WAKEUP_ACK]  "msg:cpu_wakeup_ack",
   [MSG_SHUTDOWN]        "msg:shutdown",
-  [MSG_READ]            "msg:read",
-  [MSG_READ_REPLY]      "msg:read_reply",
+  [MSG_FETCH]           "msg:fetch",
+  [MSG_FETCH_REPLY]     "msg:fetch_reply",
   [MSG_INVALID_SNOOP]   "msg:invalid_snoop",
   [MSG_INTERRUPT]       "msg:interrupt",
   [MSG_MMIO_REQUEST]    "msg:mmio_request",

@@ -76,8 +76,9 @@
 #define S2PTE_DEVICE      S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
 
 #define S2PTE_DBM         (1UL << 51)
-/* use bit[58:55] to keep page's owner node  */
-#define S2PTE_OWNER(owner)   (((owner) & 0xf) << 55)
+/* use bit[57:55] to keep page's copyset  */
+#define S2PTE_COPYSET(c)    (((u64)(c) & 0x7) << 55)
+#define S2PTE_LOCK(l)       (((u64)(l) & 0x1) << 58)
 
 #define PAGESIZE          4096  /* 4KB */
 #define PAGESHIFT         12    /* 1 << 12 */
@@ -129,17 +130,29 @@ void dump_par_el1(void);
 
 u64 faulting_ipa_page(void);
 
-static inline void pte_invalidate(u64 *pte) {
+static inline void s2pte_invalidate(u64 *pte) {
   *pte &= ~PTE_AF;
 }
 
-static inline void pte_ro(u64 *pte) {
+static inline void s2pte_ro(u64 *pte) {
   *pte &= ~S2PTE_S2AP_MASK;
   *pte |= S2PTE_RO;
 }
 
-static inline void pte_rw(u64 *pte) {
+static inline void s2pte_rw(u64 *pte) {
   *pte |= S2PTE_RW;
+}
+
+static inline u64 s2pte_copyset(u64 *pte) {
+  return *pte & S2PTE_COPYSET(0x7);
+}
+
+static inline void s2pte_add_copyset(u64 *pte, int nodeid) {
+  *pte |= S2PTE_COPYSET(nodeid);
+}
+
+static inline void s2pte_clear_copyset(u64 *pte) {
+  *pte &= ~S2PTE_COPYSET(0x7);
 }
 
 #endif
