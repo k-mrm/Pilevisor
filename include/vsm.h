@@ -39,7 +39,8 @@ struct cache_page {
 #define NR_CACHE_PAGES          (128*1024*1024 / PAGESIZE)
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr);
-void *vsm_fetch_page(u64 page_ipa, bool wr);
+void *vsm_read_fetch_page(u64 page_ipa);
+void *vsm_write_fetch_page(u64 page_ipa);
 
 void vsm_init(void);
 void vsm_node_init(struct memrange *mem);

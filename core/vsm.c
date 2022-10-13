@@ -118,7 +118,8 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
   vmm_log("dummy cache %p elr %p va %p\n", page_ipa, vcpu->reg.elr, vcpu->dabt.fault_va);
 
   return 0;
-} */
+}
+*/
 
 static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
   static int count = 0;
@@ -133,6 +134,9 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 }
 
 static void vsm_invalidate(u64 ipa, u64 copyset) {
+  if(copyset == 0)
+    return;
+
   struct pocv2_msg msg;
   struct invalidate_hdr hdr;
 
@@ -187,12 +191,13 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 /* write fault handler */
 void *vsm_write_fetch_page(u64 page_ipa) {
   u64 *vttbr = localnode.vttbr;
+  u64 *pte;
   int manager = -1;
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
 
-  if(page_accessible(vttbr, page_ipa)) {
-    panic("oioioioio %p", page_ipa);
+  if(!(pte = page_accessible_pte(vttbr, page_ipa))) {
+    s2pte_invalidate(pte);
   }
 
   manager = page_manager(page_ipa);
@@ -212,11 +217,10 @@ void *vsm_write_fetch_page(u64 page_ipa) {
     send_fetch_request(localnode.nodeid, manager, page_ipa, 1);
   }
 
-  u64 *pte;
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
 
-  // TODO: invalidate multicast to copyset
+  /* invalidate request to copyset */
   vsm_invalidate(page_ipa, s2pte_copyset(pte));
   s2pte_clear_copyset(pte);
   s2pte_rw(pte);
@@ -299,7 +303,7 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
   if(manager < 0)
     panic("dare");
 
-  if((pte = page_accessible_pte(vttbr, ipa_page)) != NULL) {   /* I am owner */
+  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL) {   /* I am owner */
     u64 pa = PTE_PA(*pte);
     /* copyset = copyset | request node */
     s2pte_add_copyset(pte, req_nodeid);
@@ -311,9 +315,11 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
   } else if(localnode.nodeid == manager) {  /* I am manager */
     struct cache_page *p = ipa_cache_page(ipa_page);
     int p_owner = CACHE_PAGE_OWNER(p);
-    /* forward request to p's owner */
 
+    /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, ipa_page, 0);
+  } else {
+    panic("unreachable");
   }
 }
 
@@ -325,13 +331,18 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
   if(manager < 0)
     panic("dare w");
 
-  if((pte = page_accessible_pte(vttbr, ipa_page)) != NULL) {
+  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL) {    /* I am owner */
     u64 pa = PTE_PA(*pte);
 
     // send p and copyset;
     send_write_fetch_reply(req_nodeid, ipa_page, (void *)pa, s2pte_copyset(pte));
 
     s2pte_invalidate(pte);
+
+    if(localnode.nodeid == manager) {
+      struct cache_page *p = ipa_cache_page(ipa_page);
+      cache_page_set_owner(p, req_nodeid);
+    }
   } else if(localnode.nodeid == manager) {
     struct cache_page *p = ipa_cache_page(ipa_page);
     int p_owner = CACHE_PAGE_OWNER(p);
@@ -341,6 +352,8 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
 
     /* now owner is request node */
     cache_page_set_owner(p, req_nodeid);
+  } else {
+    panic("unreachable");
   }
 }
 

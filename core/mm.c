@@ -110,6 +110,20 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
   return NULL;
 }
 
+u64 *page_rwable_pte(u64 *pgt, u64 va) {
+  if(!PAGE_ALIGNED(va))
+    panic("page_invalidate");
+
+  u64 *pte = pagewalk(pgt, va, 0);
+  if(!pte)
+    return NULL;
+
+  if((*pte & (PTE_AF | S2PTE_RW)) == (PTE_AF | S2PTE_RW))
+    return pte;
+    
+  return NULL;
+}
+
 bool page_accessible(u64 *pgt, u64 va) {
   return !!page_accessible_pte(pgt, va);
 }

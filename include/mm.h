@@ -117,6 +117,7 @@ void page_access_invalidate(u64 *pgt, u64 va);
 void page_access_ro(u64 *pgt, u64 val);
 bool page_accessible(u64 *pgt, u64 va);
 u64 *page_accessible_pte(u64 *pgt, u64 va);
+u64 *page_rwable_pte(u64 *pgt, u64 va);
 
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);

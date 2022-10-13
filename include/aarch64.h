@@ -53,7 +53,7 @@ static inline int cpuid() {
   return mpidr & 0xf;
 }
 
-static inline u64 vttbr_ipa2pa(u64 ipa) {
+static inline u64 at_ipa2pa(u64 ipa) {
   asm volatile("at s12e1r, %0" :: "r"(ipa) : "memory");
   return read_sysreg(par_el1);
 }

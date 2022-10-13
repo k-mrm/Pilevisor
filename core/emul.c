@@ -46,7 +46,7 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
   u64 addr;
 
   if(rn == 31)
-    panic("sp");
+    addr = vcpu->reg.sp;
   else
     addr = vcpu_x(vcpu, rn);
 
@@ -93,7 +93,7 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
     if(addressing_postidx(ad))
       addr += offset;
     if(rn == 31)
-      panic("sp");
+      vcpu->reg.sp = addr;
     else
       vcpu->reg.x[rn] = addr;
   }
@@ -126,15 +126,12 @@ static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
 }
 
 static int emul_stxr(struct vcpu *vcpu, u32 inst, int size) {
-  /*
-  int rs = (inst >> 16) & 0x1f;
-  int rt2 = (inst >> 10) & 0x1f;
-  int rn = (inst >> 5) & 0x1f;
-  int rt = inst & 0x1f; */
+  u64 ipa = vcpu->dabt.fault_ipa;
+  u64 page = ipa & ~(u64)(PAGESIZE-1);
 
-  panic("stxr?");
+  vsm_write_fetch_page(page);
 
-  return -1;
+  return 1;
 }
 
 static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
@@ -196,7 +193,7 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
   int accbyte = 1 << size;
 
   if(rn == 31)
-    panic("sp");
+    addr = vcpu->reg.sp;
   else
     addr = vcpu_x(vcpu, rn);
 
@@ -218,7 +215,10 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
   if(addressing_wback(ad)) {      /* writeback */
     if(addressing_postidx(ad))    /* post-index */
       addr += imm;
-    vcpu->reg.x[rn] = addr;
+    if(rn == 31)
+      vcpu->reg.sp = addr;
+    else
+      vcpu->reg.x[rn] = addr;
   }
 
   return 0;
