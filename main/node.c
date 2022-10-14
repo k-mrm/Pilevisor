@@ -73,7 +73,7 @@ static void node0_init() {
     .fdt_img = &virt_dtb,
     .initrd_img = &rootfs_img,
     /* TODO: determine parameters by fdt file */
-    .nvcpu = 1,
+    .nvcpu = 2,
     .nallocate = 256 * MiB,
     .ram_start = 0x40000000,
     .entrypoint = 0x40200000,
@@ -93,8 +93,6 @@ static void node0_init() {
   /* send initialization request to sub-node */
   node0_broadcast_init_request();
   wait_for_init_ack();
-
-  printf("node00000000000000000000000 %p\n", read_sysreg(daif));
 
   /* broadcast cluster information to sub-node */
   node0_broadcast_cluster_info();

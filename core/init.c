@@ -72,7 +72,7 @@ int vmm_init_cpu0() {
 
   nodectl_init();
 
-  node_preinit(1, 128 * MiB, &virt_dtb);
+  node_preinit(2, 128 * MiB, &virt_dtb);
 
   localnode.ctl->init();
   localnode.ctl->start();

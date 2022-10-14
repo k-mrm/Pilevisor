@@ -129,6 +129,11 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 
   vmm_log("vsm: cache @%p %d\n", ipa_page, ++count);
 
+  if(ipa_page == 0x40550000) {
+    bin_dump(page+0xf88, 20);
+    panic("i");
+  }
+
   /* set access permission later */
   pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_COPYSET(copyset));
 }
@@ -159,6 +164,7 @@ static void vsm_invalidate_server(u64 ipa, u64 copyset) {
 void *vsm_read_fetch_page(u64 page_ipa) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
+  u64 far = read_sysreg(far_el2);
   int manager = -1;
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
@@ -172,11 +178,11 @@ void *vsm_read_fetch_page(u64 page_ipa) {
     struct cache_page *p = ipa_cache_page(page_ipa);
     int owner = CACHE_PAGE_OWNER(p);
 
-    vmm_log("request remote read fetch!!!!: %p owner %d\n", page_ipa, owner);
+    vmm_log("request remote read fetch!!!!: %p owner %d elr %p far %p\n", page_ipa, owner, current->reg.elr, far);
     send_fetch_request(localnode.nodeid, owner, page_ipa, 0);
   } else {
     /* ask manager for read access to page and a copy of page */
-    vmm_log("request remote read fetch!!!!: %p manager %d\n", page_ipa, manager);
+    vmm_log("request remote read fetch!!!!: %p manager %d elr %p far %p\n", page_ipa, manager, current->reg.elr, far);
     send_fetch_request(localnode.nodeid, manager, page_ipa, 0);
   }
 
@@ -192,6 +198,7 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 void *vsm_write_fetch_page(u64 page_ipa) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
+  u64 far = read_sysreg(far_el2);
   int manager = -1;
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
@@ -209,11 +216,11 @@ void *vsm_write_fetch_page(u64 page_ipa) {
     struct cache_page *page = ipa_cache_page(page_ipa);
     int owner = CACHE_PAGE_OWNER(page);
 
-    vmm_log("request remote write fetch!!!!: %p owner %d\n", page_ipa, owner);
+    vmm_log("request remote write fetch!!!!: %p owner %d elr %p far %p\n", page_ipa, owner, current->reg.elr, far);
     send_fetch_request(localnode.nodeid, owner, page_ipa, 1);
   } else {
     /* ask manager for write access to page and a copy of page */
-    vmm_log("request remote write fetch!!!!: %p manager %d\n", page_ipa, manager);
+    vmm_log("request remote write fetch!!!!: %p manager %d elr %p far %p\n", page_ipa, manager, current->reg.elr, far);
     send_fetch_request(localnode.nodeid, manager, page_ipa, 1);
   }
 
@@ -276,6 +283,8 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
   hdr.ipa = ipa;
   hdr.wnr = 0;
   hdr.copyset = 0;
+  
+  vmm_log("vsm: read fetch reply %p\n", ipa);
 
   pocv2_msg_init2(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
 
@@ -289,6 +298,8 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
   hdr.ipa = ipa;
   hdr.wnr = 1;
   hdr.copyset = copyset;
+
+  vmm_log("vsm: write fetch reply %p\n", ipa);
 
   pocv2_msg_init2(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
 

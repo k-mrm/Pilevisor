@@ -166,7 +166,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
           if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
             panic("sgi failed");
         } else {
-          vmm_log("route sgi to remote vcpu%d@%d", vcpuid, node->nodeid);
+          vmm_log("route sgi to remote vcpu%d@%d\n", vcpuid, node->nodeid);
           struct pocv2_msg msg;
           struct sgi_msg_hdr hdr;
           hdr.target = vcpuid;
@@ -192,6 +192,8 @@ static void recv_sgi_msg_intr(struct pocv2_msg *msg) {
 
   if(virq >= 16)
     panic("invalid sgi");
+
+  vmm_log("recv sgi request to %d %d\n", target->vcpuid, virq);
 
   if(vgic_inject_virq(target, virq, virq, 1) < 0)
     panic("sgi failed");

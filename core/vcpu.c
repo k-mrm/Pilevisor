@@ -38,7 +38,7 @@ void vcpuid_init(u32 *vcpuids, int nvcpu) {
     else
       vcpu->last = false;
 
-    vmm_log("vcpuid is %d\n", vcpu->vmpidr);
+    vmm_log("vcpuid is %d(%d/%d)\n", vcpu->vmpidr, i, nvcpu);
   }
 }
 

@@ -5,7 +5,7 @@
 #define NCPU      1
 
 /* max vcpu per node */
-#define VCPU_PER_NODE_MAX   1
+#define VCPU_PER_NODE_MAX   4
 
 /* max vcpu */
 #define VCPU_MAX  4096

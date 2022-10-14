@@ -52,7 +52,9 @@ static void update_cluster_info(int nnodes, int nvcpus, struct cluster_node *c) 
   panic("whoami??????");
 }
 
-void cluster_node0_ack_node(u8 *mac, int nvcpu, u64 allocated) {
+void cluster_node0_ack_node(u8 *mac, int nvcpus, u64 allocated) {
+  vmm_log("node0 ack node!! %m %d %p byte\n", mac, nvcpus, allocated);
+  
   int nodeid = cluster_alloc_nodeid();
 
   struct cluster_node *c = &cluster[nodeid];
@@ -61,8 +63,8 @@ void cluster_node0_ack_node(u8 *mac, int nvcpu, u64 allocated) {
   c->status = NODE_ACK;
   memcpy(c->mac, mac, 6);
   cluster_setup_vsm_memrange(&c->mem, allocated);
-  c->nvcpu = nvcpu;
-  for(int i = 0; i < nvcpu; i++)
+  c->nvcpu = nvcpus;
+  for(int i = 0; i < nvcpus; i++)
     c->vcpus[i] = cluster_alloc_vcpuid();
 }
 
@@ -79,6 +81,7 @@ void cluster_node_me_init() {
 
 void node0_broadcast_cluster_info() {
   vmm_log("broadcast cluster info from Node0\n");
+  cluster_dump();
 
   struct pocv2_msg msg;
   struct cluster_info_hdr hdr;
@@ -109,8 +112,7 @@ void cluster_dump() {
   struct cluster_node *node;
   printf("nr cluster: %d nvcpus: %d\n", nr_cluster_nodes, nr_cluster_vcpus);
   foreach_cluster_node(node) {
-    char *isme = localnode.nodeid == node->nodeid ? "(me)" : "";
-    printf("Node %d: %m %s%s\n", node->nodeid, node->mac, states[node->status], isme);
+    printf("Node %d: %m %s nvcpu %d\n", node->nodeid, node->mac, states[node->status], node->nvcpu);
   }
 }
 
