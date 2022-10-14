@@ -75,10 +75,11 @@
 #define S2PTE_NORMAL      S2PTE_ATTR(AI_NORMAL_NC_IDX)
 #define S2PTE_DEVICE      S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
 
-#define S2PTE_DBM         (1UL << 51)
+#define S2PTE_DBM           (1UL << 51)
 /* use bit[57:55] to keep page's copyset  */
 #define S2PTE_COPYSET(c)    (((u64)(c) & 0x7) << 55)
-#define S2PTE_LOCK(l)       (((u64)(l) & 0x1) << 58)
+#define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0x7)
+#define S2PTE_LOCK_BIT      ((u64)1 << 58)
 
 #define PAGESIZE          4096  /* 4KB */
 #define PAGESHIFT         12    /* 1 << 12 */
@@ -118,6 +119,7 @@ void page_access_ro(u64 *pgt, u64 val);
 bool page_accessible(u64 *pgt, u64 va);
 u64 *page_accessible_pte(u64 *pgt, u64 va);
 u64 *page_rwable_pte(u64 *pgt, u64 va);
+u64 *page_ro_pte(u64 *pgt, u64 va);
 
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
@@ -145,7 +147,7 @@ static inline void s2pte_rw(u64 *pte) {
 }
 
 static inline u64 s2pte_copyset(u64 *pte) {
-  return *pte & S2PTE_COPYSET(0x7);
+  return *pte & S2PTE_COPYSET_MASK;
 }
 
 static inline void s2pte_add_copyset(u64 *pte, int nodeid) {
@@ -153,7 +155,7 @@ static inline void s2pte_add_copyset(u64 *pte, int nodeid) {
 }
 
 static inline void s2pte_clear_copyset(u64 *pte) {
-  *pte &= ~S2PTE_COPYSET(0x7);
+  *pte &= ~S2PTE_COPYSET_MASK;
 }
 
 #endif

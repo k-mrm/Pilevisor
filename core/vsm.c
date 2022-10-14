@@ -158,6 +158,7 @@ static void vsm_invalidate_server(u64 ipa, u64 copyset) {
 /* read fault handler */
 void *vsm_read_fetch_page(u64 page_ipa) {
   u64 *vttbr = localnode.vttbr;
+  u64 *pte;
   int manager = -1;
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
@@ -179,7 +180,6 @@ void *vsm_read_fetch_page(u64 page_ipa) {
     send_fetch_request(localnode.nodeid, manager, page_ipa, 0);
   }
 
-  u64 *pte;
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
 
@@ -196,7 +196,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
 
-  if(!(pte = page_accessible_pte(vttbr, page_ipa))) {
+  if((pte = page_accessible_pte(vttbr, page_ipa)) != NULL) {
     s2pte_invalidate(pte);
   }
 
@@ -303,7 +303,9 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
   if(manager < 0)
     panic("dare");
 
-  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL) {   /* I am owner */
+  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL ||
+      (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
+    /* I am owner */
     u64 pa = PTE_PA(*pte);
     /* copyset = copyset | request node */
     s2pte_add_copyset(pte, req_nodeid);
@@ -316,6 +318,7 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
     struct cache_page *p = ipa_cache_page(ipa_page);
     int p_owner = CACHE_PAGE_OWNER(p);
 
+    vmm_log("forward read fetch request to %d (%p)\n", p_owner, ipa_page);
     /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, ipa_page, 0);
   } else {
@@ -331,7 +334,9 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
   if(manager < 0)
     panic("dare w");
 
-  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL) {    /* I am owner */
+  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL ||
+      (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
+    /* I am owner */
     u64 pa = PTE_PA(*pte);
 
     // send p and copyset;
@@ -347,6 +352,7 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
     struct cache_page *p = ipa_cache_page(ipa_page);
     int p_owner = CACHE_PAGE_OWNER(p);
 
+    vmm_log("forward write fetch request to %d (%p)\n", p_owner, ipa_page);
     /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, ipa_page, 1);
 
