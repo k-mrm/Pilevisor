@@ -8,12 +8,20 @@
 #include "allocpage.h"
 #include "lib.h"
 #include "node.h"
-
-static struct vgic vgic_dist;
+#include "cluster.h"
+#include "msg.h"
 
 extern int gic_lr_max;
 
+static struct vgic vgic_dist;
+
 static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
+
+struct sgi_msg_hdr {
+  POCV2_MSG_HDR_STRUCT;
+  int target;
+  int sgi_id;
+};
 
 static int vgic_cpu_alloc_lr(struct vgic_cpu *vgic) {
   for(int i = 0; i < gic_lr_max; i++) {
@@ -137,32 +145,56 @@ static void vgic_dump_irq_state(struct vcpu *vcpu, int intid) {
 }
 
 static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
-  /*
-  struct node *node = &localnode;
-
-  u16 targetlist = ICC_SGI1R_TargetList(sgir); 
+  u16 targets = sgir & ICC_SGI1R_TARGETS_MASK; 
   u8 intid = ICC_SGI1R_INTID(sgir);
-  bool broadcast = ICC_SGI1R_IRM(sgir);
+  int irm = ICC_SGI1R_IRM(sgir);
 
-  // TODO: support Affinity
-  for(int i = 0; i < 16; i++) {
-    if(targetlist & BIT(i)) {
-      if(i >= node->nvcpu)
-        continue;
+  if(irm == 1)
+    panic("broadcast");
 
-      struct vcpu *target = &node->vcpus[i];
+  struct cluster_node *node;
+  foreach_cluster_node(node)
+    for(int i = 0; i < node->nvcpu; i++) {
+      int vcpuid = node->vcpus[i];
 
-      // vgic_inject_virq(target, intid, intid, 1);
+      /* TODO: consider Affinity */
+      if((1 << vcpuid) & targets) {
+        struct vcpu *vcpu = node_vcpu(vcpuid);
+
+        if(vcpu) {
+          /* vcpu in localnode */
+          if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
+            panic("sgi failed");
+        } else {
+          vmm_log("route sgi to remote vcpu%d@%d", vcpuid, node->nodeid);
+          struct pocv2_msg msg;
+          struct sgi_msg_hdr hdr;
+          hdr.target = vcpuid;
+          hdr.sgi_id = intid;
+
+          pocv2_msg_init2(&msg, node->nodeid, MSG_SGI, &hdr, NULL, 0);
+
+          send_msg(&msg);
+        }
+      }
     }
-  }
 
-  gic_set_sgi1r(sgir);
+  return 0;
+}
 
-  return 0
-  */
-  panic("unimplemented vgic_inject_sgi");
+static void recv_sgi_msg_intr(struct pocv2_msg *msg) {
+  struct sgi_msg_hdr *h = (struct sgi_msg_hdr *)msg->hdr;
+  struct vcpu *target = node_vcpu(h->target);
+  if(!target)
+    panic("oi");
 
-  return -1;
+  int virq = h->sgi_id;
+
+  if(virq >= 16)
+    panic("invalid sgi");
+
+  if(vgic_inject_virq(target, virq, virq, 1) < 0)
+    panic("sgi failed");
 }
 
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
@@ -171,10 +203,6 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
     return -1;
 
   u64 sgir = vcpu_x(vcpu, rt);
-  u16 targetlist = ICC_SGI1R_TargetList(sgir); 
-  u8 intid = ICC_SGI1R_INTID(sgir);
-
-  // vmm_log("vgic sgi1r %p %p", targetlist, intid);
 
   return vgic_inject_sgi(vcpu, sgir);
 }
@@ -628,3 +656,5 @@ void vgic_cpu_init(struct vcpu *vcpu) {
 void vgic_init() {
   load_new_vgic();
 }
+
+DEFINE_POCV2_MSG(MSG_SGI, struct sgi_msg_hdr, recv_sgi_msg_intr);

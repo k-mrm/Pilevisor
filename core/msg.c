@@ -12,7 +12,7 @@
 
 extern struct pocv2_msg_data __pocv2_msg_data_start[], __pocv2_msg_data_end[];
 
-static struct pocv2_msg_data msg_data[NUM_MSG];
+static struct pocv2_msg_data *msg_data[NUM_MSG];
 
 static enum msgtype reqrep[NUM_MSG] = {
   [MSG_INIT]          MSG_INIT_ACK,
@@ -37,6 +37,7 @@ static char *msmap[NUM_MSG] = {
   [MSG_MMIO_REQUEST]    "msg:mmio_request",
   [MSG_MMIO_REPLY]      "msg:mmio_reply",
   [MSG_GIC_CONFIG]      "msg:gic_config",
+  [MSG_SGI]             "msg:sgi",
 };
 
 /* msg ring queue */
@@ -50,14 +51,14 @@ static struct mq {
 
 static u32 msg_hdr_size(struct pocv2_msg *msg) {
   if(msg->hdr->type < NUM_MSG)
-    return msg_data[msg->hdr->type].msg_hdr_size;
+    return msg_data[msg->hdr->type]->msg_hdr_size;
   else
     panic("msg_hdr_size");
 }
 
 static u32 msg_type_hdr_size(enum msgtype type) {
   if(type < NUM_MSG)
-    return msg_data[type].msg_hdr_size;
+    return msg_data[type]->msg_hdr_size;
   else
     panic("msg_hdr_size");
 }
@@ -75,8 +76,8 @@ void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
   msg.body = npackets == 2 ? packets[1] : NULL;
   msg.body_len = npackets == 2 ? lens[1] : 0;
 
-  if(hdr->type < NUM_MSG && msg_data[hdr->type].recv_handler)
-    msg_data[hdr->type].recv_handler(&msg);
+  if(hdr->type < NUM_MSG && msg_data[hdr->type]->recv_handler)
+    msg_data[hdr->type]->recv_handler(&msg);
   else
     panic("unknown msg received: %d\n", hdr->type);
 }
@@ -196,12 +197,12 @@ void msg_sysinit() {
 
   for(d = __pocv2_msg_data_start; d < __pocv2_msg_data_end; d++) {
     vmm_log("pocv2-msg found: %s(%d) sizeof %d\n", msmap[d->type], d->type, d->msg_hdr_size);
-    memcpy(&msg_data[d->type], d, sizeof(*d));
+    msg_data[d->type] = d;
   }
 
   /* fill unused field */
   for(int i = 0; i < NUM_MSG; i++) {
-    if(msg_data[i].recv_handler == NULL)
-      msg_data[i].recv_handler = unknown_msg_recv;
+    if(msg_data[i]->recv_handler == NULL)
+      msg_data[i]->recv_handler = unknown_msg_recv;
   }
 }

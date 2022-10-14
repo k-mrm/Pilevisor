@@ -21,6 +21,7 @@ enum msgtype {
   MSG_MMIO_REQUEST    = 0xc,
   MSG_MMIO_REPLY      = 0xd,
   MSG_GIC_CONFIG      = 0xe,
+  MSG_SGI             = 0xf,
   NUM_MSG,
 };
 
