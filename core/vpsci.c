@@ -1,3 +1,7 @@
+/*
+ *  virtual psci (power state coordination interface)
+ */
+
 #include "types.h"
 #include "vpsci.h"
 #include "log.h"
@@ -45,7 +49,7 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 
 static int vcpu_wakeup(struct vcpu *vcpu, u64 ep) {
   if(!vcpu) {
-    vmm_log("no vcpu to wakeup\n");
+    panic("no vcpu to wakeup\n");
     return PSCI_DENIED;
   }
 

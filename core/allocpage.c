@@ -1,3 +1,7 @@
+/*
+ *  simple buddy allocator
+ */
+
 #include "types.h"
 #include "spinlock.h"
 #include "log.h"

@@ -1,3 +1,7 @@
+/*
+ *  armv8 instruction emulation
+ */
+
 #include "aarch64.h"
 #include "types.h"
 #include "vcpu.h"

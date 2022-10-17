@@ -1,3 +1,7 @@
+/*
+ *  stage 2 pagetable
+ */
+
 #include "aarch64.h"
 #include "lib.h"
 #include "mm.h"

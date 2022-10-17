@@ -1,3 +1,7 @@
+/*
+ *  GICv3 (generic interrupt controller) driver
+ */
+
 #include "aarch64.h"
 #include "gic.h"
 #include "log.h"

@@ -1,3 +1,7 @@
+/*
+ *  vmm initialization sequeunce
+ */
+
 #include "uart.h"
 #include "aarch64.h"
 #include "guest.h"
@@ -62,17 +66,17 @@ int vmm_init_cpu0() {
   vcpu_init_core();
   pageallocator_init();
   write_sysreg(vbar_el2, (u64)vectable);
-  hcr_setup();
+  virtio_mmio_init();
+  // pci_init();
   gic_init();
   gic_init_cpu();
   vtimer_init();
   s2mmu_init();
-  // pci_init();
-  virtio_mmio_init();
+  hcr_setup();
 
   nodectl_init();
 
-  node_preinit(2, 128 * MiB, &virt_dtb);
+  node_preinit(1, 128 * MiB, &virt_dtb);
 
   localnode.ctl->init();
   localnode.ctl->start();

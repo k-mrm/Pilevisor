@@ -1,3 +1,7 @@
+/*
+ *  inter node communication
+ */
+
 #include "log.h"
 #include "aarch64.h"
 #include "node.h"

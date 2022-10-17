@@ -1,3 +1,7 @@
+/*
+ *  pl011 uart driver
+ */
+
 #include "memmap.h"
 #include "types.h"
 #include "uart.h"

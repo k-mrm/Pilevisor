@@ -1,3 +1,7 @@
+/*
+ *  virtual shared memory
+ */
+
 #include "types.h"
 #include "aarch64.h"
 #include "vsm.h"
@@ -15,9 +19,6 @@ void *vsm_write_fetch_page(u64 page_ipa);
 static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
 
 static struct cache_page pages[NR_CACHE_PAGES];
-
-
-/* virtual shared memory */
 
 /*
  *  memory fetch message
@@ -131,7 +132,7 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 
   if(ipa_page == 0x40550000) {
     bin_dump(page+0xf88, 20);
-    panic("i");
+    // panic("i");
   }
 
   /* set access permission later */

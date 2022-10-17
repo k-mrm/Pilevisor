@@ -1,3 +1,7 @@
+/*
+ *  virtual GICv3 (generic interrupt controller)
+ */
+
 #include "aarch64.h"
 #include "gic.h"
 #include "vgic.h"

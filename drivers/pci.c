@@ -1,3 +1,7 @@
+/*
+ *  PCI driver
+ */
+
 #include "pci.h"
 #include "memmap.h"
 #include "log.h"
