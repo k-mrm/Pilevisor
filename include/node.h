@@ -57,8 +57,8 @@ struct node {
 };
 
 static inline struct vcpu *node_vcpu(int vcpuid) {
-  for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[VCPU_PER_NODE_MAX]; v++) {
-    if(v->vmpidr == vcpuid)
+  for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[localnode.nvcpu]; v++) {
+    if(v->vcpuid == vcpuid)
       return v;
   }
 

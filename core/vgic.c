@@ -157,16 +157,18 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
     panic("broadcast");
 
   struct cluster_node *node;
-  foreach_cluster_node(node)
+  foreach_cluster_node(node) {
     for(int i = 0; i < node->nvcpu; i++) {
       int vcpuid = node->vcpus[i];
 
       /* TODO: consider Affinity */
       if((1 << vcpuid) & targets) {
+        vmm_log("sgi to vcpu%d\n", vcpuid);
         struct vcpu *vcpu = node_vcpu(vcpuid);
 
         if(vcpu) {
           /* vcpu in localnode */
+          vmm_log("vcpu %p\n", vcpu);
           if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
             panic("sgi failed");
         } else {
@@ -182,6 +184,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
         }
       }
     }
+  }
 
   return 0;
 }
