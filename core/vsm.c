@@ -334,7 +334,7 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
     /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, ipa_page, 0);
   } else {
-    panic("unreachable");
+    panic("read %p %d unreachable", ipa_page, req_nodeid);
   }
 }
 
@@ -371,7 +371,7 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
     /* now owner is request node */
     cache_page_set_owner(p, req_nodeid);
   } else {
-    panic("unreachable");
+    panic("write %p %d unreachable", ipa_page, req_nodeid);
   }
 }
 

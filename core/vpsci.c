@@ -102,6 +102,8 @@ static void cpu_wakeup_ack_recv_intr(struct pocv2_msg *msg) {
   struct cpu_wakeup_ack_hdr *hdr = (struct cpu_wakeup_ack_hdr *)msg->hdr;
 
   vmm_log("remote psci return %d\n", hdr->ret);
+
+  msgenqueue(msg);
 }
 
 static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci_argv *argv) {
