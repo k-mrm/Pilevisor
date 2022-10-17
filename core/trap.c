@@ -37,6 +37,9 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   u64 faultpage = faulting_ipa_page();
 
+  if(vcpu->reg.elr == 0)
+    panic("? %p %p %p", faultpage, far, vcpu->reg.elr);
+
   // vmm_log("!!!!!!!!!!!!!! fetch page faultipa %p %p elr %p\n", faultpage, far, vcpu->reg.elr);
   if(s1ptw) {
     /* fetch pagetable */
@@ -110,7 +113,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     return 0;
   }
 
-  printf("dabort ipa: %p va: %p elr: %p %s %d %d\n", ipa, far, vcpu->reg.elr, wnr? "write" : "read", r, accsz);
+  printf("dabort ipa: %p va: %p elr: %p %s %d %d\n", ipa, far, vcpu->reg.elr, wnr ? "write" : "read", r, accsz);
 
   return -1;
 }
@@ -162,8 +165,6 @@ static void iabort_iss_dump(u64 iss) {
   printf("S1PTW: %d\n", (iss >> 7) & 0x1);
   printf("IFSC : %x\n", iss & 0x3f);
 }
-
-int vsysreg_emulate(struct vcpu *vcpu, u64 iss);
 
 void vm_sync_handler() {
   intr_enable();

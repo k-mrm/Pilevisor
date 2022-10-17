@@ -43,7 +43,7 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
   int rt = inst & 0x1f;
   int rn = (inst >> 5) & 0x1f;
   int rt2 = (inst >> 10) & 0x1f;
-  int imm7 = (inst >> 15) & 0x7f;
+  int imm7 = (int)(inst << (32 - 15 - 7)) >> (32 - 7);
   int scale = 2 + get_bit(opc, 1);
   int offset = imm7 << scale;
   int datasize = 8 << scale;  /* 32 or 64 */
