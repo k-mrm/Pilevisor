@@ -160,6 +160,7 @@ static void vsm_invalidate_server(u64 ipa, u64 copyset) {
   if(!(copyset & (1 << localnode.nodeid)))
     return;
 
+  vmm_log("Node %d: access invalidate %p\n", localnode.nodeid, ipa);
   page_access_invalidate(localnode.vttbr, ipa);
 }
 
@@ -206,15 +207,13 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
 
-  if((pte = page_accessible_pte(vttbr, page_ipa)) != NULL) {
-    s2pte_invalidate(pte);
-  }
-
   manager = page_manager(page_ipa);
   if(manager < 0)
     return NULL;
 
-  if(manager == localnode.nodeid) {   /* I am manager */
+  if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
+    panic("write to ro page %p", page_ipa);
+  } else if(manager == localnode.nodeid) {   /* I am manager */
     /* receive page from owner of page */
     struct cache_page *page = ipa_cache_page(page_ipa);
     int owner = CACHE_PAGE_OWNER(page);

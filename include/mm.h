@@ -155,6 +155,10 @@ static inline void s2pte_add_copyset(u64 *pte, int nodeid) {
   *pte |= S2PTE_COPYSET(1 << nodeid);
 }
 
+static inline void s2pte_rm_copyset(u64 *pte, int nodeid) {
+  ;
+}
+
 static inline void s2pte_clear_copyset(u64 *pte) {
   *pte &= ~S2PTE_COPYSET_MASK;
 }
