@@ -212,7 +212,13 @@ void *vsm_write_fetch_page(u64 page_ipa) {
     return NULL;
 
   if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
-    panic("write to ro page %p", page_ipa);
+    if(s2pte_copyset(pte) != 0) {
+      /* I am owner */
+      vmm_log("write to owner ro page %p\n", page_ipa);
+      goto inv_phase;
+    }
+
+    s2pte_invalidate(pte);
   } else if(manager == localnode.nodeid) {   /* I am manager */
     /* receive page from owner of page */
     struct cache_page *page = ipa_cache_page(page_ipa);
@@ -229,6 +235,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
 
+inv_phase:
   /* invalidate request to copyset */
   vsm_invalidate(page_ipa, s2pte_copyset(pte));
   s2pte_clear_copyset(pte);
