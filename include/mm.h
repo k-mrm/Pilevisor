@@ -77,7 +77,8 @@
 
 #define S2PTE_DBM           (1UL << 51)
 /* use bit[57:55] to keep page's copyset  */
-#define S2PTE_COPYSET(c)    (((u64)(c) & 0x7) << 55)
+#define S2PTE_COPYSET_SHIFT 55
+#define S2PTE_COPYSET(c)    (((u64)(c) & 0x7) << S2PTE_COPYSET_SHIFT)
 #define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0x7)
 #define S2PTE_LOCK_BIT      ((u64)1 << 58)
 
@@ -146,12 +147,12 @@ static inline void s2pte_rw(u64 *pte) {
   *pte |= S2PTE_RW;
 }
 
-static inline u64 s2pte_copyset(u64 *pte) {
-  return *pte & S2PTE_COPYSET_MASK;
+static inline int s2pte_copyset(u64 *pte) {
+  return (*pte >> S2PTE_COPYSET_SHIFT) & 0x7;
 }
 
 static inline void s2pte_add_copyset(u64 *pte, int nodeid) {
-  *pte |= S2PTE_COPYSET(nodeid);
+  *pte |= S2PTE_COPYSET(1 << nodeid);
 }
 
 static inline void s2pte_clear_copyset(u64 *pte) {

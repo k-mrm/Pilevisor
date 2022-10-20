@@ -128,7 +128,7 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 
   vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
 
-  vmm_log("vsm: cache @%p %d\n", ipa_page, ++count);
+  vmm_log("vsm: cache @%p copyset: %p count%d\n", ipa_page, copyset, ++count);
 
   if(ipa_page == 0x40550000) {
     bin_dump(page+0xf88, 20);
@@ -148,6 +148,8 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
 
   hdr.ipa = ipa;
   hdr.copyset = copyset;
+
+  vmm_log("send invalidate msg to %p\n", copyset);
 
   pocv2_broadcast_msg_init(&msg, MSG_INVALIDATE, &hdr, NULL, 0);
 
@@ -319,10 +321,13 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
       (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
     /* I am owner */
     u64 pa = PTE_PA(*pte);
+
     /* copyset = copyset | request node */
     s2pte_add_copyset(pte, req_nodeid);
 
     s2pte_ro(pte);
+
+    vmm_log("send read fetch reply: i am owner! c: %p\n", s2pte_copyset(pte));
 
     /* send p */
     send_read_fetch_reply(req_nodeid, ipa_page, (void *)pa);
