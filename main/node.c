@@ -105,10 +105,15 @@ static void node0_init() {
 }
 
 static void node0_start() {
-  vmm_log("node0@cpu%d: start\n", cpuid());
+  int cpu = cpuid();
+
+  vmm_log("cpu%d: node0@cpu%d: start\n", cpu, cpu);
+
   cluster_dump();
 
   wait_for_current_vcpu_online();
+
+  vmm_log("cpu%d: entry to vcpu\n", cpu);
 
   vcpu_entry();
 }

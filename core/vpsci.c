@@ -65,11 +65,14 @@ static int vcpu_wakeup(struct vcpu *vcpu, u64 ep) {
 
     if(localcpu(localid)->wakeup) {  /* pcpu already wakeup */
       status = PSCI_SUCCESS;
-
-      vcpu->online = true;
     } else {    /* pcpu sleeping... */
       status = psci_call(PSCI_SYSTEM_CPUON, localid, (u64)_start, 0);
+
+      if(status != PSCI_SUCCESS)
+        panic("cpu%d wakeup failed", localid);
     }
+
+    vcpu->online = true;
   }
 
   return status;

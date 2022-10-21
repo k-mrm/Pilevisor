@@ -97,7 +97,7 @@ void vcpu_init_core() {
 }
 
 void wait_for_current_vcpu_online() {
-  vmm_log("current online: %d\n", current->online);
+  vmm_log("cpu%d: current online: %d\n", cpuid(), current->online);
 
   while(!current->online)
     wfi();

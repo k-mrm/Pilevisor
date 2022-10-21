@@ -165,7 +165,7 @@ dts:
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 256
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 128
 
 clean:
 	make -C guest clean
