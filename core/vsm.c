@@ -160,8 +160,13 @@ static void vsm_invalidate_server(u64 ipa, u64 copyset) {
   if(!(copyset & (1 << localnode.nodeid)))
     return;
 
-  vmm_log("Node %d: access invalidate %p\n", localnode.nodeid, ipa);
-  page_access_invalidate(localnode.vttbr, ipa);
+  u64 *vttbr = localnode.vttbr;
+
+  vmm_log("Node %d: access invalidate %p %d\n", localnode.nodeid, ipa, page_accessible(vttbr, ipa));
+
+  isb();
+
+  page_access_invalidate(vttbr, ipa);
 }
 
 /* read fault handler */
@@ -194,6 +199,7 @@ void *vsm_read_fetch_page(u64 page_ipa) {
     wfi();
 
   s2pte_ro(pte);
+  vmm_log("rf: get remote page: %p\n", page_ipa);
 
   return (void *)PTE_PA(*pte);
 }
@@ -218,8 +224,11 @@ void *vsm_write_fetch_page(u64 page_ipa) {
       goto inv_phase;
     }
 
+    vmm_log("wf: write to ro page(copyset) %p elr %p far %p\n", page_ipa, current->reg.elr, far);
     s2pte_invalidate(pte);
-  } else if(manager == localnode.nodeid) {   /* I am manager */
+  }
+
+  if(manager == localnode.nodeid) {   /* I am manager */
     /* receive page from owner of page */
     struct cache_page *page = ipa_cache_page(page_ipa);
     int owner = CACHE_PAGE_OWNER(page);
@@ -235,6 +244,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
 
+  vmm_log("wf: get remote page @%p\n", page_ipa);
 inv_phase:
   /* invalidate request to copyset */
   vsm_invalidate(page_ipa, s2pte_copyset(pte));
@@ -362,7 +372,7 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
     /* I am owner */
     u64 pa = PTE_PA(*pte);
 
-    vmm_log("write server: send write fetch reply: i am onwer! %p\n", s2pte_copyset(pte));
+    vmm_log("write server: send write fetch reply: i am owner! %p\n", s2pte_copyset(pte));
 
     // send p and copyset;
     send_write_fetch_reply(req_nodeid, ipa_page, (void *)pa, s2pte_copyset(pte));
