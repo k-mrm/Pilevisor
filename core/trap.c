@@ -43,7 +43,7 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
   // vmm_log("!!!!!!!!!!!!!! fetch page faultipa %p %p elr %p\n", faultpage, far, vcpu->reg.elr);
   if(s1ptw) {
     /* fetch pagetable */
-    vmm_log("\tiabort fetch pgt ipa %p %p\n", faultpage, vcpu->reg.elr);
+    vmm_log("\tiabort fetch pagetable ipa %p %p\n", faultpage, vcpu->reg.elr);
   }
 
   if(!vsm_read_fetch_page(faultpage))
@@ -69,7 +69,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(s1ptw) {
     /* fetch pagetable */
     u64 pgt_ipa = faulting_ipa_page();
-    vmm_log("dabort fetch pgt ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
+    vmm_log("\tdabort fetch pagetable ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
     vsm_read_fetch_page(pgt_ipa);
 
     return 1;
