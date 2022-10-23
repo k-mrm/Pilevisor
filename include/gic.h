@@ -156,6 +156,10 @@ static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
   *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset) = val;
 }
 
+enum gic_sgi {
+  SGI_INJECT,
+};
+
 struct gic_irqchip {
 
 };

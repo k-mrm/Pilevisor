@@ -70,7 +70,19 @@ int vgic_inject_virq(struct vcpu *target, u32 pirq, u32 virq, int grp) {
   if(target == current) {
     gic_inject_guest_irq(pirq, virq, 1);
   } else {
-    panic("unimplmented");
+    int tail = (target->pending.tail + 1) % 4;
+
+    if(tail != target->pending.head) {
+      target->pending.irqs[target->pending.tail] = pirq;
+
+      target->pending.tail = tail;
+    } else {
+      panic("pending queue full");
+    }
+
+    dsb(ish);
+
+    gic_send_sgi(vcpu_localid(target), SGI_INJECT);
   }
 
   return 0;
@@ -109,7 +121,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
 
       /* TODO: consider Affinity */
       if((1 << vcpuid) & targets) {
-        vmm_log("sgi to vcpu%d\n", vcpuid);
+        vmm_log("vgic: sgi to vcpu%d\n", vcpuid);
         struct vcpu *vcpu = node_vcpu(vcpuid);
 
         if(vcpu) {

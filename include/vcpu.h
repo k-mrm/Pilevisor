@@ -7,9 +7,18 @@
 #include "gic.h"
 #include "aarch64.h"
 #include "mm.h"
+#include "irq.h"
 
 struct cpu_features {
   u64 pfr0;
+};
+
+struct pending_queue {
+  u32 irqs[4];
+  int head;
+  int tail;  
+
+  spinlock_t lk;
 };
 
 /* aarch64 vcpu */
@@ -45,6 +54,8 @@ struct vcpu {
 
   struct gic_state gic;
   struct vgic_cpu vgic;
+  /* pending irqs */
+  struct pending_queue pending;
 
   /* when dabort occurs on vCPU, informations will save here */
   struct dabort_info dabt;

@@ -7,6 +7,7 @@
 #include "log.h"
 #include "memmap.h"
 #include "irq.h"
+#include "vcpu.h"
 
 #define __fallthrough __attribute__((fallthrough))
 
@@ -217,7 +218,7 @@ bool gic_irq_enabled(u32 irq) {
 }
 
 void gic_set_igroup(u32 irq, u32 igrp) {
-  ;
+  panic("set igroup");
 }
 
 void gic_set_target(u32 irq, u8 target) {
@@ -248,6 +249,58 @@ void gic_save_state(struct gic_state *gic) {
   gic_save_lr(gic);
 }
 
+static void gic_inject_pending_irqs() {
+  struct vcpu *vcpu = current;
+
+  int head = vcpu->pending.head;
+
+  while(head != vcpu->pending.tail) {
+    u32 irq = vcpu->pending.irqs[head];
+    gic_inject_guest_irq(irq, irq, 1);
+
+    head = (head + 1) % 4;
+  }
+
+  vcpu->pending.head = head;
+
+  dsb(ish);
+}
+
+static void gic_sgi_handler(enum gic_sgi sgi_id) {
+  switch(sgi_id) {
+    case SGI_INJECT:  /* inject guest pending interrupt */
+      gic_inject_pending_irqs();
+      break;
+    default:
+      panic("unknown sgi %d", sgi_id);
+  }
+}
+
+void gic_irq_handler() {
+  while(1) {
+    u32 iar = gic_read_iar();
+    u32 pirq = iar & 0x3ff;
+
+    if(pirq == 1023)    /* spurious interrupt */
+      break;
+
+    if(is_ppi_spi(pirq)) {
+      isb();
+
+      int handled = handle_irq(pirq);
+
+      if(handled)
+        gic_host_eoi(pirq, 1);
+    } else if(is_sgi(pirq)) {
+      gic_sgi_handler(pirq);
+
+      gic_host_eoi(pirq, 1);
+    } else {
+      panic("???????");
+    }
+  }
+}
+
 static int gic_max_listregs() {
   u64 i = read_sysreg(ich_vtr_el2);
   return (i & 0x1f) + 1;
@@ -265,29 +318,6 @@ int gic_max_spi() {
 void gic_setup_spi(u32 irq) {
   gic_set_target(irq, 0);
   gic_irq_enable(irq);
-}
-
-void gic_irq_handler() {
-  while(1) {
-    u32 iar = gic_read_iar();
-    u32 pirq = iar & 0x3ff;
-
-    if(pirq == 1023)    /* spurious interrupt */
-      break;
-
-    if(is_sgi(pirq)) {
-      panic("gic_irq_handler sgi");
-    } else if(is_ppi_spi(pirq)) {
-      isb();
-
-      int handled = handle_irq(pirq);
-
-      if(handled)
-        gic_host_eoi(pirq, 1);
-    } else {
-      panic("???????");
-    }
-  }
 }
 
 static void gicc_init(void) {
