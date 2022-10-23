@@ -37,8 +37,6 @@ int handle_irq(u32 pirq) {
   }
 
   /* inject irq to guest */
-  vgic_irq_enter(current);
-
   gic_guest_eoi(pirq, 1);
 
   vgic_inject_virq(current, pirq, pirq, 1);

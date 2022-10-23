@@ -15,8 +15,6 @@
 #include "cluster.h"
 #include "msg.h"
 
-extern int gic_lr_max;
-
 static struct vgic vgic_dist;
 
 static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
@@ -26,31 +24,6 @@ struct sgi_msg_hdr {
   int target;
   int sgi_id;
 };
-
-static int vgic_cpu_alloc_lr(struct vgic_cpu *vgic) {
-  for(int i = 0; i < gic_lr_max; i++) {
-    if((vgic->used_lr & BIT(i)) == 0) {
-      vgic->used_lr |= BIT(i);
-      return i;
-    }
-  }
-
-  vmm_warn("lr :(");
-  return -1;
-}
-
-void vgic_irq_enter(struct vcpu *vcpu) {
-  struct vgic_cpu *vgic = &vcpu->vgic;
-
-  for(int i = 0; i < gic_lr_max; i++) {
-    if((vgic->used_lr & BIT(i)) != 0) {
-      u64 lr = gic_read_lr(i);
-      /* already handled by guest */
-      if(lr_is_inactive(lr))
-        vgic->used_lr &= ~(u16)BIT(i);
-    }
-  }
-}
 
 static void vgic_irq_enable(struct vcpu *vcpu, int vintid) {
   int cpu = cpuid();
@@ -84,45 +57,18 @@ static void vgic_set_target(struct vcpu *vcpu, int vintid, u8 target) {
 
 static void vgic_dump_irq_state(struct vcpu *vcpu, int intid);
 
-int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp) {
-  /*
-  if(!(vcpu->vm->vgic->ctlr & GICD_CTLR_ENGRP(grp))) {
-    vmm_warn("vgicd disabled\n");
-    return -1;
-  }*/
-
+int vgic_inject_virq(struct vcpu *target, u32 pirq, u32 virq, int grp) {
   if(pirq != virq)
-    panic("unimplemented");
+    panic("unimplemented pirq != virq");
 
-  struct vgic_cpu *vgic = &vcpu->vgic;
+  struct vgic_cpu *vgic = &target->vgic;
 
-  struct vgic_irq *irq = vgic_get_irq(vcpu, pirq);
+  struct vgic_irq *irq = vgic_get_irq(target, pirq);
   if(!irq->enabled)
     return -1;
 
-  if(vcpu == current) {
-    u64 elsr = read_sysreg(ich_elsr_el2);
-    int freelr = -1;
-    u64 lr;
-
-    for(int i = 0; i < gic_lr_max; i++) {
-      if((elsr >> i) & 0x1) {   // free area in lr
-        if(freelr < 0)
-          freelr = i;
-
-        continue;
-      }
-
-      if((u32)gic_read_lr(i) == pirq)
-        panic("busy %d", pirq);
-    }
-
-    if(freelr < 0)
-      panic("no free lr ;;");
-
-    lr = gic_make_lr(pirq, virq, grp);
-
-    gic_write_lr(freelr, lr);
+  if(target == current) {
+    gic_inject_guest_irq(pirq, virq, 1);
   } else {
     panic("unimplmented");
   }
@@ -168,7 +114,6 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
 
         if(vcpu) {
           /* vcpu in localnode */
-          vmm_log("vcpu %p\n", vcpu);
           if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
             panic("sgi failed");
         } else {

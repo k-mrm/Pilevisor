@@ -47,8 +47,8 @@ void trapret(void);
 void vcpu_entry() {
   vmm_log("entering vcpu%d\n", current->vmpidr);
 
-  if(current->reg.elr == 0)
-    panic("maybe elr uninitalized");
+  if(!current->initialized)
+    panic("maybe current vcpu uninitalized");
 
   write_sysreg(spsr_el1, current->sys.spsr_el1);
   write_sysreg(elr_el1, current->sys.elr_el1);

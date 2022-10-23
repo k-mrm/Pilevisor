@@ -24,6 +24,33 @@ struct cpu_wakeup_ack_hdr {
   i32 ret;
 };
 
+static char *psci_status_map(int status) {
+  switch(status) {
+    case PSCI_SUCCESS:
+      return "SUCCESS";
+    case PSCI_NOT_SUPPORTED:
+      return "NOT_SUPPORTED";
+    case PSCI_INVALID_PARAMETERS:
+      return "INVALID_PARAMETERS";
+    case PSCI_DENIED:
+      return "DENIED"; 
+    case PSCI_ALREADY_ON:
+      return "ALREADY_ON";
+    case PSCI_ON_PENDING:
+      return "ON_PENDING"; 
+    case PSCI_INTERNAL_FAILURE:
+      return "INTERNAL_FAILURE"; 
+    case PSCI_NOT_PRESENT:
+      return "NOT_PRESENT"; 
+    case PSCI_DISABLED:
+      return "DISABLED"; 
+    case PSCI_INVALID_ADDRESS:
+      return "INVALID_ADDRESS";
+    default:
+      return "???";
+  }
+}
+
 static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid) {
   struct pocv2_msg msg;
   struct cpu_wakeup_msg_hdr hdr;
@@ -42,24 +69,24 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 
   pocv2_recv_reply(&msg, (struct pocv2_msg_header *)&ack);
 
-  vmm_log("remote vcpu wakeup status=%d %p\n", ack.ret, read_sysreg(daif));
+  vmm_log("remote vcpu wakeup status: %d(=%s)\n", ack.ret, psci_status_map(ack.ret));
 
   return ack.ret;
 }
 
-static int vcpu_wakeup(struct vcpu *vcpu, u64 ep) {
+static int vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
   if(!vcpu) {
-    panic("no vcpu to wakeup\n");
+    panic("no vcpu to wakeup in this node\n");
     return PSCI_DENIED;
   }
 
   int localid = vcpu_localid(vcpu);
+  int status;
 
   vmm_log("wakeup vcpu%d(cpu%d)\n", vcpu->vmpidr, localid);
 
-  int status;
   if(vcpu->online) {
-    return PSCI_ALREADY_ON;
+    status = PSCI_ALREADY_ON;
   } else {
     vcpu->reg.elr = ep;
 
@@ -69,7 +96,7 @@ static int vcpu_wakeup(struct vcpu *vcpu, u64 ep) {
       status = psci_call(PSCI_SYSTEM_CPUON, localid, (u64)_start, 0);
 
       if(status != PSCI_SUCCESS)
-        panic("cpu%d wakeup failed", localid);
+        panic("cpu%d wakeup failed: %d(=%s)", localid, status, psci_status_map(status));
     }
 
     vcpu->online = true;
@@ -86,15 +113,13 @@ static void cpu_wakeup_recv_intr(struct pocv2_msg *msg) {
 
   struct vcpu *target = node_vcpu(vcpuid);
 
-  int ret = vcpu_wakeup(target, ep);
+  int ret = vcpu_wakeup_local(target, ep);
 
   /* reply ack */
   struct pocv2_msg ack;
   struct cpu_wakeup_ack_hdr ackhdr;
 
   ackhdr.ret = ret;
-
-  vmm_log("cpu wakeup status=%d\n", ret);
 
   pocv2_msg_init(&ack, pocv2_msg_src_mac(msg), MSG_CPU_WAKEUP_ACK, &ackhdr, NULL, 0);
 
@@ -113,7 +138,7 @@ static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci_argv *argv) {
   u64 vcpuid = argv->x1;
   u64 ep_addr = argv->x2;
   u64 contextid = argv->x3;
-  vmm_log("vcpu%d on: entrypoint %p %p\n", vcpuid, ep_addr, vcpu->reg.x[30]);
+  vmm_log("vcpu%d on: entrypoint %p %p\n", vcpuid, ep_addr, contextid);
 
   struct vcpu *target = node_vcpu(vcpuid);
   if(!target)
@@ -122,7 +147,7 @@ static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci_argv *argv) {
   /* target in localnode! */
 
   /* set entrypoint to target vcpu */
-  return vcpu_wakeup(target, ep_addr);
+  return vcpu_wakeup_local(target, ep_addr);
 }
 
 static u32 vpsci_version() {

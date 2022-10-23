@@ -52,9 +52,10 @@
 
 #define ICC_CTLR_EOImode(m) ((m) << 1)
 
-#define ICC_SGI1R_TARGETS_MASK     0xffff
-#define ICC_SGI1R_INTID(v)         (((v)>>24) & 0xf)
-#define ICC_SGI1R_IRM(v)           (((v)>>40) & 0x1)
+#define ICC_SGI1R_INTID_SHIFT     24
+#define ICC_SGI1R_TARGETS_MASK    0xffff
+#define ICC_SGI1R_INTID(v)        (((v)>>24) & 0xf)
+#define ICC_SGI1R_IRM(v)          (((v)>>40) & 0x1)
 
 #define ICH_HCR_EN  (1<<0)
 
@@ -155,6 +156,12 @@ static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
   *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset) = val;
 }
 
+struct gic_irqchip {
+
+};
+
+extern struct gic_irqchip irqchip;
+
 struct gic_state {
   u64 lr[16];
   u64 vmcr;
@@ -171,15 +178,14 @@ void gic_setup_spi(u32 irq);
 
 void gic_set_target(u32 irq, u8 target);
 
-u64 gic_read_lr(int n);
-void gic_write_lr(int n, u64 val);
-u64 gic_make_lr(u32 pirq, u32 virq, int grp);
+void gic_send_sgi(int cpuid, int sgi_id);
 
 void gic_irq_enable(u32 irq);
 void gic_irq_disable(u32 irq);
 void gic_irq_enable_redist(u32 cpuid, u32 irq);
 void gic_host_eoi(u32 iar, int grp);
 void gic_guest_eoi(u32 iar, int grp);
+void gic_inject_guest_irq(u32 pirq, u32 virq, int grp);
 
 void gic_restore_state(struct gic_state *gic);
 void gic_init_state(struct gic_state *gic);

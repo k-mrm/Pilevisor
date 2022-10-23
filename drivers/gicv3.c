@@ -12,9 +12,9 @@
 
 /* gicv3 controller */
 
-int gic_lr_max = 0;
+static int gic_lr_max = 0;
 
-u64 gic_read_lr(int n) {
+static u64 gic_read_lr(int n) {
   if(gic_lr_max <= n)
     panic("lr");
 
@@ -40,7 +40,7 @@ u64 gic_read_lr(int n) {
   }
 }
 
-void gic_write_lr(int n, u64 val) {
+static void gic_write_lr(int n, u64 val) {
   if(gic_lr_max <= n)
     panic("lr");
 
@@ -107,7 +107,7 @@ static void gic_save_lr(struct gic_state *gic) {
   }
 }
 
-u64 gic_make_lr(u32 pirq, u32 virq, int grp) {
+static u64 gic_pending_lr(u32 pirq, u32 virq, int grp) {
   u64 lr = ICH_LR_VINTID(virq) | ICH_LR_STATE(LR_PENDING) | ICH_LR_GROUP(grp);
   
   if(!is_sgi(pirq)) {
@@ -117,6 +117,31 @@ u64 gic_make_lr(u32 pirq, u32 virq, int grp) {
   }
 
   return lr;
+}
+
+void gic_inject_guest_irq(u32 pirq, u32 virq, int grp) {
+  u64 elsr = read_sysreg(ich_elsr_el2);
+  int freelr = -1;
+  u64 lr;
+
+  for(int i = 0; i < gic_lr_max; i++) {
+    if((elsr >> i) & 0x1) {   // free area in lr
+      if(freelr < 0)
+        freelr = i;
+
+      continue;
+    }
+
+    if((u32)gic_read_lr(i) == pirq)
+      panic("busy %d", pirq);
+  }
+
+  if(freelr < 0)
+    panic("no free lr ;;");
+
+  lr = gic_pending_lr(pirq, virq, grp);
+
+  gic_write_lr(freelr, lr);
 }
 
 bool gic_irq_pending(u32 irq) {
@@ -150,8 +175,16 @@ void gic_guest_eoi(u32 iar, int grp) {
   gic_eoi(iar, grp);
 }
 
-void gic_set_sgi1r(u64 sgi1r) {
-  write_sysreg(icc_sgi1r_el1, sgi1r);
+void gic_send_sgi(int cpuid, int sgi_id) {
+  u64 targets = 1 << cpuid;
+  u64 sgir = (sgi_id & 0xf) << ICC_SGI1R_INTID_SHIFT;
+  sgir |= targets & ICC_SGI1R_TARGETS_MASK;
+
+  dsb(ish);
+
+  write_sysreg(icc_sgi1r_el1, sgir);
+
+  isb();
 }
 
 void gic_irq_enable_redist(u32 cpuid, u32 irq) {

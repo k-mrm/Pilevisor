@@ -113,6 +113,8 @@ static void node0_start() {
 
   wait_for_current_vcpu_online();
 
+  vcpu_initstate();
+
   vmm_log("cpu%d: entry to vcpu\n", cpu);
 
   vcpu_entry();

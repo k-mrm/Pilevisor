@@ -125,10 +125,7 @@ static void vpsci_handler(struct vcpu *vcpu) {
     .x3 = vcpu->reg.x[3],
   };
 
-  u64 ret = vpsci_emulate(vcpu, &argv);
-  vmm_log("vpsci return %p\n", ret);
-
-  vcpu->reg.x[0] = ret;
+  vcpu->reg.x[0] = vpsci_emulate(vcpu, &argv);
 }
 
 static int hvc_handler(struct vcpu *vcpu, int imm) {
