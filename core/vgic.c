@@ -121,7 +121,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
 
       /* TODO: consider Affinity */
       if((1 << vcpuid) & targets) {
-        vmm_log("vgic: sgi to vcpu%d\n", vcpuid);
+        // vmm_log("vgic: sgi to vcpu%d\n", vcpuid);
         struct vcpu *vcpu = node_vcpu(vcpuid);
 
         if(vcpu) {
@@ -168,7 +168,7 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
   if(!wr)
     return -1;
 
-  u64 sgir = vcpu_x(vcpu, rt);
+  u64 sgir = rt == 31 ? 0 : vcpu->reg.x[rt];
 
   return vgic_inject_sgi(vcpu, sgir);
 }

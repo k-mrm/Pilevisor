@@ -19,6 +19,7 @@ void hyp_sync_handler() {
   u64 ec = (esr >> 26) & 0x3f;
   u64 iss = esr & 0x1ffffff;
 
+  vmm_log("ERROR: prohibited sync exception\n");
   vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
 
   panic("sync el2");
@@ -101,14 +102,14 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   struct mmio_access mmio = {
     .ipa = ipa,
-    .val = vcpu_x(vcpu, r),
+    .val = r == 31 ? 0 : vcpu->reg.x[r],
     .accsize = accsz,
     .wnr = wnr,
   };
 
   if(mmio_emulate(vcpu, &mmio) >= 0) {
     if(!mmio.wnr)   // mmio read
-      vcpu_set_x(vcpu, r, mmio.val);
+      vcpu->reg.x[r] = mmio.val;
     return 0;
   }
 

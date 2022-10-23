@@ -34,7 +34,7 @@ SOBJS = $(patsubst %.c,%.o,$(wildcard $(S)/*.c))
 MAINOBJS = $(COREOBJS) $(DRVOBJS) $(MOBJS)
 SUBOBJS = $(COREOBJS) $(DRVOBJS) $(SOBJS)
 
-QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 256
+QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 512
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic -kernel
 
@@ -165,7 +165,7 @@ dts:
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 128
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 256
 
 clean:
 	make -C guest clean

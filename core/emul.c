@@ -52,7 +52,7 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
   if(rn == 31)
     addr = vcpu->reg.sp;
   else
-    addr = vcpu_x(vcpu, rn);
+    addr = vcpu->reg.x[rn];
 
   u64 ipa = vcpu->dabt.fault_ipa;
 
@@ -60,8 +60,8 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
     addr += offset;
 
   if(datasize == 32) {
-    u32 rtval = vcpu_w(vcpu, rt);
-    u32 rt2val = vcpu_w(vcpu, rt2);
+    u32 rtval = rt == 31 ? 0 : (u32)vcpu->reg.x[rt];
+    u32 rt2val = rt2 == 31 ? 0 : (u32)vcpu->reg.x[rt2];
 
     u32 reg[2] = { rtval, rt2val };
 
@@ -75,8 +75,8 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
         return -1;
     }
   } else if(datasize == 64) {
-    u64 rtval = vcpu_x(vcpu, rt);
-    u64 rt2val = vcpu_x(vcpu, rt2);
+    u64 rtval = rt == 31 ? 0 : vcpu->reg.x[rt];
+    u64 rt2val = rt2 == 31 ? 0 : vcpu->reg.x[rt2];
 
     u64 reg[2] = { rtval, rt2val };
 
@@ -164,7 +164,7 @@ static int emul_ldrstr_roffset(struct vcpu *vcpu, int rt, int size, bool load) {
       return -1;
     vcpu->reg.x[rt] = val;
   } else {
-    u64 val = vcpu_x(vcpu, rt);
+    u64 val = rt == 31 ? 0 : vcpu->reg.x[rt];
     if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
       return -1;
   }
@@ -199,7 +199,7 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
   if(rn == 31)
     addr = vcpu->reg.sp;
   else
-    addr = vcpu_x(vcpu, rn);
+    addr = vcpu->reg.x[rn];
 
   if(!addressing_postidx(ad))   /* pre-index */
     addr += imm;
@@ -210,7 +210,7 @@ static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
       return -1;
     vcpu->reg.x[rt] = val;
   } else {
-    u64 val = vcpu_x(vcpu, rt);
+    u64 val = rt == 31 ? 0 : vcpu->reg.x[rt];
 
     if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
       return -1;
@@ -272,7 +272,7 @@ static int emul_ldst_reg_unscaled(struct vcpu *vcpu) {
   int accbyte = vcpu->dabt.accbyte;
 
   if(wr) {
-    u64 val = vcpu_x(vcpu, reg);
+    u64 val = reg == 31 ? 0 : vcpu->reg.x[reg];
 
     if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
       return -1;
@@ -296,7 +296,7 @@ static int emul_ldar_stlr(struct vcpu *vcpu, int size, int rn, int rt, bool load
       return -1;
     vcpu->reg.x[rt] = val;
   } else {
-    u64 val = vcpu_x(vcpu, rt);
+    u64 val = rt == 31 ? 0 : vcpu->reg.x[rt];
     if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
       return -1;
   }

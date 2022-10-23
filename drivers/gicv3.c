@@ -312,7 +312,7 @@ int gic_max_spi() {
   u32 max_spi = 32 * (lines + 1) - 1;
   vmm_log("typer %p\n", typer);
 
-  return max_spi < 1020? max_spi : 1019;
+  return max_spi < 1020 ? max_spi : 1019;
 }
 
 void gic_setup_spi(u32 irq) {
