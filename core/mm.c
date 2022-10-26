@@ -155,6 +155,8 @@ void page_access_invalidate(u64 *pgt, u64 va) {
     panic("no entry");
 
   s2pte_invalidate(pte);
+
+  tlb_s2_flush_all();
 }
 
 void page_access_ro(u64 *pgt, u64 va) {
@@ -166,6 +168,8 @@ void page_access_ro(u64 *pgt, u64 va) {
     panic("no entry");
 
   s2pte_ro(pte);
+
+  tlb_s2_flush_all();
 }
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {

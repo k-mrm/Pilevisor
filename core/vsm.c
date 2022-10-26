@@ -21,6 +21,22 @@ static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
 
 static struct cache_page pages[NR_CACHE_PAGES];
 
+static u64 vsm_gbl_lock = 0;
+
+struct vsm_server_proc {
+  struct vsm_server_proc *next;
+  u64 page_ipa;
+  int req_nodeid;
+  void (*server)(struct vsm_server_proc *);
+};
+
+static char *pte_state[4] = {
+  [0]   "INV",
+  [1]   " RO",
+  [2]   " WO",
+  [3]   " RW",
+};
+
 /*
  *  memory fetch message
  *  read request: Node n1 ---> Node n2
@@ -69,14 +85,23 @@ static inline void cache_page_set_owner(struct cache_page *p, int owner) {
   p->flags |= ((u64)owner & CACHE_PAGE_OWNER_MASK) << CACHE_PAGE_OWNER_SHIFT;
 }
 
-static inline void cache_page_lock(struct cache_page *p) {
-  /* TODO */
-  ;
+/* success: return 0 */
+static inline int page_trylock(u64 *lock) {
+  u64 r = 1, l = 1;
+
+  asm volatile(
+    "ldaxr  %0, [%1]\n"
+    "cbnz %0, 1f\n"
+    "stxr %w0, %2, [%1]\n"
+    "1:\n"
+    : "=&r"(r) : "r"(lock), "r"(l) : "memory"
+  );
+
+  return r;
 }
 
-static inline void cache_page_unlock(struct cache_page *p) {
-  /* TODO */
-  ;
+static inline void page_unlock(u64 *lock) {
+  asm volatile("str wzr, %0" : "=m"(*lock) :: "memory");
 }
 
 /* determine manager's node of page by ipa */
@@ -167,8 +192,6 @@ static void vsm_invalidate_server(u64 ipa, u64 copyset) {
 
   vmm_log("Node %d: access invalidate %p %d\n", localnode.nodeid, ipa, page_accessible(vttbr, ipa));
 
-  isb();
-
   page_access_invalidate(vttbr, ipa);
 }
 
@@ -176,14 +199,18 @@ static void vsm_invalidate_server(u64 ipa, u64 copyset) {
 void *vsm_read_fetch_page(u64 page_ipa) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
+  void *pa_page = NULL;
   u64 far = read_sysreg(far_el2);
   int manager = -1;
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
 
+  if(page_trylock(&vsm_gbl_lock))
+    panic("rf: locked");
+
   manager = page_manager(page_ipa);
   if(manager < 0)
-    return NULL;
+    goto nil;
 
   if(manager == localnode.nodeid) {   /* I am manager */
     /* receive page from owner of page */
@@ -201,29 +228,33 @@ void *vsm_read_fetch_page(u64 page_ipa) {
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
 
-  if(page_ipa == 0x406b3000) {
-    vmm_log("\n\nrf: disccccccccccccccccccccccc\n");
-    bin_dump((void *)PTE_PA(*pte), PAGESIZE);
-  }
-
   s2pte_ro(pte);
   tlb_s2_flush_all();
 
-  return (void *)PTE_PA(*pte);
+  pa_page = (void *)PTE_PA(*pte);
+  /* fallthrough */
+nil:
+  page_unlock(&vsm_gbl_lock);
+
+  return pa_page;
 }
 
 /* write fault handler */
 void *vsm_write_fetch_page(u64 page_ipa) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
+  void *pa_page = NULL;
   u64 far = read_sysreg(far_el2);
   int manager = -1;
 
   vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
 
+  if(page_trylock(&vsm_gbl_lock))
+    panic("wf: locked");
+
   manager = page_manager(page_ipa);
   if(manager < 0)
-    return NULL;
+    goto nil;
 
   if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
     if(s2pte_copyset(pte) != 0) {
@@ -232,6 +263,9 @@ void *vsm_write_fetch_page(u64 page_ipa) {
       goto inv_phase;
     }
 
+    /*
+     *  TODO: Maybe no need to fetch page from remote node
+     */
     vmm_log("wf: write to ro page(copyset) %p elr %p far %p\n", page_ipa, current->reg.elr, far);
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
@@ -256,17 +290,17 @@ void *vsm_write_fetch_page(u64 page_ipa) {
   vmm_log("wf: get remote page @%p\n", page_ipa);
 inv_phase:
   
-  if(page_ipa == 0x406b3000) {
-    vmm_log("\n\nwf: disccccccccccccccccccccccc\n");
-    bin_dump((void *)PTE_PA(*pte), PAGESIZE);
-  }
-
   /* invalidate request to copyset */
   vsm_invalidate(page_ipa, s2pte_copyset(pte));
   s2pte_clear_copyset(pte);
   s2pte_rw(pte);
 
-  return (void *)PTE_PA(*pte);
+  pa_page = (void *)PTE_PA(*pte);
+  /* fallthrough */
+nil:
+  page_unlock(&vsm_gbl_lock);
+
+  return pa_page;
 }
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
@@ -344,6 +378,10 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
 static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
+
+  if(page_trylock(&vsm_gbl_lock))
+    panic("rs: locked");
+
   int manager = page_manager(ipa_page);
   if(manager < 0)
     panic("dare");
@@ -377,12 +415,18 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
   } else {
     panic("read server: read %p %d unreachable", ipa_page, req_nodeid);
   }
+
+  page_unlock(&vsm_gbl_lock);
 }
 
 /* write server */
 static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
+
+  if(page_trylock(&vsm_gbl_lock))
+    panic("ws: locked");
+
   int manager = page_manager(ipa_page);
   if(manager < 0)
     panic("dare w");
@@ -420,6 +464,8 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
   } else {
     panic("write server: %p %d unreachable", ipa_page, req_nodeid);
   }
+
+  page_unlock(&vsm_gbl_lock);
 }
 
 static void recv_fetch_request_intr(struct pocv2_msg *msg) {
