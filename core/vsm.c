@@ -13,6 +13,7 @@
 #include "vcpu.h"
 #include "msg.h"
 #include "cluster.h"
+#include "tlb.h"
 
 void *vsm_read_fetch_page(u64 page_ipa);
 void *vsm_write_fetch_page(u64 page_ipa);
@@ -206,7 +207,7 @@ void *vsm_read_fetch_page(u64 page_ipa) {
   }
 
   s2pte_ro(pte);
-  vmm_log("rf: get remote page: %p\n", page_ipa);
+  tlb_s2_flush_all();
 
   return (void *)PTE_PA(*pte);
 }
@@ -233,6 +234,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 
     vmm_log("wf: write to ro page(copyset) %p elr %p far %p\n", page_ipa, current->reg.elr, far);
     s2pte_invalidate(pte);
+    tlb_s2_flush_all();
   }
 
   if(manager == localnode.nodeid) {   /* I am manager */
@@ -349,8 +351,7 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
   if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL ||
       (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
     s2pte_ro(pte);
-
-    isb();
+    tlb_s2_flush_all();
 
     /* copyset = copyset | request node */
     s2pte_add_copyset(pte, req_nodeid);
@@ -395,6 +396,7 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
     vmm_log("write server: send write fetch reply: i am owner! %p\n", s2pte_copyset(pte));
 
     s2pte_invalidate(pte);
+    tlb_s2_flush_all();
 
     // send p and copyset;
     send_write_fetch_reply(req_nodeid, ipa_page, (void *)pa, copyset);

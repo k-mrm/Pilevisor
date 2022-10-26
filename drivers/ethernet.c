@@ -28,7 +28,7 @@ void ethernet_recv_intr(struct nic *nic, void **packets, int *lens, int npackets
   u16 ethtype;
   packets[0] = eth_parse(packets[0], &src, &dst, &ethtype);
 
-  printf("msg recv intr from %m\n", src);
+  vmm_log("msg recv intr from %m\n", src);
 
   if(memcmp(dst, broadcast_mac, 6) == 0 || memcmp(dst, nic->mac, 6) == 0) {
     // if(ethtype == POCV2_MSG_ETH_PROTO)

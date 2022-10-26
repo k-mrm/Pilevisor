@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "guest.h"
+#include "tlb.h"
 
 #define TCR_T0SZ(n)   ((n) & 0x3f)
 #define TCR_IRGN0(n)  (((n) & 0x3) << 8)
@@ -134,6 +135,10 @@ void dump_par_el1(void);
 
 u64 faulting_ipa_page(void);
 
+static inline int s2pte_perm(u64 *pte) {
+  return (*pte & S2PTE_S2AP_MASK) >> 6;
+}
+
 static inline void s2pte_invalidate(u64 *pte) {
   *pte &= ~PTE_AF;
 }
@@ -153,10 +158,6 @@ static inline int s2pte_copyset(u64 *pte) {
 
 static inline void s2pte_add_copyset(u64 *pte, int nodeid) {
   *pte |= S2PTE_COPYSET(1 << nodeid);
-}
-
-static inline void s2pte_rm_copyset(u64 *pte, int nodeid) {
-  ;
 }
 
 static inline void s2pte_clear_copyset(u64 *pte) {
