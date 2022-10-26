@@ -12,7 +12,13 @@
 static void dabort_iss_dump(u64 iss);
 static void iabort_iss_dump(u64 iss);
 
-void hyp_sync_handler() {
+struct hyp_context {
+  u64 x[31];
+  u64 spsr;
+  u64 elr;
+} __attribute__((packed));
+
+void hyp_sync_handler(struct hyp_context *ctx) {
   u64 esr = read_sysreg(esr_el2);
   u64 elr = read_sysreg(elr_el2);
   u64 far = read_sysreg(far_el2);
@@ -21,6 +27,17 @@ void hyp_sync_handler() {
 
   vmm_log("ERROR: prohibited sync exception\n");
   vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
+
+  vmm_log("hypervisor context:\n");
+  printf("x0  %18p x1  %18p x2  %18p x3  %18p\n", ctx->x[0], ctx->x[1], ctx->x[2], ctx->x[3]);
+  printf("x4  %18p x5  %18p x6  %18p x7  %18p\n", ctx->x[4], ctx->x[5], ctx->x[6], ctx->x[7]);
+  printf("x8  %18p x9  %18p x10 %18p x11 %18p\n", ctx->x[8], ctx->x[9], ctx->x[10], ctx->x[11]);
+  printf("x12 %18p x13 %18p x14 %18p x15 %18p\n", ctx->x[12], ctx->x[13], ctx->x[14], ctx->x[15]);
+  printf("x16 %18p x17 %18p x18 %18p x19 %18p\n", ctx->x[16], ctx->x[17], ctx->x[18], ctx->x[19]);
+  printf("x20 %18p x21 %18p x22 %18p x23 %18p\n", ctx->x[20], ctx->x[21], ctx->x[22], ctx->x[23]);
+  printf("x24 %18p x25 %18p x26 %18p x27 %18p\n", ctx->x[24], ctx->x[25], ctx->x[26], ctx->x[27]);
+  printf("x28 %18p x29 %18p x30 %18p\n", ctx->x[28], ctx->x[29], ctx->x[30]);
+  printf("spsr  %18p  elr  %18p\n", ctx->spsr, ctx->elr);
 
   panic("sync el2");
 }

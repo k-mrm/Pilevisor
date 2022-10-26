@@ -130,11 +130,6 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 
   vmm_log("vsm: cache @%p copyset: %p count%d\n", ipa_page, copyset, ++count);
 
-  if(ipa_page == 0x40550000) {
-    bin_dump(page+0xf88, 20);
-    // panic("i");
-  }
-
   /* set access permission later */
   pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_COPYSET(copyset));
 }
@@ -149,11 +144,18 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
   hdr.ipa = ipa;
   hdr.copyset = copyset;
 
-  vmm_log("send invalidate msg to %p\n", copyset);
+  int node = 0;
+  while(copyset != 0) {
+    if(copyset & 1 && node != localnode.nodeid) {
+      vmm_log("send invalidate msg to Node %d\n", node);
 
-  pocv2_broadcast_msg_init(&msg, MSG_INVALIDATE, &hdr, NULL, 0);
+      pocv2_msg_init2(&msg, node, MSG_INVALIDATE, &hdr, NULL, 0);
 
-  send_msg(&msg);
+      send_msg(&msg);
+    }
+    copyset >>= 1;
+    node++;
+  }
 }
 
 static void vsm_invalidate_server(u64 ipa, u64 copyset) {
@@ -197,6 +199,11 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
+
+  if(page_ipa == 0x406b3000) {
+    vmm_log("\n\nrf: disccccccccccccccccccccccc\n");
+    bin_dump((void *)PTE_PA(*pte), PAGESIZE);
+  }
 
   s2pte_ro(pte);
   vmm_log("rf: get remote page: %p\n", page_ipa);
@@ -246,6 +253,12 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 
   vmm_log("wf: get remote page @%p\n", page_ipa);
 inv_phase:
+  
+  if(page_ipa == 0x406b3000) {
+    vmm_log("\n\nwf: disccccccccccccccccccccccc\n");
+    bin_dump((void *)PTE_PA(*pte), PAGESIZE);
+  }
+
   /* invalidate request to copyset */
   vsm_invalidate(page_ipa, s2pte_copyset(pte));
   s2pte_clear_copyset(pte);
@@ -335,15 +348,21 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
 
   if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL ||
       (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
-    /* I am owner */
-    u64 pa = PTE_PA(*pte);
+    s2pte_ro(pte);
+
+    isb();
 
     /* copyset = copyset | request node */
     s2pte_add_copyset(pte, req_nodeid);
 
-    s2pte_ro(pte);
+    /* I am owner */
+    u64 pa = PTE_PA(*pte);
 
     vmm_log("read server: send read fetch reply: i am owner! c: %p\n", s2pte_copyset(pte));
+    if(ipa_page == 0x406b3000) {
+      bin_dump((void *)pa, PAGESIZE);
+      vmm_log("this page is %d\n\n", s2pte_perm(pte));
+    }
 
     /* send p */
     send_read_fetch_reply(req_nodeid, ipa_page, (void *)pa);
@@ -371,13 +390,16 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
       (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
     /* I am owner */
     u64 pa = PTE_PA(*pte);
+    u64 copyset = s2pte_copyset(pte);
 
     vmm_log("write server: send write fetch reply: i am owner! %p\n", s2pte_copyset(pte));
 
-    // send p and copyset;
-    send_write_fetch_reply(req_nodeid, ipa_page, (void *)pa, s2pte_copyset(pte));
-
     s2pte_invalidate(pte);
+
+    // send p and copyset;
+    send_write_fetch_reply(req_nodeid, ipa_page, (void *)pa, copyset);
+    if(ipa_page == 0x406b3000)
+      bin_dump((void *)pa, PAGESIZE);
 
     if(localnode.nodeid == manager) {
       struct cache_page *p = ipa_cache_page(ipa_page);

@@ -186,7 +186,12 @@ vectable:
   ventry  .
 
 el2_sync:
+  hyp_save_reg
+
+  mov x0, sp
   bl hyp_sync_handler
+
+  /* return never here */
 
 el2_irq:
   hyp_save_reg

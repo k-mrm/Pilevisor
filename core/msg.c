@@ -111,8 +111,6 @@ void send_msg(struct pocv2_msg *msg) {
     np++;
   }
 
-  vmm_log("send msg............ %s(%d)\n", msmap[msg->hdr->type], msg->hdr->type);
-
   localnode.nic->ops->xmit(localnode.nic, ps, ls, np);
 }
 
