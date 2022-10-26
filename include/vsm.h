@@ -30,6 +30,19 @@ struct cache_page {
   u64 flags;
 };
 
+struct vsm_waitqueue {
+  struct vsm_server_proc *head;
+  struct vsm_server_proc *tail;
+};
+
+struct vsm_server_proc {
+  struct vsm_server_proc *next;   // waitqueue
+  u64 page_ipa;
+  int req_nodeid;
+  int used;
+  int (*do_process)(struct vsm_server_proc *);
+};
+
 #define CACHE_PAGE_LOCK_BIT(p)  (((p)->flags >> 37) & 0x1)
 #define CACHE_PAGE_OWNER_SHIFT  32
 #define CACHE_PAGE_OWNER_MASK   0x1f

@@ -7,6 +7,7 @@
 #include "gic.h"
 #include "aarch64.h"
 #include "mm.h"
+#include "vsm.h"
 
 struct cpu_features {
   u64 pfr0;
@@ -58,6 +59,8 @@ struct vcpu {
 
   /* when dabort occurs on vCPU, informations will save here */
   struct dabort_info dabt;
+
+  struct vsm_waitqueue vsm_waitqueue;
 
   bool initialized;
   bool online;

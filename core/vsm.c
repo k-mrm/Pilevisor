@@ -19,16 +19,12 @@ void *vsm_read_fetch_page(u64 page_ipa);
 void *vsm_write_fetch_page(u64 page_ipa);
 static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
 
+static int vsm_read_server_process(struct vsm_server_proc *proc);
+static int vsm_write_server_process(struct vsm_server_proc *proc);
+
 static struct cache_page pages[NR_CACHE_PAGES];
-
-static u64 vsm_gbl_lock = 0;
-
-struct vsm_server_proc {
-  struct vsm_server_proc *next;
-  u64 page_ipa;
-  int req_nodeid;
-  void (*server)(struct vsm_server_proc *);
-};
+static struct vsm_server_proc ptable[128];
+static u8 vsm_gbl_lock = 0;
 
 static char *pte_state[4] = {
   [0]   "INV",
@@ -73,6 +69,55 @@ struct invalidate_hdr {
   u64 copyset;
 };
 
+static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid, bool wnr) {
+  struct vsm_server_proc *p;
+
+  for(p = ptable; p < &ptable[128]; p++) {
+    if(!p->used) {
+      p->used = 1;
+      p->page_ipa = page_ipa;
+      p->req_nodeid = req_nodeid;
+      p->do_process = wnr ? vsm_write_server_process : vsm_read_server_process;
+      p->next = NULL;
+
+      return p;
+    }
+  }
+
+  panic("no process");
+}
+
+static void free_vsm_server_proc(struct vsm_server_proc *p) {
+  if(!p)
+    panic("free vsm server process");
+
+  p->used = 0;
+}
+
+static void vsm_enqueue_proc(struct vsm_server_proc *p) {
+  if(current->vsm_waitqueue.head == NULL)
+    current->vsm_waitqueue.head = p;
+
+  if(current->vsm_waitqueue.tail)
+    current->vsm_waitqueue.tail->next = p;
+
+  current->vsm_waitqueue.tail = p;
+}
+
+static void vsm_process_waitqueue() {
+  struct vsm_server_proc *p, *p_next;
+
+  for(p = current->vsm_waitqueue.head; p != NULL; p = p_next) {
+    if(p->do_process(p) < 0)
+      panic("oi");
+    p_next = p->next;
+    free_vsm_server_proc(p);
+  }
+
+  current->vsm_waitqueue.head = NULL;
+  current->vsm_waitqueue.tail = NULL;
+}
+
 static inline struct cache_page *ipa_cache_page(u64 ipa) {
   if(!in_memrange(&cluster_me()->mem, ipa))
     panic("ipa_cache_page");
@@ -86,13 +131,13 @@ static inline void cache_page_set_owner(struct cache_page *p, int owner) {
 }
 
 /* success: return 0 */
-static inline int page_trylock(u64 *lock) {
-  u64 r = 1, l = 1;
+static inline int page_trylock(u8 *lock) {
+  u8 r, l = 1;
 
   asm volatile(
-    "ldaxr  %0, [%1]\n"
-    "cbnz %0, 1f\n"
-    "stxr %w0, %2, [%1]\n"
+    "ldaxrb %w0, [%1]\n"
+    "cbnz   %w0, 1f\n"
+    "stxrb  %w0, %w2, [%1]\n"
     "1:\n"
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
@@ -100,8 +145,8 @@ static inline int page_trylock(u64 *lock) {
   return r;
 }
 
-static inline void page_unlock(u64 *lock) {
-  asm volatile("str wzr, %0" : "=m"(*lock) :: "memory");
+static inline void page_unlock(u8 *lock) {
+  asm volatile("strb wzr, %0" : "=m"(*lock) :: "memory");
 }
 
 /* determine manager's node of page by ipa */
@@ -288,8 +333,8 @@ void *vsm_write_fetch_page(u64 page_ipa) {
     wfi();
 
   vmm_log("wf: get remote page @%p\n", page_ipa);
+
 inv_phase:
-  
   /* invalidate request to copyset */
   vsm_invalidate(page_ipa, s2pte_copyset(pte));
   s2pte_clear_copyset(pte);
@@ -375,19 +420,23 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
 }
 
 /* read server */
-static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
+static int vsm_read_server_process(struct vsm_server_proc *proc) {
   u64 *vttbr = localnode.vttbr;
+  u64 page_ipa = proc->page_ipa;
+  int req_nodeid = proc->req_nodeid;
   u64 *pte;
 
-  if(page_trylock(&vsm_gbl_lock))
-    panic("rs: locked");
+  if(page_trylock(&vsm_gbl_lock)) {
+    vsm_enqueue_proc(proc);
+    return -1;
+  }
 
-  int manager = page_manager(ipa_page);
+  int manager = page_manager(page_ipa);
   if(manager < 0)
     panic("dare");
 
-  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL ||
-      (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
+  if((pte = page_rwable_pte(vttbr, page_ipa)) != NULL ||
+      (((pte = page_ro_pte(vttbr, page_ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
     s2pte_ro(pte);
     tlb_s2_flush_all();
 
@@ -398,41 +447,43 @@ static void vsm_readpage_server(u64 ipa_page, int req_nodeid) {
     u64 pa = PTE_PA(*pte);
 
     vmm_log("read server: send read fetch reply: i am owner! c: %p\n", s2pte_copyset(pte));
-    if(ipa_page == 0x406b3000) {
-      bin_dump((void *)pa, PAGESIZE);
-      vmm_log("this page is %d\n\n", s2pte_perm(pte));
-    }
 
     /* send p */
-    send_read_fetch_reply(req_nodeid, ipa_page, (void *)pa);
+    send_read_fetch_reply(req_nodeid, page_ipa, (void *)pa);
   } else if(localnode.nodeid == manager) {  /* I am manager */
-    struct cache_page *p = ipa_cache_page(ipa_page);
+    struct cache_page *p = ipa_cache_page(page_ipa);
     int p_owner = CACHE_PAGE_OWNER(p);
 
-    vmm_log("read server: forward read fetch request to %d (%p)\n", p_owner, ipa_page);
+    vmm_log("read server: forward read fetch request to %d (%p)\n", p_owner, page_ipa);
     /* forward request to p's owner */
-    send_fetch_request(req_nodeid, p_owner, ipa_page, 0);
+    send_fetch_request(req_nodeid, p_owner, page_ipa, 0);
   } else {
-    panic("read server: read %p %d unreachable", ipa_page, req_nodeid);
+    panic("read server: read %p %d unreachable", page_ipa, req_nodeid);
   }
 
   page_unlock(&vsm_gbl_lock);
+
+  return 0;
 }
 
 /* write server */
-static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
+static int vsm_write_server_process(struct vsm_server_proc *proc) {
   u64 *vttbr = localnode.vttbr;
+  u64 page_ipa = proc->page_ipa;
+  int req_nodeid = proc->req_nodeid;
   u64 *pte;
 
-  if(page_trylock(&vsm_gbl_lock))
-    panic("ws: locked");
+  if(page_trylock(&vsm_gbl_lock)) {
+    vsm_enqueue_proc(proc);
+    return -1;
+  }
 
-  int manager = page_manager(ipa_page);
+  int manager = page_manager(page_ipa);
   if(manager < 0)
     panic("dare w");
 
-  if((pte = page_rwable_pte(vttbr, ipa_page)) != NULL ||
-      (((pte = page_ro_pte(vttbr, ipa_page)) != NULL) && s2pte_copyset(pte) != 0)) {
+  if((pte = page_rwable_pte(vttbr, page_ipa)) != NULL ||
+      (((pte = page_ro_pte(vttbr, page_ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
     /* I am owner */
     u64 pa = PTE_PA(*pte);
     u64 copyset = s2pte_copyset(pte);
@@ -443,38 +494,40 @@ static void vsm_writepage_server(u64 ipa_page, int req_nodeid) {
     tlb_s2_flush_all();
 
     // send p and copyset;
-    send_write_fetch_reply(req_nodeid, ipa_page, (void *)pa, copyset);
-    if(ipa_page == 0x406b3000)
-      bin_dump((void *)pa, PAGESIZE);
+    send_write_fetch_reply(req_nodeid, page_ipa, (void *)pa, copyset);
 
     if(localnode.nodeid == manager) {
-      struct cache_page *p = ipa_cache_page(ipa_page);
+      struct cache_page *p = ipa_cache_page(page_ipa);
       cache_page_set_owner(p, req_nodeid);
     }
   } else if(localnode.nodeid == manager) {
-    struct cache_page *p = ipa_cache_page(ipa_page);
+    struct cache_page *p = ipa_cache_page(page_ipa);
     int p_owner = CACHE_PAGE_OWNER(p);
 
-    vmm_log("write server: forward write fetch request to %d (%p)\n", p_owner, ipa_page);
+    vmm_log("write server: forward write fetch request to %d (%p)\n", p_owner, page_ipa);
     /* forward request to p's owner */
-    send_fetch_request(req_nodeid, p_owner, ipa_page, 1);
+    send_fetch_request(req_nodeid, p_owner, page_ipa, 1);
 
     /* now owner is request node */
     cache_page_set_owner(p, req_nodeid);
   } else {
-    panic("write server: %p %d unreachable", ipa_page, req_nodeid);
+    panic("write server: %p %d unreachable", page_ipa, req_nodeid);
   }
 
   page_unlock(&vsm_gbl_lock);
+
+  return 0;
 }
 
 static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
+  struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
-  if(a->wnr)
-    vsm_writepage_server(a->ipa, a->req_nodeid);
-  else
-    vsm_readpage_server(a->ipa, a->req_nodeid);
+  if(p->do_process(p) < 0)
+    return;
+
+  free_vsm_server_proc(p);
+  vsm_process_waitqueue();
 }
 
 static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
