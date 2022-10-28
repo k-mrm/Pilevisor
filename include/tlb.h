@@ -19,7 +19,7 @@ static inline void tlb_s2_flush_all() {
   isb();
 }
 
-static inline void tlb_s2_flush(u64 ipa) {
+static inline void tlb_s2_flush_ipa(u64 ipa) {
   ;
 }
 
