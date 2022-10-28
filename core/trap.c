@@ -1,3 +1,7 @@
+/*
+ *  aarch64 trap handler
+ */
+
 #include "types.h"
 #include "aarch64.h"
 #include "param.h"
@@ -8,6 +12,8 @@
 #include "mmio.h"
 #include "vpsci.h"
 #include "node.h"
+#include "emul.h"
+#include "vsysreg.h"
 
 static void dabort_iss_dump(u64 iss);
 static void iabort_iss_dump(u64 iss);

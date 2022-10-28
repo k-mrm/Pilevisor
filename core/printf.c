@@ -45,7 +45,7 @@ static void printiu64(i64 num, int base, bool sign, int digit, enum printopt opt
   int len = strlen(cur);
   if(digit > 0) {
     while(digit-- > len)
-      uart_putc(opt & ZERO_PAD? '0' : ' '); 
+      uart_putc(opt & ZERO_PAD ? '0' : ' '); 
   }
   uart_puts(cur);
   if(digit < 0) {
@@ -75,7 +75,7 @@ static const char *fetch_digit(const char *fmt, int *digit, enum printopt *opt) 
     n = n * 10 + *fmt++ - '0';
   }
 
-  *digit = neg? -n : n;
+  *digit = neg ? -n : n;
 
   return fmt;
 }

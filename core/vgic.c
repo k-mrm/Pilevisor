@@ -61,8 +61,6 @@ int vgic_inject_virq(struct vcpu *target, u32 pirq, u32 virq, int grp) {
   if(pirq != virq)
     panic("unimplemented pirq != virq");
 
-  struct vgic_cpu *vgic = &target->vgic;
-
   struct vgic_irq *irq = vgic_get_irq(target, pirq);
   if(!irq->enabled)
     return -1;
@@ -126,11 +124,10 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
 
         if(vcpu) {
           /* vcpu in localnode */
-          panic("localinject!?");
           if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
             panic("sgi failed");
         } else {
-          vmm_log("route sgi to remote vcpu%d@%d\n", vcpuid, node->nodeid);
+          vmm_log("vgic: route sgi(%d) to remote vcpu%d@%d\n", intid, vcpuid, node->nodeid);
           struct pocv2_msg msg;
           struct sgi_msg_hdr hdr;
           hdr.target = vcpuid;
@@ -175,7 +172,7 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
 }
 
 static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
-  int intid, idx;
+  int intid;
   struct vgic_irq *irq;
   struct vgic *vgic = localnode.vgic;
   u64 offset = mmio->offset;
@@ -290,7 +287,6 @@ end:
 static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
-  struct vgic *vgic = localnode.vgic;
   u64 offset = mmio->offset;
   u64 val = mmio->val;
 

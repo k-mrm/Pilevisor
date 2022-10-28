@@ -26,6 +26,8 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
   vmm_log("rep!!!!!!!!!!!!!! %p %p %d\n", rep.addr, rep.val, rep.status);
 
   mmio->val = rep.val;
+
+  return rep.status;
 }
 
 static void vmmio_reply(u8 *dst_mac, enum vmmio_status status, u64 addr, u64 val) {

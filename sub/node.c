@@ -8,11 +8,11 @@
 
 /* sub node controller */
 
-static int wait_for_acked_me() {
-  isb();
+static void wait_for_acked_me() {
   vmm_log("hey %d\n", localnode.acked);
   while(localnode.acked == 0)
     wfi();
+
   isb();
 }
 
@@ -34,7 +34,7 @@ static void sub_init() {
 static void sub_start() {
   vmm_log("node%d@cpu%d: start\n", localnode.nodeid, cpuid());
 
-  vcpu_initstate();
+  vcpu_initstate_core();
 
   wait_for_current_vcpu_online();
 

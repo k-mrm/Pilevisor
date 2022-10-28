@@ -8,6 +8,7 @@
 #include "memmap.h"
 #include "irq.h"
 #include "vcpu.h"
+#include "emul.h"
 
 #define __fallthrough __attribute__((fallthrough))
 
@@ -19,7 +20,6 @@ static u64 gic_read_lr(int n) {
   if(gic_lr_max <= n)
     panic("lr");
 
-  u64 val;
   switch(n) {
     case 0:   return read_sysreg(ich_lr0_el2);
     case 1:   return read_sysreg(ich_lr1_el2);

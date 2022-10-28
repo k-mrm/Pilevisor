@@ -50,7 +50,7 @@ struct node {
   struct nic *nic;
   /* mmio */
   spinlock_t lock;
-  struct mmio_info *pmap;
+  struct mmio_region *pmap;
   int npmap;
   /* node control dispatcher */
   struct nodectl *ctl;

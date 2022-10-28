@@ -10,6 +10,7 @@
 #include "log.h"
 #include "lib.h"
 #include "node.h"
+#include "emul.h"
 
 #define ADDR_WBACK    (1 << 0)
 #define ADDR_POSTIDX  (1 << 1)

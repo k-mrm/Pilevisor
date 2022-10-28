@@ -78,7 +78,7 @@ void vcpu_entry() {
   trapret();
 }
 
-void vcpu_initstate() {
+void vcpu_initstate_core() {
   vgic_cpu_init(current);
   gic_init_state(&current->gic);
 

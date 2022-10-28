@@ -59,7 +59,7 @@ static void wait_for_sub_init_done() {
 }
 
 static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
-  vcpu_initstate();
+  vcpu_initstate_core();
 
   current->reg.elr = ep;
   current->reg.x[0] = fdt_base;
@@ -112,8 +112,6 @@ static void node0_start() {
   cluster_dump();
 
   wait_for_current_vcpu_online();
-
-  vcpu_initstate();
 
   vmm_log("cpu%d: entry to vcpu\n", cpu);
 

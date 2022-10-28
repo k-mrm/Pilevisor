@@ -21,7 +21,6 @@ struct pending_queue {
   spinlock_t lk;
 };
 
-/* aarch64 vcpu */
 struct vcpu {
   /* !!! MUST be first field !!! */
   struct {
@@ -73,7 +72,8 @@ void vcpu_entry(void);
 
 void vcpuid_init(u32 *vcpuids, int nvcpu);
 
-void vcpu_initstate(void);
+void vcpu_initstate_core(void);
+void vcpu_init_core(void);
 void wait_for_current_vcpu_online(void);
 
 void vcpu_dump(struct vcpu *vcpu);
