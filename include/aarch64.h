@@ -20,6 +20,9 @@
 #define intr_enable()   asm volatile("msr daifclr, #0xf" ::: "memory")
 #define intr_disable()  asm volatile("msr daifset, #0xf" ::: "memory")
 
+#define local_irq_enable()    asm volatile("msr daifclr, #0x2" ::: "memory")
+#define local_irq_disable()   asm volatile("msr daifset, #0x2" ::: "memory")
+
 #define isb()     asm volatile("isb");
 #define dsb(ty)   asm volatile("dsb " #ty);
 

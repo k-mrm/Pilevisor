@@ -126,6 +126,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
 
         if(vcpu) {
           /* vcpu in localnode */
+          panic("localinject!?");
           if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
             panic("sgi failed");
         } else {

@@ -81,7 +81,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(fnv)
     panic("fnv");
   if(ar)
-    vmm_warn("acqrel\n");
+    vmm_warn("acqrel %p\n", vcpu->reg.elr);
 
   if(s1ptw) {
     /* fetch pagetable */

@@ -136,11 +136,16 @@ static inline void cache_page_set_owner(struct cache_page *p, int owner) {
   p->flags |= ((u64)owner & CACHE_PAGE_OWNER_MASK) << CACHE_PAGE_OWNER_SHIFT;
 }
 
-/* success: return 0 */
+/*
+ *  success: return 0
+ */
 static inline int page_trylock(u64 ipa) {
   u8 *lock = &page_lock[ipa_to_pfn(ipa)];
-  vmm_log("trylock %p (%p)\n", ipa, ipa_to_pfn(ipa));
+  vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
   u8 r, l = 1;
+  u64 flag = read_sysreg(daif);
+
+  local_irq_disable();
 
   asm volatile(
     "ldaxrb %w0, [%1]\n"
@@ -149,6 +154,10 @@ static inline int page_trylock(u64 ipa) {
     "1:\n"
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
+
+  local_irq_enable();
+
+  write_sysreg(daif, flag);
 
   return r;
 }
@@ -264,8 +273,12 @@ void *vsm_read_fetch_page(u64 page_ipa) {
   if(manager < 0)
     return NULL;
 
+  vmm_log("vsm read_fetch_page %p:\n", page_ipa);
+
   if(page_trylock(page_ipa))
-    panic("rf: locked");
+    panic("rf: locked %p", page_ipa);
+
+  vmm_log("lock toretaaaaaaaaaaaaaaaaaaaaa %p\n", page_ipa);
 
   if(manager == localnode.nodeid) {   /* I am manager */
     /* receive page from owner of page */
@@ -288,6 +301,7 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 
   page_pa = (void *)PTE_PA(*pte);
 
+  vmm_log("unllllllllllllock %p\n", page_ipa);
   page_unlock(page_ipa);
   vsm_process_waitqueue();
 
@@ -308,8 +322,9 @@ void *vsm_write_fetch_page(u64 page_ipa) {
   if(manager < 0)
     return NULL;
 
+  vmm_log("vsm write_fetch_page:\n");
   if(page_trylock(page_ipa))
-    panic("wf: locked");
+    panic("wf: locked %p", page_ipa);
 
   if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
     if(s2pte_copyset(pte) != 0) {
@@ -352,6 +367,7 @@ inv_phase:
 
   pa_page = (void *)PTE_PA(*pte);
 
+  vmm_log("unllllllllllllock %p\n", page_ipa);
   page_unlock(page_ipa);
   vsm_process_waitqueue();
 
@@ -378,8 +394,6 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
     memcpy(pa_page+offset, buf, size);
   else
     memcpy(buf, pa_page+offset, size);
-
-  vmm_log("vsm_access done %p\n", ipa);
 
   return 0;
 }
@@ -473,6 +487,7 @@ static int vsm_read_server_process(struct vsm_server_proc *proc) {
     panic("read server: read %p %d unreachable", page_ipa, req_nodeid);
   }
 
+  vmm_log("rs: unllllllock %p\n", page_ipa);
   page_unlock(page_ipa);
 
   return 0;
@@ -526,6 +541,7 @@ static int vsm_write_server_process(struct vsm_server_proc *proc) {
     panic("write server: %p %d unreachable", page_ipa, req_nodeid);
   }
 
+  vmm_log("ws: unllllllock %p\n", page_ipa);
   page_unlock(page_ipa);
 
   return 0;
