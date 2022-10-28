@@ -276,7 +276,7 @@ static void gic_sgi_handler(enum gic_sgi sgi_id) {
   }
 }
 
-void gic_irq_handler() {
+void gic_irq_handler(int from_guest) {
   while(1) {
     u32 iar = gic_read_iar();
     u32 pirq = iar & 0x3ff;

@@ -196,6 +196,7 @@ el2_sync:
 el2_irq:
   hyp_save_reg
 
+  mov x0, 0
   bl gic_irq_handler
 
   INTR_DISABLE
@@ -209,6 +210,8 @@ guest_sync:
 
   bl vm_sync_handler
 
+  INTR_DISABLE
+
 .global trapret
 trapret:
   vm_restore_reg
@@ -218,7 +221,10 @@ trapret:
 guest_irq:
   vm_save_reg
 
+  mov x0, 1
   bl gic_irq_handler
+
+  INTR_DISABLE
 
   vm_restore_reg
 

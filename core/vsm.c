@@ -288,8 +288,6 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 
   page_pa = (void *)PTE_PA(*pte);
 
-  vmm_log("rf: get page %p\n", page_ipa);
-
   page_unlock(page_ipa);
   vsm_process_waitqueue();
 
@@ -380,6 +378,8 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
     memcpy(pa_page+offset, buf, size);
   else
     memcpy(buf, pa_page+offset, size);
+
+  vmm_log("vsm_access done %p\n", ipa);
 
   return 0;
 }
