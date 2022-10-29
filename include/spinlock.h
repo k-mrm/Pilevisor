@@ -44,7 +44,59 @@ static inline void __spinlock_init(spinlock_t *lk) {
 
 #endif  /* SPINLOCK_DEBUG */
 
-void acquire(spinlock_t *lk);
+#define acquire_irqsave(lk, flags)  \
+  do {    \
+    flags = __acquire_irqsave(lk);    \
+  } while(0)
+
+#define release_irqrestore(lk, flags)   \
+  do {    \
+    __release_irqrestore(lk, flags);    \
+  } while(0)
+
+static inline void acquire(spinlock_t *lk) {
+  u8 tmp;
+  u8 l = 1;
+
+#ifdef SPINLOCK_DEBUG
+  if(holdinglk(lk))
+    panic("acquire@%s: already held", lk->name);
+
+  asm volatile(
+    "sevl\n"
+    "1: wfe\n"
+    "2: ldaxrb %w0, [%1]\n"
+    "cbnz   %w0, 1b\n"
+    "stxrb  %w0, %w2, [%1]\n"
+    "cbnz   %w0, 2b\n"
+    : "=&r"(tmp) : "r"(&lk->lock), "r"(l) : "memory"
+  );
+
+  lk->cpuid = cpuid();
+#else
+  asm volatile(
+    "sevl\n"
+    "1: wfe\n"
+    "2: ldaxrb %w0, [%1]\n"
+    "cbnz   %w0, 1b\n"
+    "stxrb  %w0, %w2, [%1]\n"
+    "cbnz   %w0, 2b\n"
+    : "=&r"(tmp) : "r"(lk), "r"(l) : "memory"
+  );
+#endif
+
+  isb();
+}
+
+static inline u64 __acquire_irqsave(spinlock_t *lk) {
+  u64 flags = read_sysreg(daif);
+
+  local_irq_disable();
+
+  acquire(lk);
+
+  return flags;
+}
 
 static inline void release(spinlock_t *lk) {
 #ifdef SPINLOCK_DEBUG
@@ -52,12 +104,18 @@ static inline void release(spinlock_t *lk) {
     panic("release@%s: invalid", lk->name);
 
   lk->cpuid = -1;
-  asm volatile("str wzr, %0" : "=m"(lk->lock) :: "memory");
+  asm volatile("stlrb wzr, %0" : "=m"(lk->lock) :: "memory");
 #else
-  asm volatile("str wzr, %0" : "=m"(*lk) :: "memory");
+  asm volatile("stlrb wzr, [%0]" : "r"(lk) :: "memory");
 #endif
 
   isb();
+}
+
+static inline void __release_irqrestore(spinlock_t *lk, u64 flags) {
+  release(lk);
+
+  write_sysreg(daif, flags);
 }
 
 #endif

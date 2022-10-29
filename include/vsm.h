@@ -5,6 +5,7 @@
 #include "param.h"
 #include "memory.h"
 #include "mm.h"
+#include "spinlock.h"
 
 struct vcpu;
 struct node;
@@ -33,11 +34,13 @@ struct cache_page {
 struct vsm_waitqueue {
   struct vsm_server_proc *head;
   struct vsm_server_proc *tail;
+  spinlock_t lk;
 };
 
 struct vsm_server_proc {
   struct vsm_server_proc *next;   // waitqueue
   u64 page_ipa;
+  int type;           // for debug
 
   union {
     u64 copyset;      // for invalidate server

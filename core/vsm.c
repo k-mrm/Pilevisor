@@ -37,6 +37,12 @@ static char *pte_state[4] = {
   [3]   " RW",
 };
 
+enum {
+  READ_SERVER,
+  WRITE_SERVER,
+  INVALIDATE_SERVER,
+};
+
 /*
  *  memory fetch message
  *  read request: Node n1 ---> Node n2
@@ -90,6 +96,7 @@ static struct vsm_server_proc *allocvsp() {
 static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid, bool wnr) {
   struct vsm_server_proc *p = allocvsp();
 
+  p->type = wnr ? WRITE_SERVER : READ_SERVER;
   p->page_ipa = page_ipa;
   p->req_nodeid = req_nodeid;
   p->do_process = wnr ? vsm_write_server_process : vsm_read_server_process;
@@ -100,6 +107,7 @@ static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid,
 static struct vsm_server_proc *new_vsm_invalidate_server_proc(u64 page_ipa, u64 copyset) {
   struct vsm_server_proc *p = allocvsp();
 
+  p->type = INVALIDATE_SERVER;
   p->page_ipa = page_ipa;
   p->copyset = copyset;
   p->do_process = vsm_invalidate_server_process;
@@ -115,7 +123,10 @@ static void free_vsm_server_proc(struct vsm_server_proc *p) {
 }
 
 static void vsm_enqueue_proc(struct vsm_server_proc *p) {
-  vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p\n", p);
+  u64 flags;
+  vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p %d\n", p, p->type);
+
+  spin_lock_irqsave(&current->vsm_waitqueue.lk, flags);
 
   if(current->vsm_waitqueue.head == NULL)
     current->vsm_waitqueue.head = p;
@@ -124,21 +135,32 @@ static void vsm_enqueue_proc(struct vsm_server_proc *p) {
     current->vsm_waitqueue.tail->next = p;
 
   current->vsm_waitqueue.tail = p;
+
+  spin_unlock_irqrestore(&current->vsm_waitqueue.lk, flags);
 }
 
 static void vsm_process_waitqueue() {
-  struct vsm_server_proc *p, *p_next;
+  struct vsm_server_proc *p, *p_next, *head;
 
-  vmm_log("waitqueue %p\n", current->vsm_waitqueue.head);
-  for(p = current->vsm_waitqueue.head; p != NULL; p = p_next) {
+  if(!current->vsm_waitqueue.head)
+    return;
+
+  head = current->vsm_waitqueue.head;
+
+  current->vsm_waitqueue.head = NULL;
+  current->vsm_waitqueue.tail = NULL;
+
+  for(p = head; p != NULL; p = p_next) {
     if(p->do_process(p) < 0)
-      panic("process_waitqueue");
+      continue;
     p_next = p->next;
     free_vsm_server_proc(p);
   }
 
-  current->vsm_waitqueue.head = NULL;
-  current->vsm_waitqueue.tail = NULL;
+  /*
+   *  process enqueued processes during in this function
+   */
+  vsm_process_waitqueue();
 }
 
 static inline struct cache_page *ipa_cache_page(u64 ipa) {
@@ -180,7 +202,7 @@ static inline int page_trylock(u64 ipa) {
 static inline void page_unlock(u64 ipa) {
   u8 *lock = &page_lock[ipa_to_pfn(ipa)];
 
-  asm volatile("strb wzr, %0" : "=m"(*lock) :: "memory");
+  asm volatile("stlrb wzr, [%0]" : "r"(lock) :: "memory");
 }
 
 /* determine manager's node of page by ipa */
