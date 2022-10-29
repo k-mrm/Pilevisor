@@ -5,7 +5,7 @@
 #include "types.h"
 #include "log.h"
 
-#define SPINLOCK_DEBUG
+// #define SPINLOCK_DEBUG
 
 #ifdef SPINLOCK_DEBUG
 
@@ -44,19 +44,18 @@ static inline void __spinlock_init(spinlock_t *lk) {
 
 #endif  /* SPINLOCK_DEBUG */
 
-#define acquire_irqsave(lk, flags)  \
+#define spin_lock_irqsave(lk, flags)  \
   do {    \
-    flags = __acquire_irqsave(lk);    \
+    flags = __spin_lock_irqsave(lk);    \
   } while(0)
 
-#define release_irqrestore(lk, flags)   \
+#define spin_unlock_irqrestore(lk, flags)   \
   do {    \
-    __release_irqrestore(lk, flags);    \
+    __spin_unlock_irqrestore(lk, flags);    \
   } while(0)
 
-static inline void acquire(spinlock_t *lk) {
-  u8 tmp;
-  u8 l = 1;
+static inline void spin_lock(spinlock_t *lk) {
+  u8 tmp, l = 1;
 
 #ifdef SPINLOCK_DEBUG
   if(holdinglk(lk))
@@ -77,10 +76,10 @@ static inline void acquire(spinlock_t *lk) {
   asm volatile(
     "sevl\n"
     "1: wfe\n"
-    "2: ldaxrb %w0, [%1]\n"
+    "2: ldaxr %w0, [%1]\n"
     "cbnz   %w0, 1b\n"
-    "stxrb  %w0, %w2, [%1]\n"
-    "cbnz   %w0, 2b\n"
+    "stxr   %w0, %w2, [%1]\n"
+    "cbnz   %w0, 1b\n"
     : "=&r"(tmp) : "r"(lk), "r"(l) : "memory"
   );
 #endif
@@ -88,32 +87,32 @@ static inline void acquire(spinlock_t *lk) {
   isb();
 }
 
-static inline u64 __acquire_irqsave(spinlock_t *lk) {
+static inline u64 __spin_lock_irqsave(spinlock_t *lk) {
   u64 flags = read_sysreg(daif);
 
   local_irq_disable();
 
-  acquire(lk);
+  spin_lock(lk);
 
   return flags;
 }
 
-static inline void release(spinlock_t *lk) {
+static inline void spin_unlock(spinlock_t *lk) {
 #ifdef SPINLOCK_DEBUG
   if(!holdinglk(lk))
     panic("release@%s: invalid", lk->name);
 
   lk->cpuid = -1;
-  asm volatile("stlrb wzr, %0" : "=m"(lk->lock) :: "memory");
+  asm volatile("stlrb wzr, [%0]" :: "r"(&lk->lock) : "memory");
 #else
-  asm volatile("stlrb wzr, [%0]" : "r"(lk) :: "memory");
+  asm volatile("stlrb wzr, [%0]" :: "r"(lk) : "memory");
 #endif
 
   isb();
 }
 
-static inline void __release_irqrestore(spinlock_t *lk, u64 flags) {
-  release(lk);
+static inline void __spin_unlock_irqrestore(spinlock_t *lk, u64 flags) {
+  spin_unlock(lk);
 
   write_sysreg(daif, flags);
 }

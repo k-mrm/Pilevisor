@@ -28,6 +28,9 @@
 
 #define wfi()     asm volatile("wfi");
 
+#define sev()     asm volatile("sev");
+#define sevl()    asm volatile("sevl");
+
 #define HCR_VM    (1<<0)
 #define HCR_SWIO  (1<<1)
 #define HCR_FMO   (1<<3)

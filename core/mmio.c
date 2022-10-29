@@ -12,18 +12,18 @@ static struct mmio_region regions[128];
 static spinlock_t m_lock;
 
 static struct mmio_region *alloc_mmio_region(struct mmio_region *prev) {
-  acquire(&m_lock);
+  spin_lock(&m_lock);
 
   for(struct mmio_region *m = regions; m < &regions[128]; m++) {
     if(m->size == 0) {
       m->size = 1;
       m->next = prev;
-      release(&m_lock);
+      spin_unlock(&m_lock);
       return m;
     }
   }
 
-  release(&m_lock);
+  spin_unlock(&m_lock);
 
   panic("no entry");
 }
@@ -33,7 +33,7 @@ int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio) {
   int c = -1;
   u64 ipa = mmio->ipa;
 
-  acquire(&m_lock);
+  spin_lock(&m_lock);
 
   for(struct mmio_region *m = map; m; m = m->next) {
     if(m->base <= ipa && ipa < m->base + m->size) {
@@ -46,7 +46,7 @@ int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio) {
     }
   }
 
-  release(&m_lock);
+  spin_unlock(&m_lock);
 
   return c;
 }
@@ -57,7 +57,7 @@ int mmio_reg_handler(struct node *node, u64 ipa, u64 size,
   if(size == 0)
     return -1;
 
-  acquire(&node->lock);
+  spin_lock(&node->lock);
 
   struct mmio_region *new = alloc_mmio_region(node->pmap);
   node->pmap = new;
@@ -67,7 +67,7 @@ int mmio_reg_handler(struct node *node, u64 ipa, u64 size,
   new->read = read;
   new->write = write;
 
-  release(&node->lock);
+  spin_unlock(&node->lock);
 
   return 0;
 }

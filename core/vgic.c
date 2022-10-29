@@ -172,7 +172,7 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
 }
 
 static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
-  int intid;
+  int intid, status = 0;
   struct vgic_irq *irq;
   struct vgic *vgic = localnode.vgic;
   u64 offset = mmio->offset;
@@ -182,7 +182,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
     panic("%s: unimplemented %d", __func__, mmio->accsize*8);
     */
 
-  acquire(&vgic->lock);
+  spin_lock(&vgic->lock);
 
   switch(offset) {
     case GICD_CTLR:
@@ -265,23 +265,26 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   }
 
   vmm_warn("vgicd_mmio_read: unhandled %p\n", offset);
-
-  release(&vgic->lock);
-  return -1;
+  mmio->val = 0;
+  status = -1;
+  goto end;
 
 reserved:
   vmm_warn("read reserved\n");
   mmio->val = 0;
+  status = -1;
   goto end;
 
 unimplemented:
   vmm_warn("vgicd_mmio_read: unimplemented %p\n", offset);
   mmio->val = 0;
+  status = -1;
   goto end;
 
 end:
-  release(&vgic->lock);
-  return 0;
+  spin_unlock(&vgic->lock);
+
+  return status;
 }
 
 static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {

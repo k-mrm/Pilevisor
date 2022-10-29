@@ -202,7 +202,7 @@ static inline int page_trylock(u64 ipa) {
 static inline void page_unlock(u64 ipa) {
   u8 *lock = &page_lock[ipa_to_pfn(ipa)];
 
-  asm volatile("stlrb wzr, [%0]" : "r"(lock) :: "memory");
+  asm volatile("stlrb wzr, [%0]" :: "r"(lock) : "memory");
 }
 
 /* determine manager's node of page by ipa */

@@ -6,9 +6,9 @@
 u32 cnt_inc(struct cnt *cnt) {
   u32 c = cnt->cnt;
 
-  acquire(&cnt->lock);
+  spin_lock(&cnt->lock);
   cnt->cnt++;
-  release(&cnt->lock);
+  spin_unlock(&cnt->lock);
 
   return c;
 }
@@ -17,9 +17,9 @@ u32 cnt_inc(struct cnt *cnt) {
 u32 cnt_dec(struct cnt *cnt) {
   u32 c = cnt->cnt;
 
-  acquire(&cnt->lock);
+  spin_lock(&cnt->lock);
   cnt->cnt--;
-  release(&cnt->lock);
+  spin_unlock(&cnt->lock);
 
   return c;
 }
