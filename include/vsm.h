@@ -38,7 +38,12 @@ struct vsm_waitqueue {
 struct vsm_server_proc {
   struct vsm_server_proc *next;   // waitqueue
   u64 page_ipa;
-  int req_nodeid;
+
+  union {
+    u64 copyset;      // for invalidate server
+    int req_nodeid;   // for read/write server
+  };
+
   int used;
   int (*do_process)(struct vsm_server_proc *);
 };
