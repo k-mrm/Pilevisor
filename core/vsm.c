@@ -77,6 +77,13 @@ struct invalidate_hdr {
   POCV2_MSG_HDR_STRUCT;
   u64 ipa;
   u64 copyset;
+  u8 req_nodeid;
+};
+
+struct invalidate_ack_hdr {
+  POCV2_MSG_HDR_STRUCT;
+  u64 ipa;
+  int from_node;
 };
 
 static struct vsm_server_proc *allocvsp() {
@@ -261,6 +268,9 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
   pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_COPYSET(copyset));
 }
 
+/*
+ *  already has ptable[ipa].lock
+ */
 static void vsm_invalidate(u64 ipa, u64 copyset) {
   if(copyset == 0)
     return;
@@ -623,6 +633,10 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   vsm_process_waitqueue();
 }
 
+static void recv_invalidate_ack_intr(struct pocv2_msg *msg) {
+  struct invalidate_ack_hdr *h = (struct invalidate_ack_hdr *)msg->hdr;
+}
+
 void vsm_node_init(struct memrange *mem) {
   u64 *vttbr = localnode.vttbr;
   u64 start = mem->start, size = mem->size;
@@ -651,3 +665,4 @@ void vsm_node_init(struct memrange *mem) {
 DEFINE_POCV2_MSG(MSG_FETCH, struct fetch_req_hdr, recv_fetch_request_intr);
 DEFINE_POCV2_MSG(MSG_FETCH_REPLY, struct fetch_reply_hdr, recv_fetch_reply_intr);
 DEFINE_POCV2_MSG(MSG_INVALIDATE, struct invalidate_hdr, recv_invalidate_intr);
+DEFINE_POCV2_MSG(MSG_INVALIDATE_ACK, struct invalidate_ack_hdr, recv_invalidate_ack_intr);

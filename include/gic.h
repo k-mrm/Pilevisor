@@ -62,16 +62,16 @@
 #define ICH_VMCR_VENG0  (1<<0)
 #define ICH_VMCR_VENG1  (1<<1)
 
-#define ICH_LR_VINTID(n)   ((n) & 0xffffffffL)
-#define ICH_LR_PINTID(n)   (((n) & 0x3ffL) << 32)
-#define ICH_LR_GROUP(n)    (((n) & 0x1L) << 60)
-#define ICH_LR_HW          (1L << 61)
-#define ICH_LR_STATE(n)    (((n) & 0x3L) << 62)
-#define LR_INACTIVE  0L
-#define LR_PENDING   1L
-#define LR_ACTIVE    2L
-#define LR_PENDACT   3L
-#define LR_MASK      3L
+#define ICH_LR_VINTID(n)    ((n) & 0xffffffffL)
+#define ICH_LR_PINTID(n)    (((n) & 0x3ffL) << 32)
+#define ICH_LR_GROUP(n)     (((n) & 0x1L) << 60)
+#define ICH_LR_HW           (1L << 61)
+#define ICH_LR_STATE(n)     (((n) & 0x3L) << 62)
+#define LR_INACTIVE         0L
+#define LR_PENDING          1L
+#define LR_ACTIVE           2L
+#define LR_PENDACT          3L
+#define LR_MASK             3L
 
 #define lr_is_inactive(lr)  (((lr >> 62) & 0x3) == LR_INACTIVE)
 #define lr_is_pending(lr)   (((lr >> 62) & 0x3) == LR_PENDING)
