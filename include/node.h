@@ -14,7 +14,7 @@
 
 struct mmio_access;
 
-extern struct node localnode;
+extern struct localnode localnode;
 
 /* vm descriptor */
 struct vm_desc {
@@ -35,7 +35,8 @@ struct nodeconfig {
   u64 nallocate;
 };
 
-struct node {
+/* localnode */
+struct localnode {
   struct vcpu vcpus[VCPU_PER_NODE_MAX];
   int nvcpu;    /* nvcpu <= npcpu */
   u64 nalloc;
@@ -56,6 +57,8 @@ struct node {
   struct nodectl *ctl;
 };
 
+#define local_nodeid    (localnode.nodeid)
+
 static inline struct vcpu *node_vcpu(int vcpuid) {
   for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[localnode.nvcpu]; v++) {
     if(v->vcpuid == vcpuid)
@@ -75,10 +78,6 @@ static inline struct vcpu *node_vcpu_by_localid(int localcpuid) {
 }
 
 void node_preinit(int nvcpu, u64 nalloc, struct guest *guest_fdt);
-
-void pagetrap(struct node *node, u64 va, u64 size,
-              int (*read_handler)(struct vcpu *, struct mmio_access *),
-              int (*write_handler)(struct vcpu *, struct mmio_access *));
 
 static inline bool node_macaddr_is_me(u8 *mac) {
   return memcmp(localnode.nic->mac, mac, 6) == 0;

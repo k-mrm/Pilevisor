@@ -8,7 +8,6 @@
 #include "spinlock.h"
 
 struct vcpu;
-struct node;
 
 #define CACHE_PAGE_NUM    64
 

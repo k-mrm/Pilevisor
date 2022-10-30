@@ -17,11 +17,12 @@ enum msgtype {
   MSG_FETCH           = 0x8,
   MSG_FETCH_REPLY     = 0x9,
   MSG_INVALIDATE      = 0xa,
-  MSG_INTERRUPT       = 0xb,
-  MSG_MMIO_REQUEST    = 0xc,
-  MSG_MMIO_REPLY      = 0xd,
-  MSG_GIC_CONFIG      = 0xe,
-  MSG_SGI             = 0xf,
+  MSG_INVALIDATE_ACK  = 0xb,
+  MSG_INTERRUPT       = 0xc,
+  MSG_MMIO_REQUEST    = 0xd,
+  MSG_MMIO_REPLY      = 0xe,
+  MSG_GIC_CONFIG      = 0xf,
+  MSG_SGI             = 0x10,
   NUM_MSG,
 };
 
@@ -38,7 +39,7 @@ struct pocv2_msg_header {
   enum msgtype type;
 };
 
-#define POCV2_MSG_HDR_STRUCT  struct pocv2_msg_header hdr
+#define POCV2_MSG_HDR_STRUCT      struct pocv2_msg_header hdr
 
 #define ETH_POCV2_MSG_HDR_SIZE    64
 

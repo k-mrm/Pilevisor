@@ -280,6 +280,7 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
 
   hdr.ipa = ipa;
   hdr.copyset = copyset;
+  hdr.req_nodeid = localnode.nodeid;
 
   int node = 0;
   while(copyset != 0) {

@@ -10,19 +10,7 @@
 #include "node.h"
 #include "cluster.h"
 
-struct node localnode;    /* me */
-
-void pagetrap(struct node *node, u64 ipa, u64 size,
-              int (*read_handler)(struct vcpu *, struct mmio_access *),
-              int (*write_handler)(struct vcpu *, struct mmio_access *)) {
-  u64 *vttbr = node->vttbr;
-
-  if(pagewalk(vttbr, ipa, 0))
-    pageunmap(vttbr, ipa, size);
-
-  if(mmio_reg_handler(node, ipa, size, read_handler, write_handler) < 0)
-    panic("?");
-}
+struct localnode localnode;    /* me */
 
 void node_preinit(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
   vmm_log("node n vCPU: %d total RAM: %p byte\n", nvcpu, nalloc);
@@ -114,11 +102,11 @@ void send_setup_done_notify(u8 status) {
   send_msg(&msg);
 }
 
-void nodedump(struct node *node) {
+void localnode_dump() {
   printf("================== node  ================\n");
-  printf("nvcpu %4d nodeid %4d\n", node->nvcpu, node->nodeid);
-  printf("nic %p mac %m\n", node->nic, node->nic->mac);
-  printf("ctl %p\n", node->ctl);
+  printf("nvcpu %4d nodeid %4d\n", localnode.nvcpu, localnode.nodeid);
+  printf("nic %p mac %m\n", localnode.nic, localnode.nic->mac);
+  printf("ctl %p\n", localnode.ctl);
   printf("=========================================\n");
 }
 

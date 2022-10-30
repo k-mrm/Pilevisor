@@ -7,6 +7,7 @@
 #include "node.h"
 #include "log.h"
 #include "spinlock.h"
+#include "mm.h"
 
 static struct mmio_region regions[128];
 static spinlock_t m_lock;
@@ -51,23 +52,23 @@ int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio) {
   return c;
 }
 
-int mmio_reg_handler(struct node *node, u64 ipa, u64 size,
-                     int (*read)(struct vcpu *, struct mmio_access *),
-                     int (*write)(struct vcpu *, struct mmio_access *)) {
+int mmio_reg_handler(u64 ipa, u64 size,
+                            int (*read)(struct vcpu *, struct mmio_access *),
+                            int (*write)(struct vcpu *, struct mmio_access *)) {
   if(size == 0)
     return -1;
 
-  spin_lock(&node->lock);
+  spin_lock(&localnode.lock);
 
-  struct mmio_region *new = alloc_mmio_region(node->pmap);
-  node->pmap = new;
+  struct mmio_region *new = alloc_mmio_region(localnode.pmap);
+  localnode.pmap = new;
 
   new->base = ipa;
   new->size = size;
   new->read = read;
   new->write = write;
 
-  spin_unlock(&node->lock);
+  spin_unlock(&localnode.lock);
 
   return 0;
 }

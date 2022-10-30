@@ -596,9 +596,9 @@ static void load_new_vgic(void) {
 
   vmm_log("nspis %d sizeof nspi %d\n", vgic->nspis, sizeof(struct vgic_irq) * vgic->nspis);
 
-  pagetrap(&localnode, GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
-  pagetrap(&localnode, GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
-  pagetrap(&localnode, GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
+  mmio_reg_handler(GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
+  mmio_reg_handler(GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
+  mmio_reg_handler(GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
 
   localnode.vgic = vgic;
 }

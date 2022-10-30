@@ -7,7 +7,6 @@
 #include "spinlock.h"
 
 struct vcpu;
-struct node;
 
 struct vgic_irq {
   struct vcpu *target;

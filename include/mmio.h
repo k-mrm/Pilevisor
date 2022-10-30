@@ -22,9 +22,10 @@ struct mmio_region {
 };
 
 int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio);
-int mmio_reg_handler(struct node *node, u64 ipa, u64 size,
-                     int (*read)(struct vcpu *, struct mmio_access *),
-                     int (*write)(struct vcpu *, struct mmio_access *));
+
+int mmio_reg_handler(u64 ipa, u64 size,
+                     int (*read_handler)(struct vcpu *, struct mmio_access *),
+                     int (*write_handler)(struct vcpu *, struct mmio_access *));
 
 #define define_mmio_func(size)  \
   static inline u##size mmio_read##size(void *addr) {   \
