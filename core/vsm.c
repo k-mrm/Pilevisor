@@ -33,7 +33,6 @@ static struct vsm_waitqueue wqs[128];
 
 static struct page_desc ptable[256*1024*1024 / PAGESIZE];
 
-
 static char *pte_state[4] = {
   [0]   "INV",
   [1]   " RO",
@@ -154,6 +153,12 @@ static struct vsm_server_proc *new_vsm_inv_server_proc(u64 page_ipa, int from_no
   return p;
 }
 
+static inline int invoke_vsm_process(struct vsm_server_proc *p) {
+  local_irq_disable();
+
+  return p->do_process(p);
+}
+
 static void vsm_enqueue_proc(u64 ipa, struct vsm_server_proc *p) {
   u64 flags;
   vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p %d\n", p, p->type);
@@ -196,7 +201,7 @@ static void vsm_process_waitqueue(u64 ipa) {
 
   for(p = head; p != NULL; p = p_next) {
     vmm_log("process %p(%d) %p................\n", p, p->type, p->do_process);
-    if(p->do_process(p) < 0)
+    if(invoke_vsm_process(p) < 0)
       continue;
     p_next = p->next;
     free_vsm_server_proc(p);
@@ -226,11 +231,11 @@ static inline void cache_page_set_owner(struct cache_page *p, int owner) {
 static inline int page_trylock(u64 ipa) {
   vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
 
+  if(local_irq_enabled())
+    panic("wtf");
+
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
-  u64 flag = read_sysreg(daif);
-
-  local_irq_disable();
 
   asm volatile(
     "ldaxrb %w0, [%1]\n"
@@ -240,7 +245,7 @@ static inline int page_trylock(u64 ipa) {
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
 
-  write_sysreg(daif, flag);
+  local_irq_enable();
 
   return r;
 }
@@ -359,8 +364,6 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
 
-  vmm_log("Node %d: access invalidate %p\n", local_nodeid(), ipa);
-
   if(page_trylock(ipa)) {
     vsm_enqueue_proc(ipa, proc);
     return -1;
@@ -374,6 +377,8 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc) {
     /* I'm already owner, ignore invalidate request */
     goto out;
   }
+
+  vmm_log("Node %d: access invalidate %p\n", local_nodeid(), ipa);
 
   page_access_invalidate(vttbr, ipa);
 
@@ -673,9 +678,8 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
-  if(p->do_process(p) < 0) {
+  if(invoke_vsm_process(p) < 0)
     return;
-  }
 
   free_vsm_server_proc(p);
   vsm_process_waitqueue(a->ipa);
@@ -693,7 +697,7 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   struct invalidate_hdr *h = (struct invalidate_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_inv_server_proc(h->ipa, h->from_nodeid, h->copyset);
 
-  if(p->do_process(p) < 0)
+  if(invoke_vsm_process(p) < 0)
     return;
 
   free_vsm_server_proc(p);

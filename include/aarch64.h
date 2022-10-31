@@ -64,7 +64,7 @@ static inline u64 at_ipa2pa(u64 ipa) {
   return read_sysreg(par_el1);
 }
 
-static inline bool irq_enabled() {
+static inline bool local_irq_enabled() {
   return (read_sysreg(daif) >> 3) & 0x1;
 }
 
