@@ -123,6 +123,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
         struct vcpu *vcpu = node_vcpu(vcpuid);
 
         if(vcpu) {
+          vmm_log("vgic injection!!!!!!!!!!!!!!!!!%d\n", intid);
           /* vcpu in localnode */
           if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
             panic("sgi failed");
@@ -155,7 +156,7 @@ static void recv_sgi_msg_intr(struct pocv2_msg *msg) {
   if(virq >= 16)
     panic("invalid sgi");
 
-  vmm_log("recv sgi request to %d %d\n", target->vcpuid, virq);
+  vmm_log("SGI: recv sgi(id=%d) request to vcpu%d\n", virq, target->vcpuid);
 
   if(vgic_inject_virq(target, virq, virq, 1) < 0)
     panic("sgi failed");
@@ -272,13 +273,11 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 reserved:
   vmm_warn("read reserved\n");
   mmio->val = 0;
-  status = -1;
   goto end;
 
 unimplemented:
   vmm_warn("vgicd_mmio_read: unimplemented %p\n", offset);
   mmio->val = 0;
-  status = -1;
   goto end;
 
 end:
@@ -575,9 +574,8 @@ static int vgits_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
     default:
       vmm_log("vgits_mmio_read unknown\n");
+      return -1;
   }
-
-  return -1;
 }
 
 static int vgits_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {

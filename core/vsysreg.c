@@ -6,6 +6,7 @@
 #include "types.h"
 #include "vcpu.h"
 #include "vsysreg.h"
+#include "vgic.h"
 
 #define ISS_SYSREG(op0, op1, crn, crm, op2) \
   ((op0 << 20) | (op2 << 17) | (op1 << 14) | (crn << 10) | (crm << 1))

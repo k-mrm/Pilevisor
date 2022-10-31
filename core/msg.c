@@ -22,6 +22,7 @@ static enum msgtype reqrep[NUM_MSG] = {
   [MSG_INIT]          MSG_INIT_ACK,
   [MSG_CPU_WAKEUP]    MSG_CPU_WAKEUP_ACK,
   [MSG_FETCH]         MSG_FETCH_REPLY,
+  [MSG_INVALIDATE]    MSG_INVALIDATE_ACK,
   [MSG_MMIO_REQUEST]  MSG_MMIO_REPLY,
 };
 
@@ -37,6 +38,7 @@ static char *msmap[NUM_MSG] = {
   [MSG_FETCH]           "msg:fetch",
   [MSG_FETCH_REPLY]     "msg:fetch_reply",
   [MSG_INVALIDATE]      "msg:invalidate",
+  [MSG_INVALIDATE_ACK]  "msg:invalidate_ack",
   [MSG_INTERRUPT]       "msg:interrupt",
   [MSG_MMIO_REQUEST]    "msg:mmio_request",
   [MSG_MMIO_REPLY]      "msg:mmio_reply",

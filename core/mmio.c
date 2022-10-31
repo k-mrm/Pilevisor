@@ -53,8 +53,8 @@ int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio) {
 }
 
 int mmio_reg_handler(u64 ipa, u64 size,
-                            int (*read)(struct vcpu *, struct mmio_access *),
-                            int (*write)(struct vcpu *, struct mmio_access *)) {
+                     int (*read)(struct vcpu *, struct mmio_access *),
+                     int (*write)(struct vcpu *, struct mmio_access *)) {
   if(size == 0)
     return -1;
 

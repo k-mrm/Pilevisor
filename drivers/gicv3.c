@@ -121,6 +121,12 @@ static u64 gic_pending_lr(u32 pirq, u32 virq, int grp) {
 }
 
 void gic_inject_guest_irq(u32 pirq, u32 virq, int grp) {
+  if(is_sgi(pirq)) {
+    vmm_log("gic: sgi injecttttttttttttttttttttttttttttttttttttttt %d\n", pirq);
+    if(pirq == 2)
+      panic("!? maybe kernel panicked");
+  }
+
   u64 elsr = read_sysreg(ich_elsr_el2);
   int freelr = -1;
   u64 lr;

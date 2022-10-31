@@ -134,6 +134,8 @@ static int emul_stxr(struct vcpu *vcpu, u32 inst, int size) {
   u64 ipa = vcpu->dabt.fault_ipa;
   u64 page = ipa & ~(u64)(PAGESIZE-1);
 
+  vmm_log("stxr!?fdklafajlfkjlaksfjdlskjflajfklajfklasjf");
+
   vsm_write_fetch_page(page);
 
   return 1;

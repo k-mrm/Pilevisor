@@ -33,19 +33,21 @@ struct cache_page {
 struct vsm_waitqueue {
   struct vsm_server_proc *head;
   struct vsm_server_proc *tail;
-  spinlock_t lk;
+  spinlock_t lock;
+  int used;
+};
+
+struct page_desc {
+  struct vsm_waitqueue *wq;
+  u8 lock;
 };
 
 struct vsm_server_proc {
   struct vsm_server_proc *next;   // waitqueue
   u64 page_ipa;
+  u64 copyset;        // for invalidate server
+  int req_nodeid;
   int type;           // for debug
-
-  union {
-    u64 copyset;      // for invalidate server
-    int req_nodeid;   // for read/write server
-  };
-
   int used;
   int (*do_process)(struct vsm_server_proc *);
 };

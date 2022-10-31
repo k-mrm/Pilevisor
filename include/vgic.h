@@ -35,6 +35,7 @@ void vgic_irq_enter(struct vcpu *vcpu);
 void vgic_cpu_init(struct vcpu *vcpu);
 int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp);
 void vgic_restore_state(struct vgic_cpu *vgic);
+int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr);
 
 void vgic_init(void);
 

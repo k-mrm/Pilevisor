@@ -57,7 +57,7 @@ struct localnode {
   struct nodectl *ctl;
 };
 
-#define local_nodeid    (localnode.nodeid)
+#define local_nodeid()    (localnode.nodeid)
 
 static inline struct vcpu *node_vcpu(int vcpuid) {
   for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[localnode.nvcpu]; v++) {
