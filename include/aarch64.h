@@ -74,11 +74,4 @@ static inline u64 r_sp() {
   return x;
 }
 
-static inline void tlb_flush() {
-  dsb(ishst);
-  asm volatile("tlbi vmalls12e1");
-  dsb(ish);
-  isb();
-}
-
 #endif

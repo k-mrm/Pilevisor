@@ -89,6 +89,35 @@ struct invalidate_ack_hdr {
   u8 from_nodeid;
 };
 
+/*
+ *  success: return 0
+ */
+static inline int page_trylock(u64 ipa) {
+  vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
+
+  if(local_irq_enabled())
+    panic("wtf");
+
+  u8 *lock = &ipa_to_desc(ipa)->lock;
+  u8 r, l = 1;
+
+  asm volatile(
+    "ldaxrb %w0, [%1]\n"
+    "cbnz   %w0, 1f\n"
+    "stxrb  %w0, %w2, [%1]\n"
+    "1:\n"
+    : "=&r"(r) : "r"(lock), "r"(l) : "memory"
+  );
+
+  return r;
+}
+
+static inline void page_unlock(u64 ipa) {
+  u8 *lock = &ipa_to_desc(ipa)->lock;
+
+  asm volatile("stlrb wzr, [%0]" :: "r"(lock) : "memory");
+}
+
 static struct vsm_waitqueue *alloc_wq() {
   struct vsm_waitqueue *wq;
 
@@ -199,8 +228,11 @@ static void vsm_process_waitqueue(u64 ipa) {
 
   spin_unlock_irqrestore(&page->wq->lock, flags);
 
+  if(local_irq_enabled())
+    panic("bug");
+
   for(p = head; p != NULL; p = p_next) {
-    vmm_log("process %p(%d) %p................\n", p, p->type, p->do_process);
+    vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
     if(invoke_vsm_process(p) < 0)
       continue;
     p_next = p->next;
@@ -223,37 +255,6 @@ static inline struct cache_page *ipa_cache_page(u64 ipa) {
 static inline void cache_page_set_owner(struct cache_page *p, int owner) {
   p->flags &= ~((u64)CACHE_PAGE_OWNER_MASK << CACHE_PAGE_OWNER_SHIFT);
   p->flags |= ((u64)owner & CACHE_PAGE_OWNER_MASK) << CACHE_PAGE_OWNER_SHIFT;
-}
-
-/*
- *  success: return 0
- */
-static inline int page_trylock(u64 ipa) {
-  vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
-
-  if(local_irq_enabled())
-    panic("wtf");
-
-  u8 *lock = &ipa_to_desc(ipa)->lock;
-  u8 r, l = 1;
-
-  asm volatile(
-    "ldaxrb %w0, [%1]\n"
-    "cbnz   %w0, 1f\n"
-    "stxrb  %w0, %w2, [%1]\n"
-    "1:\n"
-    : "=&r"(r) : "r"(lock), "r"(l) : "memory"
-  );
-
-  local_irq_enable();
-
-  return r;
-}
-
-static inline void page_unlock(u64 ipa) {
-  u8 *lock = &ipa_to_desc(ipa)->lock;
-
-  asm volatile("stlrb wzr, [%0]" :: "r"(lock) : "memory");
 }
 
 /* determine manager's node of page by ipa */

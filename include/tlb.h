@@ -3,24 +3,25 @@
 
 #include "aarch64.h"
 
-#define tlbi(ty)    asm volatile("tlbi " #ty ::: "memory")
-
 static inline void tlb_vmm_flush_all() {
   dsb(ishst);
-  tlbi(alle2);
+  asm volatile("tlbi  alle2" ::: "memory");
   dsb(ish);
   isb();
 }
 
 static inline void tlb_s2_flush_all() {
   dsb(ishst);
-  tlbi(vmalls12e1);
+  asm volatile("tlbi  vmalls12e1" ::: "memory");
   dsb(ish);
   isb();
 }
 
 static inline void tlb_s2_flush_ipa(u64 ipa) {
-  ;
+  dsb(ishst);
+  asm volatile("tlbi  ipas2e1, %0" :: "r"(ipa) : "memory");
+  dsb(ish);
+  isb();
 }
 
 #endif
