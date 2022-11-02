@@ -96,7 +96,7 @@ static inline int page_trylock(u64 ipa) {
   vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
 
   if(local_irq_enabled())
-    panic("wtf");
+    panic("wtf daif: %p", read_sysreg(daif));
 
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
@@ -402,6 +402,9 @@ void *vsm_read_fetch_page(u64 page_ipa) {
   manager = page_manager(page_ipa);
   if(manager < 0)
     return NULL;
+
+  if(local_irq_enabled())
+    panic("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
   if(page_trylock(page_ipa))
     panic("read fault: locked %p", page_ipa);

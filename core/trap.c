@@ -187,7 +187,7 @@ static void iabort_iss_dump(u64 iss) {
 }
 
 void vm_sync_handler() {
-  intr_enable();
+  local_irq_enable();
 
   // vmm_log("el0/1 sync!\n");
   u64 esr = read_sysreg(esr_el2);

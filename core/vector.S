@@ -191,7 +191,7 @@ el2_sync:
   mov x0, sp
   bl hyp_sync_handler
 
-  /* return never here */
+  /* never return here */
 
 el2_irq:
   hyp_save_reg
