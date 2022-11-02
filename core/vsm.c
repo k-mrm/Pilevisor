@@ -19,14 +19,6 @@
 
 #define ipa_to_desc(ipa)  (&ptable[ipa_to_pfn(ipa)])
 
-void *vsm_read_fetch_page(u64 page_ipa);
-void *vsm_write_fetch_page(u64 page_ipa);
-static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
-
-static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked);
-static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked);
-static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool locked);
-
 static struct cache_page pages[NR_CACHE_PAGES];
 static struct vsm_server_proc proctable[128];
 static struct vsm_waitqueue wqs[128];
@@ -45,6 +37,19 @@ enum {
   WRITE_SERVER,
   INV_SERVER,
 };
+
+struct vsm_write_data {
+  u64 offset;
+  char *buf;
+  u64 size;
+};
+
+static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_write_data *d);
+static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
+
+static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked);
+static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked);
+static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool locked);
 
 /*
  *  memory fetch message
@@ -240,7 +245,7 @@ static void vsm_process_waitqueue(u64 ipa) {
   for(p = head; p != NULL; p = p_next) {
     vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
     if(invoke_vsm_process(p, true) < 0)
-      continue;
+      panic("bug");
     p_next = p->next;
     free_vsm_server_proc(p);
   }
@@ -407,25 +412,32 @@ void *vsm_read_fetch_page(u64 page_ipa) {
     return NULL;
 
   if(page_trylock(page_ipa))
-    panic("read fault: locked %p", page_ipa);
+    panic("rf: locked %p", page_ipa);
 
   if(manager == local_nodeid()) {   /* I am manager */
     /* receive page from owner of page */
     struct cache_page *p = ipa_cache_page(page_ipa);
     int owner = CACHE_PAGE_OWNER(p);
 
-    vmm_log("read fault: request remote read fetch!!!!: %p owner %d elr %p far %p\n", page_ipa, owner, current->reg.elr, far);
+    vmm_log("rf: request remote read fetch!!!!: %p owner %d elr %p far %p\n", page_ipa, owner, current->reg.elr, far);
     send_fetch_request(local_nodeid(), owner, page_ipa, 0);
   } else {
     /* ask manager for read access to page and a copy of page */
-    vmm_log("read fault: request remote read fetch!!!!: %p manager %d elr %p far %p\n", page_ipa, manager, current->reg.elr, far);
+    vmm_log("rf: request remote read fetch!!!!: %p manager %d elr %p far %p\n", page_ipa, manager, current->reg.elr, far);
     send_fetch_request(local_nodeid(), manager, page_ipa, 0);
   }
 
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
 
-  vmm_log("read fault: get remote page @%p\n", page_ipa);
+  vmm_log("rf: get remote page @%p\n", page_ipa);
+
+  if(page_ipa == 0x4ff46000) {
+    bin_dump(PTE_PA(*pte) + 0x5d0, 0x40);
+    if(current->reg.elr == 0xffffffc0080ac54c) {
+      vmm_log("RF: !!!!!!!!!!!!!!!!!! page_ipa %p %p %p\n", page_ipa, current->reg.x[0], current->reg.x[1]);
+    }
+  }
 
   s2pte_ro(pte);
   tlb_s2_flush_all();
@@ -437,10 +449,25 @@ void *vsm_read_fetch_page(u64 page_ipa) {
   return page_pa;
 }
 
-/* write fault handler */
+inline void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
+  struct vsm_write_data d = {
+    .offset = offset,
+    .buf = buf,
+    .size = size,
+  };
+
+  return __vsm_write_fetch_page(page_ipa, &d);
+}
+
 void *vsm_write_fetch_page(u64 page_ipa) {
+  return __vsm_write_fetch_page(page_ipa, NULL);
+}
+
+/* write fault handler */
+static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_write_data *d) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
+  void *pa_page;
   u64 far = read_sysreg(far_el2);
   int manager = -1;
 
@@ -467,6 +494,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
      *  TODO: no need to fetch page from remote node
      */
     vmm_log("wf: write to ro page(copyset) %p elr %p far %p\n", page_ipa, current->reg.elr, far);
+
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
   }
@@ -492,12 +520,25 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 inv_phase:
   /* invalidate request to copyset */
   vsm_invalidate(page_ipa, s2pte_copyset(pte));
+
   s2pte_clear_copyset(pte);
+
+  pa_page = (void *)PTE_PA(*pte);
+
+  /* write data */
+  if(d)
+    memcpy((char *)pa_page + d->offset, d->buf, d->size);
+
   s2pte_rw(pte);
+  tlb_s2_flush_all();
+
+  if(page_ipa == 0x4ff46000) {
+    bin_dump(PTE_PA(*pte) + 0x5d0, 0x40);
+  }
 
   vsm_process_waitqueue(page_ipa);
 
-  return (void *)PTE_PA(*pte);
+  return pa_page;
 }
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
@@ -505,21 +546,28 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
     panic("null buf");
 
   u64 page_ipa = PAGE_ADDRESS(ipa);
+  u64 offset = PAGE_OFFSET(ipa);
   char *pa_page;
 
   if(wr)
-    pa_page = vsm_write_fetch_page(page_ipa);
+    pa_page = vsm_write_fetch_page_imm(page_ipa, offset, buf, size);
   else
     pa_page = vsm_read_fetch_page(page_ipa);
 
   if(!pa_page)
     return -1;
 
-  u32 offset = PAGE_OFFSET(ipa);
-  if(wr)
-    memcpy(pa_page+offset, buf, size);
-  else
+  if(!wr)
     memcpy(buf, pa_page+offset, size);
+
+  if(ipa == 0x4ff465d8) {
+    if(wr) {
+      vmm_log("writeeeeeeeeeeedddddddddd %p\n", current->reg.elr);
+      bin_dump(pa_page + 0x5d0, 0x40);
+    }
+    else
+      vmm_log("rrrrrrrrrreaddddddddddddd %p\n", current->reg.elr);
+  }
 
   return 0;
 }
@@ -598,6 +646,10 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
     /* I am owner */
     u64 pa = PTE_PA(*pte);
 
+    if(page_ipa == 0x4ff46000) {
+      bin_dump(pa + 0x5d0, 0x40);
+    }
+
     vmm_log("read server: send read fetch reply: i am owner! c: %p\n", s2pte_copyset(pte));
 
     /* send p */
@@ -646,6 +698,10 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
 
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
+
+    if(page_ipa == 0x4ff46000) {
+      bin_dump(pa + 0x5d0, 0x40);
+    }
 
     // send p and copyset;
     send_write_fetch_reply(req_nodeid, page_ipa, (void *)pa, copyset);
