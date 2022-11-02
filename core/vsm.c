@@ -23,9 +23,9 @@ void *vsm_read_fetch_page(u64 page_ipa);
 void *vsm_write_fetch_page(u64 page_ipa);
 static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
 
-static int vsm_read_server_process(struct vsm_server_proc *proc);
-static int vsm_write_server_process(struct vsm_server_proc *proc);
-static int vsm_invalidate_server_process(struct vsm_server_proc *proc);
+static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked);
+static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked);
+static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool locked);
 
 static struct cache_page pages[NR_CACHE_PAGES];
 static struct vsm_server_proc proctable[128];
@@ -93,13 +93,13 @@ struct invalidate_ack_hdr {
  *  success: return 0
  */
 static inline int page_trylock(u64 ipa) {
-  vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
-
-  if(local_irq_enabled())
-    panic("wtf daif: %p", read_sysreg(daif));
-
+  u64 flags = read_sysreg(daif);
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
+
+  vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
+
+  local_irq_disable();
 
   asm volatile(
     "ldaxrb %w0, [%1]\n"
@@ -108,6 +108,8 @@ static inline int page_trylock(u64 ipa) {
     "1:\n"
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
+
+  write_sysreg(daif, flags);
 
   return r;
 }
@@ -182,10 +184,8 @@ static struct vsm_server_proc *new_vsm_inv_server_proc(u64 page_ipa, int from_no
   return p;
 }
 
-static inline int invoke_vsm_process(struct vsm_server_proc *p) {
-  local_irq_disable();
-
-  return p->do_process(p);
+static inline int invoke_vsm_process(struct vsm_server_proc *p, bool locked) {
+  return p->do_process(p, locked);
 }
 
 static void vsm_enqueue_proc(u64 ipa, struct vsm_server_proc *p) {
@@ -210,14 +210,20 @@ static void vsm_enqueue_proc(u64 ipa, struct vsm_server_proc *p) {
   spin_unlock_irqrestore(&page->wq->lock, flags);
 }
 
+/*
+ *  must be held ptable[ipa].lock
+ */
 static void vsm_process_waitqueue(u64 ipa) {
   struct vsm_server_proc *p, *p_next, *head;
   u64 flags;
 
   struct page_desc *page = ipa_to_desc(ipa);
 
-  if(!page->wq || !page->wq->head)
+  /* waitqueue is empty */
+  if(!page->wq || !page->wq->head) {
+    page_unlock(ipa);
     return;
+  }
 
   spin_lock_irqsave(&page->wq->lock, flags);
 
@@ -228,12 +234,12 @@ static void vsm_process_waitqueue(u64 ipa) {
 
   spin_unlock_irqrestore(&page->wq->lock, flags);
 
-  if(local_irq_enabled())
-    panic("bug");
+  if(!page_trylock(ipa))
+    panic("bug: not held lock");
 
   for(p = head; p != NULL; p = p_next) {
     vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
-    if(invoke_vsm_process(p) < 0)
+    if(invoke_vsm_process(p, true) < 0)
       continue;
     p_next = p->next;
     free_vsm_server_proc(p);
@@ -358,14 +364,14 @@ static void send_invalidate_ack(int from_nodeid, u64 ipa) {
   send_msg(&msg);
 }
 
-static int vsm_invalidate_server_process(struct vsm_server_proc *proc) {
+static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool locked) {
   u64 ipa = proc->page_ipa;
   u64 copyset = proc->copyset;
   u64 from_nodeid = proc->req_nodeid;
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
 
-  if(page_trylock(ipa)) {
+  if(!locked && page_trylock(ipa)) {
     vsm_enqueue_proc(ipa, proc);
     return -1;
   }
@@ -376,15 +382,12 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc) {
   if((pte = page_rwable_pte(vttbr, ipa)) != NULL ||
       (((pte = page_ro_pte(vttbr, ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
     /* I'm already owner, ignore invalidate request */
-    goto out;
+    return 0;
   }
 
   vmm_log("Node %d: access invalidate %p\n", local_nodeid(), ipa);
 
   page_access_invalidate(vttbr, ipa);
-
-out:
-  page_unlock(ipa);
 
   return 0;
 }
@@ -402,9 +405,6 @@ void *vsm_read_fetch_page(u64 page_ipa) {
   manager = page_manager(page_ipa);
   if(manager < 0)
     return NULL;
-
-  if(local_irq_enabled())
-    panic("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
   if(page_trylock(page_ipa))
     panic("read fault: locked %p", page_ipa);
@@ -432,7 +432,6 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 
   page_pa = (void *)PTE_PA(*pte);
 
-  page_unlock(page_ipa);
   vsm_process_waitqueue(page_ipa);
 
   return page_pa;
@@ -453,6 +452,9 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 
   if(page_trylock(page_ipa))
     panic("wf: locked %p", page_ipa);
+
+  if(!local_irq_enabled())
+    panic("bug: local irq disabled");
 
   if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
     if(s2pte_copyset(pte) != 0) {
@@ -493,7 +495,6 @@ inv_phase:
   s2pte_clear_copyset(pte);
   s2pte_rw(pte);
 
-  page_unlock(page_ipa);
   vsm_process_waitqueue(page_ipa);
 
   return (void *)PTE_PA(*pte);
@@ -571,13 +572,13 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
 }
 
 /* read server */
-static int vsm_read_server_process(struct vsm_server_proc *proc) {
+static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
   u64 *vttbr = localnode.vttbr;
   u64 page_ipa = proc->page_ipa;
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
 
-  if(page_trylock(page_ipa)) {
+  if(!locked && page_trylock(page_ipa)) {
     vsm_enqueue_proc(page_ipa, proc);
     return -1;
   }
@@ -616,19 +617,17 @@ static int vsm_read_server_process(struct vsm_server_proc *proc) {
     panic("read server: read %p %d unreachable", page_ipa, req_nodeid);
   }
 
-  page_unlock(page_ipa);
-
   return 0;
 }
 
 /* write server */
-static int vsm_write_server_process(struct vsm_server_proc *proc) {
+static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
   u64 *vttbr = localnode.vttbr;
   u64 page_ipa = proc->page_ipa;
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
 
-  if(page_trylock(page_ipa)) {
+  if(!locked && page_trylock(page_ipa)) {
     vsm_enqueue_proc(page_ipa, proc);
     return -1;
   }
@@ -673,8 +672,6 @@ static int vsm_write_server_process(struct vsm_server_proc *proc) {
     panic("write server: %p %d unreachable", page_ipa, req_nodeid);
   }
 
-  page_unlock(page_ipa);
-
   return 0;
 }
 
@@ -682,7 +679,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
-  if(invoke_vsm_process(p) < 0)
+  if(invoke_vsm_process(p, false) < 0)
     return;
 
   free_vsm_server_proc(p);
@@ -701,7 +698,7 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   struct invalidate_hdr *h = (struct invalidate_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_inv_server_proc(h->ipa, h->from_nodeid, h->copyset);
 
-  if(invoke_vsm_process(p) < 0)
+  if(invoke_vsm_process(p, false) < 0)
     return;
 
   free_vsm_server_proc(p);

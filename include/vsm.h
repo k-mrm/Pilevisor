@@ -49,7 +49,7 @@ struct vsm_server_proc {
   int req_nodeid;
   int type;           // for debug
   int used;
-  int (*do_process)(struct vsm_server_proc *);
+  int (*do_process)(struct vsm_server_proc *, bool locked);
 };
 
 #define CACHE_PAGE_LOCK_BIT(p)  (((p)->flags >> 37) & 0x1)
