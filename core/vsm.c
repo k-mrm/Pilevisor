@@ -38,13 +38,14 @@ enum {
   INV_SERVER,
 };
 
-struct vsm_write_data {
+struct vsm_rw_data {
   u64 offset;
   char *buf;
   u64 size;
 };
 
-static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_write_data *d);
+static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d);
+static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d);
 static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
 
 static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked);
@@ -397,8 +398,22 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool lock
   return 0;
 }
 
-/* read fault handler */
+inline void *vsm_read_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size)  {
+  struct vsm_rw_data d = {
+    .offset = offset,
+    .buf = buf,
+    .size = size,
+  };
+
+  return __vsm_read_fetch_page(page_ipa, &d);
+}
+
 void *vsm_read_fetch_page(u64 page_ipa) {
+  return __vsm_read_fetch_page(page_ipa, NULL);
+}
+
+/* read fault handler */
+static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
   void *page_pa = NULL;
@@ -432,17 +447,14 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 
   vmm_log("rf: get remote page @%p\n", page_ipa);
 
-  if(page_ipa == 0x4ff46000) {
-    bin_dump(PTE_PA(*pte) + 0x5d0, 0x40);
-    if(current->reg.elr == 0xffffffc0080ac54c) {
-      vmm_log("RF: !!!!!!!!!!!!!!!!!! page_ipa %p %p %p\n", page_ipa, current->reg.x[0], current->reg.x[1]);
-    }
-  }
+  page_pa = (void *)PTE_PA(*pte);
+
+  /* read data */
+  if(d)
+    memcpy(d->buf, (char *)page_pa + d->offset, d->size);
 
   s2pte_ro(pte);
   tlb_s2_flush_all();
-
-  page_pa = (void *)PTE_PA(*pte);
 
   vsm_process_waitqueue(page_ipa);
 
@@ -450,7 +462,7 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 }
 
 inline void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
-  struct vsm_write_data d = {
+  struct vsm_rw_data d = {
     .offset = offset,
     .buf = buf,
     .size = size,
@@ -464,10 +476,10 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 }
 
 /* write fault handler */
-static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_write_data *d) {
+static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   u64 *vttbr = localnode.vttbr;
   u64 *pte;
-  void *pa_page;
+  void *page_pa;
   u64 far = read_sysreg(far_el2);
   int manager = -1;
 
@@ -523,22 +535,18 @@ inv_phase:
 
   s2pte_clear_copyset(pte);
 
-  pa_page = (void *)PTE_PA(*pte);
+  page_pa = (void *)PTE_PA(*pte);
 
   /* write data */
   if(d)
-    memcpy((char *)pa_page + d->offset, d->buf, d->size);
+    memcpy((char *)page_pa + d->offset, d->buf, d->size);
 
   s2pte_rw(pte);
   tlb_s2_flush_all();
 
-  if(page_ipa == 0x4ff46000) {
-    bin_dump(PTE_PA(*pte) + 0x5d0, 0x40);
-  }
-
   vsm_process_waitqueue(page_ipa);
 
-  return pa_page;
+  return page_pa;
 }
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
@@ -552,24 +560,9 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   if(wr)
     pa_page = vsm_write_fetch_page_imm(page_ipa, offset, buf, size);
   else
-    pa_page = vsm_read_fetch_page(page_ipa);
+    pa_page = vsm_read_fetch_page_imm(page_ipa, offset, buf, size);
 
-  if(!pa_page)
-    return -1;
-
-  if(!wr)
-    memcpy(buf, pa_page+offset, size);
-
-  if(ipa == 0x4ff465d8) {
-    if(wr) {
-      vmm_log("writeeeeeeeeeeedddddddddd %p\n", current->reg.elr);
-      bin_dump(pa_page + 0x5d0, 0x40);
-    }
-    else
-      vmm_log("rrrrrrrrrreaddddddddddddd %p\n", current->reg.elr);
-  }
-
-  return 0;
+  return pa_page ? 0 : 1;
 }
 
 /*
@@ -646,10 +639,6 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
     /* I am owner */
     u64 pa = PTE_PA(*pte);
 
-    if(page_ipa == 0x4ff46000) {
-      bin_dump(pa + 0x5d0, 0x40);
-    }
-
     vmm_log("read server: send read fetch reply: i am owner! c: %p\n", s2pte_copyset(pte));
 
     /* send p */
@@ -698,10 +687,6 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
 
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
-
-    if(page_ipa == 0x4ff46000) {
-      bin_dump(pa + 0x5d0, 0x40);
-    }
 
     // send p and copyset;
     send_write_fetch_reply(req_nodeid, page_ipa, (void *)pa, copyset);
