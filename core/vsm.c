@@ -562,7 +562,7 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   else
     pa_page = vsm_read_fetch_page_imm(page_ipa, offset, buf, size);
 
-  return pa_page ? 0 : 1;
+  return pa_page ? 0 : -1;
 }
 
 /*
