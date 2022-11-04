@@ -15,15 +15,18 @@ SECTIONS {
     }
 
     .rodata : {
-      *(.rodata) *(.rodata.*)
+      *(.rodata) 
+
+      . = ALIGN(16);
+      __pocv2_msg_data_start = .;
+      *(.rodata.pocv2_msg)
+      __pocv2_msg_data_end = .;
+
+      *(.rodata.*)
     }
 
     .data : {
       *(.data) *(.data.*)
-      . = ALIGN(16);
-      __pocv2_msg_data_start = .;
-      *(.pocv2_msg_data)
-      __pocv2_msg_data_end = .;
     }
 
     . = ALIGN(4096);

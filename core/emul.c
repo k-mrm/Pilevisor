@@ -36,6 +36,8 @@ enum regext {
 #define addressing_postidx(ad)  ((ad) & ADDR_POSTIDX)
 
 static int emul_ldnp_stnp(struct vcpu *vcpu, u32 inst) {
+  panic("ldnp stnp");
+
   return -1;
 }
 
@@ -393,11 +395,11 @@ int cpu_emulate(struct vcpu *vcpu, u32 inst) {
 
   switch(op1) {
     case 0x0:
-      goto unimpl;
+      goto err;
     case 0x1:
       panic("unallocated");
     case 0x2:
-      goto unimpl;
+      goto err;
     case 0x3:
       panic("unallocated");
     case 0x8: case 0x9:
@@ -411,7 +413,7 @@ int cpu_emulate(struct vcpu *vcpu, u32 inst) {
       panic("data ?");
   }
 
-unimpl:
+err:
   vmm_warn("cannot emulate %p %p\n", inst, vcpu->reg.elr);
   return -1;
 }

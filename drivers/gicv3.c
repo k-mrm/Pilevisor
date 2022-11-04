@@ -122,7 +122,7 @@ static u64 gic_pending_lr(u32 pirq, u32 virq, int grp) {
 
 void gic_inject_guest_irq(u32 pirq, u32 virq, int grp) {
   if(is_sgi(pirq)) {
-    vmm_log("gic: sgi injecttttttttttttttttttttttttttttttttttttttt %d\n", pirq);
+    printf("gic: sgi injecttttttttttttttttttttttttttttttttttttttt %d\n", pirq);
     if(pirq == 2)
       panic("!? maybe kernel panicked");
   }

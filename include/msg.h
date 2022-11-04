@@ -65,7 +65,7 @@ struct pocv2_msg_data {
 };
 
 #define DEFINE_POCV2_MSG(ty, hdr_struct, handler)  \
-  struct pocv2_msg_data _mdata_##ty __attribute__((__section__(".pocv2_msg_data"))) = {   \
+  struct pocv2_msg_data _mdata_##ty __attribute__((__section__(".rodata.pocv2_msg"))) = {   \
     .type = (ty),   \
     .msg_hdr_size = sizeof(hdr_struct),    \
     .recv_handler = handler,    \

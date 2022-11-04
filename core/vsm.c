@@ -445,7 +445,7 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   while(!(pte = page_accessible_pte(vttbr, page_ipa)))
     wfi();
 
-  vmm_log("rf: get remote page @%p\n", page_ipa);
+  vmm_log("rf: get remote page @%p %p\n", page_ipa, far);
 
   page_pa = (void *)PTE_PA(*pte);
 
