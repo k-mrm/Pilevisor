@@ -15,6 +15,8 @@
 #define ADDR_WBACK    (1 << 0)
 #define ADDR_POSTIDX  (1 << 1)
 
+#define X(vcpu, rt)   ((rt) == 31 ? 0 : (vcpu)->reg.x[(rt)])
+
 enum addressing {
   OFFSET = 0,
   PRE_INDEX = ADDR_WBACK,
@@ -158,20 +160,152 @@ static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
     return emul_stxr(vcpu, inst, size);
 }
 
-static int emul_ldrstr_roffset(struct vcpu *vcpu, int rt, int size, bool load) {
-  u64 ipa = vcpu->dabt.fault_ipa;
-  int accbyte = 1 << size;
-  int c;
+/*
+ *  @sext32 used for ldrsh
+ */
+static int load_register(struct vcpu *vcpu, int rt, u64 ipa, int size, bool sign_extend, bool sext32) {
+  switch(size) {
+    case 0: {
+      if(sign_extend)
+        panic("unimpl");
+      u8 val = 0;
+      if(vsm_access(vcpu, (char *)&val, ipa, 1, 0) < 0)
+        return -1;
+      vcpu->reg.x[rt] = val;
+      return 0;
+    }
+    case 1: {
+      u16 val = 0;
+      if(vsm_access(vcpu, (char *)&val, ipa, 2, 0) < 0)
+        return -1;
 
-  if(load) {
-    u64 val = 0;
-    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 0) < 0)
-      return -1;
-    vcpu->reg.x[rt] = val;
-  } else {
-    u64 val = rt == 31 ? 0 : vcpu->reg.x[rt];
-    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
-      return -1;
+      if(sign_extend) {
+        if(sext32)
+          vcpu->reg.x[rt] = (i32)(i16)val;
+        else
+          vcpu->reg.x[rt] = (i64)(i16)val;
+      } else {
+        vcpu->reg.x[rt] = val;
+      }
+      return 0;
+    }
+    case 2: {
+      u32 val = 0;
+      if(vsm_access(vcpu, (char *)&val, ipa, 4, 0) < 0)
+        return -1;
+      vcpu->reg.x[rt] = sign_extend ? (i64)(i32)val : val;
+      return 0;
+    }
+    case 3: {
+      u64 val = 0;
+      if(vsm_access(vcpu, (char *)&val, ipa, 8, 0) < 0)
+        return -1;
+      vcpu->reg.x[rt] = val;
+      return 0;
+    }
+    default:
+      panic("unreachable");
+  }
+}
+
+static int store_register(struct vcpu *vcpu, int rt, u64 ipa, int size) {
+  switch(size) {
+    case 0: {
+      u8 val = rt == 31 ? 0 : (u8)vcpu->reg.x[rt];
+      if(vsm_access(vcpu, (char *)&val, ipa, 1, 1) < 0)
+        return -1;
+      return 0;
+    }
+    case 1: {
+      u16 val = rt == 31 ? 0 : (u16)vcpu->reg.x[rt];
+      if(vsm_access(vcpu, (char *)&val, ipa, 2, 1) < 0)
+        return -1;
+      return 0;
+    }
+    case 2: {
+      u32 val = rt == 31 ? 0 : (u32)vcpu->reg.x[rt];
+      if(vsm_access(vcpu, (char *)&val, ipa, 4, 1) < 0)
+        return -1;
+      return 0;
+    }
+    case 3: {
+      u64 val = rt == 31 ? 0UL : vcpu->reg.x[rt];
+      if(vsm_access(vcpu, (char *)&val, ipa, 8, 1) < 0)
+        return -1;
+      return 0;
+    }
+    default:
+      panic("unreachable");
+  }
+}
+
+static int emul_ldr_roffset(struct vcpu *vcpu, int rt, int size, bool sign_extend, bool sext32) {
+  u64 ipa = vcpu->dabt.fault_ipa;
+
+  if(load_register(vcpu, rt, ipa, size, sign_extend, sext32) < 0)
+    return -1;
+
+  return 0;
+}
+
+static int emul_str_roffset(struct vcpu *vcpu, int rt, int size) {
+  u64 ipa = vcpu->dabt.fault_ipa;
+
+  if(store_register(vcpu, rt, ipa, size) < 0)
+    return -1;
+
+  return 0;
+}
+
+static int emul_ldr_imm(struct vcpu *vcpu, int rt, int rn, int imm, int size, enum addressing ad, bool sign_extend, bool sext32) {
+  u64 addr;
+  u64 ipa = vcpu->dabt.fault_ipa;
+
+  if(rn == 31)
+    addr = vcpu->reg.sp;
+  else
+    addr = vcpu->reg.x[rn];
+
+  if(!addressing_postidx(ad))   /* pre-index */
+    addr += imm;
+
+  if(load_register(vcpu, rt, ipa, size, sign_extend, sext32) < 0)
+    return -1;
+
+  if(addressing_wback(ad)) {      /* writeback */
+    if(addressing_postidx(ad))    /* post-index */
+      addr += imm;
+    if(rn == 31)
+      vcpu->reg.sp = addr;
+    else
+      vcpu->reg.x[rn] = addr;
+  }
+
+  return 0;
+}
+
+static int emul_str_imm(struct vcpu *vcpu, int rt, int rn, int imm, int size, enum addressing ad) {
+  u64 addr;
+  u64 ipa = vcpu->dabt.fault_ipa;
+
+  if(rn == 31)
+    addr = vcpu->reg.sp;
+  else
+    addr = vcpu->reg.x[rn];
+
+  if(!addressing_postidx(ad))   /* pre-index */
+    addr += imm;
+
+  if(store_register(vcpu, rt, ipa, size) < 0)
+    return -1;
+
+  if(addressing_wback(ad)) {      /* writeback */
+    if(addressing_postidx(ad))    /* post-index */
+      addr += imm;
+    if(rn == 31)
+      vcpu->reg.sp = addr;
+    else
+      vcpu->reg.x[rn] = addr;
   }
 
   return 0;
@@ -186,51 +320,18 @@ static int emul_ldst_roffset(struct vcpu *vcpu, u32 inst) {
   int opc = (inst >> 22) & 0x3;
   int v = (inst >> 26) & 0x1;
   int size = (inst >> 30) & 0x3;
+
   bool load = opc != 0;
+  bool sign_extend = (opc >> 1) & 0x1;
+  bool opc_0 = opc & 0x1;
 
   if(v)
     panic("vector");
 
-  return emul_ldrstr_roffset(vcpu, rt, size, load);
-}
-
-/* emulate ldr* str* */
-static int emul_ldrstr_imm(struct vcpu *vcpu, int rt, int rn, int imm,
-                           int size, bool load, enum addressing ad) {
-  u64 addr;
-  u64 ipa = vcpu->dabt.fault_ipa;
-  int accbyte = 1 << size;
-
-  if(rn == 31)
-    addr = vcpu->reg.sp;
+  if(load)
+    return emul_ldr_roffset(vcpu, rt, size, sign_extend, opc_0);
   else
-    addr = vcpu->reg.x[rn];
-
-  if(!addressing_postidx(ad))   /* pre-index */
-    addr += imm;
-
-  if(load) {
-    u64 val = 0;
-    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 0) < 0)
-      return -1;
-    vcpu->reg.x[rt] = val;
-  } else {
-    u64 val = rt == 31 ? 0 : vcpu->reg.x[rt];
-
-    if(vsm_access(vcpu, (char *)&val, ipa, accbyte, 1) < 0)
-      return -1;
-  }
-
-  if(addressing_wback(ad)) {      /* writeback */
-    if(addressing_postidx(ad))    /* post-index */
-      addr += imm;
-    if(rn == 31)
-      vcpu->reg.sp = addr;
-    else
-      vcpu->reg.x[rn] = addr;
-  }
-
-  return 0;
+    return emul_str_roffset(vcpu, rt, size);
 }
 
 /* load/store register imm9
@@ -244,12 +345,18 @@ static int emul_ldst_reg_imm9(struct vcpu *vcpu, u32 inst, enum addressing ad) {
   int opc = (inst >> 22) & 0x3; 
   int v = (inst >> 26) & 0x1;
   int size = (inst >> 30) & 0x3;
+
   bool load = (opc & 1) != 0;
+  bool sign_extend = (opc >> 1) & 0x1;
+  bool opc_0 = opc & 0x1;
 
   if(v)
     panic("vector unsupported");
 
-  return emul_ldrstr_imm(vcpu, rt, rn, imm9, size, load, ad);
+  if(load)
+    return emul_ldr_imm(vcpu, rt, rn, imm9, size, ad, sign_extend, opc_0);
+  else
+    return emul_str_imm(vcpu, rt, rn, imm9, size, ad);
 }
 
 static int emul_ldst_reg_uimm(struct vcpu *vcpu, u32 inst) {
@@ -260,12 +367,20 @@ static int emul_ldst_reg_uimm(struct vcpu *vcpu, u32 inst) {
   int v = (inst >> 26) & 0x1;
   int size = (inst >> 30) & 0x3;
 
+  bool load = opc != 0;
+  bool sign_extend = (opc >> 1) & 0x1;
+  bool opc_0 = opc & 0x1;
+
   if(v)
     panic("vector unsupported");
 
-  bool load = opc != 0;
+  if(size == 3 && opc == 2)
+    panic("pfrm ()");
 
-  return emul_ldrstr_imm(vcpu, rt, rn, imm12, size, load, OFFSET);
+  if(load)
+    return emul_ldr_imm(vcpu, rt, rn, imm12, size, OFFSET, sign_extend, opc_0);
+  else
+    return emul_str_imm(vcpu, rt, rn, imm12, size, OFFSET);
 }
 
 static int emul_ldst_reg_unscaled(struct vcpu *vcpu) {
