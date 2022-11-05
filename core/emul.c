@@ -155,12 +155,18 @@ static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
 static int load_register(struct vcpu *vcpu, int rt, u64 ipa, int size, bool sign_extend, bool sext32) {
   switch(size) {
     case 0: {
-      if(sign_extend)
-        panic("unimpl");
       u8 val = 0;
       if(vsm_access(vcpu, (char *)&val, ipa, 1, 0) < 0)
         return -1;
-      vcpu->reg.x[rt] = val;
+
+      if(sign_extend) {
+        if(sext32)
+          vcpu->reg.x[rt] = (i32)(i8)val;
+        else
+          vcpu->reg.x[rt] = (i64)(i8)val;
+      } else {
+        vcpu->reg.x[rt] = val;
+      }
       return 0;
     }
     case 1: {

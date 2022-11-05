@@ -128,7 +128,7 @@ static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
           if(vgic_inject_virq(vcpu, intid, intid, 1) < 0)
             panic("sgi failed");
         } else {
-          printf("vgic: route sgi(%d) to remote vcpu%d@%d (%p)\n", intid, vcpuid, node->nodeid, current->reg.elr);
+          vmm_log("vgic: route sgi(%d) to remote vcpu%d@%d (%p)\n", intid, vcpuid, node->nodeid, current->reg.elr);
           struct pocv2_msg msg;
           struct sgi_msg_hdr hdr;
           hdr.target = vcpuid;
@@ -404,7 +404,7 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = 0;
       return 0;
     case GICR_IIDR:
-      mmio->val = gicr_r32(vcpu->vmpidr, GICR_IIDR);
+      mmio->val = gicr_r32(vcpu_localid(vcpu), GICR_IIDR);
       return 0;
     case GICR_TYPER: {
       u64 typer;
@@ -424,7 +424,7 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
     }
     case GICR_PIDR2:
-      mmio->val = gicr_r32(vcpu->vmpidr, GICR_PIDR2);
+      mmio->val = gicr_r32(vcpu_localid(vcpu), GICR_PIDR2);
       return 0;
     case GICR_ISENABLER0: {
       u32 iser = 0; 
