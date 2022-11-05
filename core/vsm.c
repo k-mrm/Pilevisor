@@ -451,9 +451,6 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   if(d)
     memcpy(d->buf, (char *)page_pa + d->offset, d->size);
 
-  if(d)
-    printf("rf: get remote page @%p %p %p %p\n", page_ipa, far, current->reg.elr, *(u64*)d->buf);
-
   s2pte_ro(pte);
   tlb_s2_flush_all();
 
@@ -541,9 +538,6 @@ inv_phase:
   /* write data */
   if(d)
     memcpy((char *)page_pa + d->offset, d->buf, d->size);
-
-  if(d)
-    printf("wf: get remote page @%p %p %p %p\n", page_ipa, far, current->reg.elr, *(u64*)d->buf);
 
   s2pte_rw(pte);
   tlb_s2_flush_all();

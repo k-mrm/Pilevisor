@@ -23,17 +23,6 @@ enum addressing {
   POST_INDEX = ADDR_WBACK | ADDR_POSTIDX,
 };
 
-enum regext {
-  EXT_UXTB = 0,
-  EXT_UXTH = 1,
-  EXT_UXTW = 2,
-  EXT_UXTX = 3,
-  EXT_SXTB = 4,
-  EXT_SXTH = 5,
-  EXT_SXTW = 6, 
-  EXT_SXTX = 7,
-};
-
 #define addressing_wback(ad)    ((ad) & ADDR_WBACK)
 #define addressing_postidx(ad)  ((ad) & ADDR_POSTIDX)
 
@@ -466,7 +455,9 @@ static int emul_load_store(struct vcpu *vcpu, u32 inst) {
     case 1: goto unimpl;
     case 2:   /* load and store pair */
       switch(op2) {
-        case 0: return emul_ldnp_stnp(vcpu, inst);
+        case 0:
+          // return emul_ldnp_stnp(vcpu, inst);
+          return emul_ldst_pair(vcpu, inst, OFFSET);
         case 1: return emul_ldst_pair(vcpu, inst, POST_INDEX);
         case 2: return emul_ldst_pair(vcpu, inst, OFFSET);
         case 3: return emul_ldst_pair(vcpu, inst, PRE_INDEX);
