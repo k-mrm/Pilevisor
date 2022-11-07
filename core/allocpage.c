@@ -10,6 +10,7 @@
 #include "lib.h"
 #include "param.h"
 #include "allocpage.h"
+#include "compiler.h"
 
 #define MAX_ORDER   10
 
@@ -113,7 +114,8 @@ static void buddyinit() {
   }
 }
 
-void pageallocator_test() {
+__unused
+static void pageallocator_test() {
   void *a[100];
 
   for(int i = 0; i < 100; i++) {
@@ -143,6 +145,4 @@ void pageallocator_init() {
   }
 
   buddyinit();
-
-  pageallocator_test();
 }

@@ -9,8 +9,7 @@
 #include "irq.h"
 #include "vcpu.h"
 #include "emul.h"
-
-#define __fallthrough __attribute__((fallthrough))
+#include "compiler.h"
 
 /* gicv3 controller */
 

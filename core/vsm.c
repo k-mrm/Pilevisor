@@ -338,7 +338,6 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
 
   struct pocv2_msg msg;
   struct invalidate_hdr hdr;
-  struct invalidate_ack_hdr ack;
 
   hdr.ipa = ipa;
   hdr.copyset = copyset;
