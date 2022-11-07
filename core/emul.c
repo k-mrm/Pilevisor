@@ -26,134 +26,8 @@ enum addressing {
 #define addressing_wback(ad)    ((ad) & ADDR_WBACK)
 #define addressing_postidx(ad)  ((ad) & ADDR_POSTIDX)
 
-static int emul_ldnp_stnp(struct vcpu *vcpu, u32 inst) {
-  panic("ldnp stnp");
-
-  return -1;
-}
-
-/* ldp/stp <Xt1>, <Xt2>, [<Xn>] */
-static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc, int load) {
-  int rt = inst & 0x1f;
-  int rn = (inst >> 5) & 0x1f;
-  int rt2 = (inst >> 10) & 0x1f;
-  int imm7 = (int)(inst << (32 - 15 - 7)) >> (32 - 7);
-  int scale = 2 + get_bit(opc, 1);
-  int offset = imm7 << scale;
-  int datasize = 8 << scale;  /* 32 or 64 */
-  u64 addr;
-
-  if(rn == 31)
-    addr = vcpu->reg.sp;
-  else
-    addr = vcpu->reg.x[rn];
-
-  u64 ipa = vcpu->dabt.fault_ipa;
-
-  if(!addressing_postidx(ad))   /* pre-index */
-    addr += offset;
-
-  if((addr & 0xfff) != (ipa & 0xfff))
-    panic("emul: bug %p %p\n", addr, ipa);
-
-  if(datasize == 32) {
-    u32 rtval = rt == 31 ? 0 : (u32)vcpu->reg.x[rt];
-    u32 rt2val = rt2 == 31 ? 0 : (u32)vcpu->reg.x[rt2];
-
-    u32 reg[2] = { rtval, rt2val };
-
-    if(load) {   /* ldp */
-      if(vsm_access(vcpu, (char *)reg, ipa, 8, 0) < 0)
-        return -1;
-      vcpu->reg.x[rt] = reg[0];
-      vcpu->reg.x[rt2] = reg[1];
-    } else {    /* stp */
-      if(vsm_access(vcpu, (char *)reg, ipa, 8, 1) < 0)
-        return -1;
-    }
-  } else if(datasize == 64) {
-    u64 rtval = rt == 31 ? 0 : vcpu->reg.x[rt];
-    u64 rt2val = rt2 == 31 ? 0 : vcpu->reg.x[rt2];
-
-    u64 reg[2] = { rtval, rt2val };
-
-    if(load) {   /* ldp */
-      if(vsm_access(vcpu, (char *)reg, ipa, 16, 0) < 0)
-        return -1;
-      vcpu->reg.x[rt] = reg[0];
-      vcpu->reg.x[rt2] = reg[1];
-    } else {    /* stp */
-      if(vsm_access(vcpu, (char *)reg, ipa, 16, 1) < 0)
-        return -1;
-    }
-  } else {
-    panic("unreachable");
-  }
-
-  if(addressing_wback(ad)) {
-    if(addressing_postidx(ad))
-      addr += offset;
-    if(rn == 31)
-      vcpu->reg.sp = addr;
-    else
-      vcpu->reg.x[rn] = addr;
-  }
-
-  return 0;
-}
-
-static int emul_ldst_pair(struct vcpu *vcpu, u32 inst, enum addressing ad) {
-  int opc = (inst >> 30) & 0x3;
-  int v = (inst >> 26) & 0x1;
-  int l = (inst >> 22) & 0x1;
-
-  if(v)
-    panic("stp simd&fp");
-
-  switch(opc) {
-    case 0: case 2:
-      return emul_ldpstp(vcpu, inst, ad, opc, l);
-    default: panic("emul_ldp_stp: unimplemeted");
-  }
-}
-
-static int emul_ldxr(struct vcpu *vcpu, u32 inst, int size) {
-  u64 ipa = vcpu->dabt.fault_ipa;
-  u64 page = ipa & ~(u64)(PAGESIZE-1);
-
-  vsm_read_fetch_page(page);
-
-  return 1;
-}
-
-static int emul_stxr(struct vcpu *vcpu, u32 inst, int size) {
-  u64 ipa = vcpu->dabt.fault_ipa;
-  u64 page = ipa & ~(u64)(PAGESIZE-1);
-
-  vmm_log("stxr!?fdklafajlfkjlaksfjdlskjflajfklajfklasjf");
-
-  vsm_write_fetch_page(page);
-
-  return 1;
-}
-
-static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
-  int size = (inst >> 30) & 0x3;
-  int l = (inst >> 22) & 0x1;
-  int o0 = (inst >> 15) & 0x1;
-
-  /* TODO: o0? */
-  // if(o0)
-  //   panic("o0");
-
-  if(l)
-    return emul_ldxr(vcpu, inst, size);
-  else
-    return emul_stxr(vcpu, inst, size);
-}
-
 /*
- *  @sext32 used for ldrsh
+ *  @sext32 used for ldrsh/ldrsw
  */
 static int load_register(struct vcpu *vcpu, int rt, u64 ipa, int size, bool sign_extend, bool sext32) {
   switch(size) {
@@ -235,6 +109,108 @@ static int store_register(struct vcpu *vcpu, int rt, u64 ipa, int size) {
     default:
       panic("unreachable");
   }
+}
+
+/* ldp/stp <Xt1>, <Xt2>, [<Xn>] */
+static int emul_ldpstp(struct vcpu *vcpu, int rn, int rt, int rt2, int imm7,
+                       int opc, enum addressing ad, bool load) {
+  /*
+  int scale = 2 + ((opc >> 1) & 1);
+  int offset = imm7 << scale;
+  int datasize = 8 << scale;
+  u64 addr;
+
+  if(rn == 31)
+    addr = vcpu->reg.sp;
+  else
+    addr = vcpu->reg.x[rn];
+
+  u64 ipa = vcpu->dabt.fault_ipa;
+
+  if(!addressing_postidx(ad))
+    addr += offset;
+
+  if((addr & 0xfff) != (ipa & 0xfff))
+    panic("emul: bug %p %p %d %d %p\n", addr, ipa, offset, rn, read_sysreg(far_el2));
+
+  if(datasize == 32) {
+    ;
+  } else if(datasize == 64) {
+    ;
+  } else {
+    panic("unreachable");
+  }
+
+  if(addressing_wback(ad)) {
+    if(addressing_postidx(ad))
+      addr += offset;
+
+    if(rn == 31)
+      vcpu->reg.sp = addr;
+    else
+      vcpu->reg.x[rn] = addr;
+  }
+  */
+
+  u64 page = PAGE_ADDRESS(vcpu->dabt.fault_ipa);
+
+  if(load)
+    vsm_read_fetch_page(page);
+  else
+    vsm_write_fetch_page(page);
+
+  return 1;
+}
+
+static int emul_ldst_pair(struct vcpu *vcpu, u32 inst, enum addressing ad) {
+  int rt = inst & 0x1f;
+  int rn = (inst >> 5) & 0x1f;
+  int rt2 = (inst >> 10) & 0x1f;
+  int imm7 = (int)(inst << (32 - 15 - 7)) >> (32 - 7);
+  int l = (inst >> 22) & 0x1;
+  int v = (inst >> 26) & 0x1;
+  int opc = (inst >> 30) & 0x3;
+
+  if(v)
+    panic("stp simd&fp");
+
+  if(opc & 1)
+    panic("unimplemented stgp/ldpsw");
+
+  return emul_ldpstp(vcpu, rn, rt, rt2, imm7, opc, ad, l);
+}
+
+static int emul_ldxr(struct vcpu *vcpu) {
+  u64 page = PAGE_ADDRESS(vcpu->dabt.fault_ipa);
+
+  vsm_read_fetch_page(page);
+
+  return 1;
+}
+
+static int emul_stxr(struct vcpu *vcpu) {
+  u64 page = PAGE_ADDRESS(vcpu->dabt.fault_ipa);
+
+  vmm_log("stxr!?fdklafajlfkjlaksfjdlskjflajfklajfklasjf");
+
+  vsm_write_fetch_page(page);
+
+  return 1;
+}
+
+static int emul_ldst_excl(struct vcpu *vcpu, u32 inst) {
+  int size = (inst >> 30) & 0x3;
+  int l = (inst >> 22) & 0x1;
+  int o0 = (inst >> 15) & 0x1;
+
+  /* TODO: o0? */
+  // if(o0)
+  //   panic("o0");
+
+  if(l)
+    return emul_ldxr(vcpu);
+  else
+    return emul_stxr(vcpu);
 }
 
 static int emul_ldr_roffset(struct vcpu *vcpu, int rt, int size, bool sign_extend, bool sext32) {
