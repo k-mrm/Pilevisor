@@ -53,6 +53,9 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
   if(!addressing_postidx(ad))   /* pre-index */
     addr += offset;
 
+  if(addr != ipa)
+    panic("emul: bug");
+
   if(datasize == 32) {
     u32 rtval = rt == 31 ? 0 : (u32)vcpu->reg.x[rt];
     u32 rt2val = rt2 == 31 ? 0 : (u32)vcpu->reg.x[rt2];
@@ -264,6 +267,9 @@ static int emul_ldr_imm(struct vcpu *vcpu, int rt, int rn, int imm, int size, en
   if(!addressing_postidx(ad))   /* pre-index */
     addr += imm;
 
+  if(addr != ipa)
+    panic("emul: bug");
+
   if(load_register(vcpu, rt, ipa, size, sign_extend, sext32) < 0)
     return -1;
 
@@ -290,6 +296,9 @@ static int emul_str_imm(struct vcpu *vcpu, int rt, int rn, int imm, int size, en
 
   if(!addressing_postidx(ad))   /* pre-index */
     addr += imm;
+
+  if(addr != ipa)
+    panic("emul: bug");
 
   if(store_register(vcpu, rt, ipa, size) < 0)
     return -1;
