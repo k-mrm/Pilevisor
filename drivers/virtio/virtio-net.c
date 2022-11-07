@@ -67,7 +67,7 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
 }
 
 static void fill_recv_queue(struct virtq *rxq) {
-  for(int i = 0; i < NQUEUE; i += 2) {
+  for(int i = 0; i < NQUEUE/2; i++) {
     u16 d0 = virtq_alloc_desc(rxq);
     u16 d1 = virtq_alloc_desc(rxq);
     rxq->desc[d0].addr = (u64)alloc_page();     // FIXME
@@ -108,6 +108,7 @@ static void rxintr(struct nic *nic, u16 idx) {
     nic->ops->recv_intr_callback(nic, p, l, np);
 
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d0;
+  // dev->rx->avail->ring[(dev->rx->avail->idx + 1) % NQUEUE] = d1;
   dsb(sy);
   dev->rx->avail->idx += 1;
 }
@@ -121,7 +122,7 @@ static void txintr(struct nic *nic, u16 idx) {
   u8 *buf = (u8 *)dev->tx->desc[d1].addr;
 
   free_page(h);
-  free_pages(buf, 1);
+  free_page(buf);
 
   virtq_free_desc(dev->tx, d0);
   virtq_free_desc(dev->tx, d1);
@@ -211,7 +212,7 @@ int virtio_net_init(void *base, int intid) {
   status = vtmmio_read(base, VIRTIO_MMIO_STATUS);
   vtmmio_write(base, VIRTIO_MMIO_STATUS, status | DEV_STATUS_DRIVER_OK);
 
-  printf("virtio-net ready %p\n", status);
+  vmm_log("virtio-net ready %p\n", status);
 
   u8 mac[6] = {0};
   virtio_net_get_mac(&vtnet_dev, mac);

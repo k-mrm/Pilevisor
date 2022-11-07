@@ -205,6 +205,11 @@ void gic_irq_disable_redist(u32 cpuid, u32 irq) {
   gicr_w32(cpuid, GICR_ICENABLER0, is);
 }
 
+bool gic_irq_enabled(u32 irq) {
+  u32 is = gicd_r(GICD_ISENABLER(irq / 32));
+  return (is & (1 << (irq % 32))) != 0;
+}
+
 void gic_irq_enable(u32 irq) {
   u32 is = gicd_r(GICD_ISENABLER(irq / 32));
   is |= 1 << (irq % 32);
@@ -212,14 +217,9 @@ void gic_irq_enable(u32 irq) {
 }
 
 void gic_irq_disable(u32 irq) {
-  u32 is = gicd_r(GICD_ICENABLER(irq / 32));
-  is |= 1 << (irq % 32);
-  gicd_w(GICD_ICENABLER(irq / 32), is);
-}
+  u32 is = 1 << (irq % 32);
 
-bool gic_irq_enabled(u32 irq) {
-  u32 is = gicd_r(GICD_ISENABLER(irq / 32));
-  return (is & (1 << (irq % 32))) != 0;
+  gicd_w(GICD_ICENABLER(irq / 32), is);
 }
 
 void gic_set_igroup(u32 irq, u32 igrp) {

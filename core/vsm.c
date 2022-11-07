@@ -398,7 +398,7 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool lock
   return 0;
 }
 
-inline void *vsm_read_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size)  {
+void *vsm_read_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size)  {
   struct vsm_rw_data d = {
     .offset = offset,
     .buf = buf,
@@ -459,7 +459,7 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   return page_pa;
 }
 
-inline void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
+void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
   struct vsm_rw_data d = {
     .offset = offset,
     .buf = buf,

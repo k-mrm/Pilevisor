@@ -90,17 +90,17 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(ar)
     vmm_warn("acqrel %p\n", vcpu->reg.elr);
     */
+  u64 fipa_page = faulting_ipa_page();
 
   if(s1ptw) {
     /* fetch pagetable */
-    u64 pgt_ipa = faulting_ipa_page();
-    vmm_log("\tdabort fetch pagetable ipa %p %p\n", pgt_ipa, vcpu->reg.elr);
-    vsm_read_fetch_page(pgt_ipa);
+    vmm_log("\tdabort fetch pagetable ipa %p %p\n", fipa_page, vcpu->reg.elr);
+    vsm_read_fetch_page(fipa_page);
 
     return 1;
   }
 
-  u64 ipa = faulting_ipa_page() | (far & (PAGESIZE-1));
+  u64 ipa = fipa_page | (far & (PAGESIZE-1));
   vcpu->dabt.fault_va = far;
   vcpu->dabt.fault_ipa = ipa;
   vcpu->dabt.isv = isv;

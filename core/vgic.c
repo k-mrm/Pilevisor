@@ -27,7 +27,7 @@ struct sgi_msg_hdr {
 
 static void vgic_irq_enable(struct vcpu *vcpu, int vintid) {
   int cpu = cpuid();
-  vmm_log("cpu%d: enabled %d irq\n", cpu, vintid);
+  vmm_warn("cpu%d: enabled %d irq %p\n", cpu, vintid, current->reg.elr);
 
   if(is_sgi_ppi(vintid))
     gic_irq_enable_redist(cpu, vintid);
@@ -211,7 +211,8 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = igrp;
       goto end;
     }
-    case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3: {
+    case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
+    case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3: {
       u32 iser = 0;
 
       intid = (offset - GICD_ISENABLER(0)) / sizeof(u32) * 32;
@@ -376,7 +377,7 @@ readonly:
   goto end;
 
 unimplemented:
-  vmm_warn("vgicd_mmio_write: unimplemented %p %p\n", offset, val);
+  vmm_warn("vgicd_mmio_write: unimplemented %p %p %p %p\n", offset, val, current->reg.elr, current->reg.x[30]);
   goto end;
 
 reserved:
@@ -426,7 +427,8 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICR_PIDR2:
       mmio->val = gicr_r32(vcpu_localid(vcpu), GICR_PIDR2);
       return 0;
-    case GICR_ISENABLER0: {
+    case GICR_ISENABLER0:
+    case GICR_ICENABLER0: {
       u32 iser = 0; 
 
       for(int i = 0; i < 32; i++) {
@@ -437,8 +439,6 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = iser;
       return 0;
     }
-    case GICR_ICENABLER0:
-      goto unimplemented;
     case GICR_ICPENDR0:
       mmio->val = 0;
       return 0;
