@@ -319,7 +319,7 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 
   vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
 
-  vmm_log("vsm: cache @%p copyset: %p count%d\n", ipa_page, copyset, ++count);
+  printf("vsm: cache @%p(%p) copyset: %p count%d\n", ipa_page, page, copyset, ++count);
 
   /*
    *  TODO: free old page
@@ -505,8 +505,12 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
      */
     vmm_log("wf: write to ro page(copyset) %p elr %p far %p\n", page_ipa, current->reg.elr, far);
 
+    void *pa = (void *)PTE_PA(*pte);
+
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
+
+    // free_page(pa);
   }
 
   if(manager == local_nodeid()) {   /* I am manager */
@@ -688,6 +692,8 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
 
     // send p and copyset;
     send_write_fetch_reply(req_nodeid, page_ipa, (void *)pa, copyset);
+
+    // free_page(pa);
 
     if(local_nodeid() == manager) {
       struct cache_page *p = ipa_cache_page(page_ipa);

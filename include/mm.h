@@ -4,6 +4,7 @@
 #include "types.h"
 #include "guest.h"
 #include "tlb.h"
+#include "allocpage.h"
 
 #define TCR_T0SZ(n)   ((n) & 0x3f)
 #define TCR_IRGN0(n)  (((n) & 0x3) << 8)

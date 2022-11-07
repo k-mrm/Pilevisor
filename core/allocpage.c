@@ -28,6 +28,10 @@ static struct free_chunk free_chunks[MAX_ORDER];
 
 static void *__alloc_pages(int order);
 
+/*
+ *  TODO: consider spinlock
+ */
+
 static void *buddy_request_page(int order) {
   if(order == MAX_ORDER-1)
     return NULL;
@@ -87,12 +91,14 @@ static void __free_pages(void *pages, int order) {
 }
 
 void free_pages(void *pages, int order) {
-  if((u64)pages & ((PAGESIZE << order) - 1))
-    panic("alignment %p", pages);
-  if(order > MAX_ORDER-1)
-    panic("invalid order");
   if(!pages)
     return;
+
+  if((u64)pages & ((PAGESIZE << order) - 1))
+    panic("alignment %p", pages);
+
+  if(order > MAX_ORDER-1)
+    panic("invalid order");
 
   __free_pages(pages, order);
 }
@@ -107,10 +113,36 @@ static void buddyinit() {
   }
 }
 
+void pageallocator_test() {
+  void *a[100];
+
+  for(int i = 0; i < 100; i++) {
+    a[i] = alloc_page();
+    printf("pageallocator %p\n", a[i]);
+  }
+
+  for(int i = 0; i < 100; i++) {
+    free_page(a[i]);
+    printf("frreeeeing %p\n", a[i]);
+  }
+
+  for(int i = 0; i < 100; i++) {
+    a[i] = alloc_page();
+    printf("pageallocator %p\n", a[i]);
+  }
+
+  for(int i = 0; i < 100; i++) {
+    free_page(a[i]);
+    printf("frreeeeing %p\n", a[i]);
+  }
+}
+
 void pageallocator_init() {
   for(struct free_chunk *f = free_chunks; f < &free_chunks[MAX_ORDER]; f++) {
     spinlock_init(&f->lock);
   }
 
   buddyinit();
+
+  pageallocator_test();
 }

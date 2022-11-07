@@ -154,9 +154,13 @@ void page_access_invalidate(u64 *pgt, u64 va) {
   if(!pte)
     panic("no entry");
 
+  void *pa = (void *)PTE_PA(*pte);
+
   s2pte_invalidate(pte);
 
   tlb_s2_flush_all();
+
+  // free_page(pa);
 }
 
 void page_access_ro(u64 *pgt, u64 va) {
