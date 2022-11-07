@@ -53,8 +53,8 @@ static int emul_ldpstp(struct vcpu *vcpu, u32 inst, enum addressing ad, int opc,
   if(!addressing_postidx(ad))   /* pre-index */
     addr += offset;
 
-  if(addr != ipa)
-    panic("emul: bug");
+  if((addr & 0xfff) != (ipa & 0xfff))
+    panic("emul: bug %p %p\n", addr, ipa);
 
   if(datasize == 32) {
     u32 rtval = rt == 31 ? 0 : (u32)vcpu->reg.x[rt];
@@ -267,8 +267,8 @@ static int emul_ldr_imm(struct vcpu *vcpu, int rt, int rn, int imm, int size, en
   if(!addressing_postidx(ad))   /* pre-index */
     addr += imm;
 
-  if(addr != ipa)
-    panic("emul: bug");
+  if((addr & 0xfff) != (ipa & 0xfff))
+    panic("emul: bug %p %p\n", addr, ipa);
 
   if(load_register(vcpu, rt, ipa, size, sign_extend, sext32) < 0)
     return -1;
@@ -297,8 +297,8 @@ static int emul_str_imm(struct vcpu *vcpu, int rt, int rn, int imm, int size, en
   if(!addressing_postidx(ad))   /* pre-index */
     addr += imm;
 
-  if(addr != ipa)
-    panic("emul: bug");
+  if((addr & 0xfff) != (ipa & 0xfff))
+    panic("emul: bug %p %p %d %d\n", addr, ipa, rn, imm);
 
   if(store_register(vcpu, rt, ipa, size) < 0)
     return -1;
@@ -375,6 +375,8 @@ static int emul_ldst_reg_uimm(struct vcpu *vcpu, u32 inst) {
   bool sign_extend = (opc >> 1) & 0x1;
   bool opc_0 = opc & 0x1;
 
+  int offset = imm12 << size;
+
   if(v)
     panic("vector unsupported");
 
@@ -382,9 +384,9 @@ static int emul_ldst_reg_uimm(struct vcpu *vcpu, u32 inst) {
     panic("pfrm ()");
 
   if(load)
-    return emul_ldr_imm(vcpu, rt, rn, imm12, size, OFFSET, sign_extend, opc_0);
+    return emul_ldr_imm(vcpu, rt, rn, offset, size, OFFSET, sign_extend, opc_0);
   else
-    return emul_str_imm(vcpu, rt, rn, imm12, size, OFFSET);
+    return emul_str_imm(vcpu, rt, rn, offset, size, OFFSET);
 }
 
 static int emul_ldst_reg_unscaled(struct vcpu *vcpu) {
