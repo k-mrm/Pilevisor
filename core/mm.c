@@ -41,7 +41,7 @@ void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
     u64 *pte = pagewalk(pgt, va, 1);
     if(*pte & PTE_AF)
-      panic("this entry has been used");
+      panic("this entry has been used: va %p", va);
 
     *pte = PTE_PA(pa) | PTE_AF | attr | PTE_V;
   }

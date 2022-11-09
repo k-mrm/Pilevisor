@@ -8,6 +8,7 @@
 #include "log.h"
 #include "spinlock.h"
 #include "mm.h"
+#include "panic.h"
 
 static struct mmio_region regions[128];
 static spinlock_t m_lock;

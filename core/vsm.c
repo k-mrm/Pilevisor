@@ -383,7 +383,7 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool lock
   }
 
   if(!page_accessible(vttbr, ipa))
-    panic("invalidate already");
+    panic("invalidate already: %p", ipa);
 
   if((pte = page_rwable_pte(vttbr, ipa)) != NULL ||
       (((pte = page_ro_pte(vttbr, ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
@@ -703,10 +703,10 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
     struct cache_page *p = ipa_cache_page(page_ipa);
     int p_owner = CACHE_PAGE_OWNER(p);
 
-    vmm_log("write server: forward write fetch request to %d (%p)\n", p_owner, page_ipa);
+    vmm_log("write server: forward write fetch request to %d (%p) %p\n", p_owner, page_ipa);
 
     if(req_nodeid == p_owner)
-      panic("write server: req_nodeid(%d) == p_owner(%d)", req_nodeid, p_owner);
+      panic("write server: req_nodeid(%d) == p_owner(%d) fetch request from owner!", req_nodeid, p_owner);
 
     /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, page_ipa, 1);

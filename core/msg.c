@@ -91,7 +91,7 @@ void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
 
 void send_msg(struct pocv2_msg *msg) {
   if(memcmp(pocv2_msg_dst_mac(msg), cluster_me()->mac, 6) == 0)
-    panic("send msg to me");
+    panic("send msg to me %m %m", pocv2_msg_dst_mac(msg), cluster_me()->mac);
 
   /* build header */
   void *ps[2];

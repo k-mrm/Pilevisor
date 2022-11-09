@@ -122,7 +122,7 @@ static void txintr(struct nic *nic, u16 idx) {
   u8 *buf = (u8 *)dev->tx->desc[d1].addr;
 
   free_page(h);
-  free_page(buf);
+  free_pages(buf, 1);
 
   virtq_free_desc(dev->tx, d0);
   virtq_free_desc(dev->tx, d1);

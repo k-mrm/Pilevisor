@@ -15,7 +15,7 @@
 
 extern char vmm_end[];
 
-#define MAX_ORDER   11
+#define MAX_ORDER   10
 
 static u64 used_bitmap[PHYSIZE >> 12 >> 6];
 
@@ -24,7 +24,7 @@ static void pageallocator_test(void) __unused;
 struct header {
   struct header *next, *prev;
   int order;
-};
+} __packed;
 
 struct free_chunk {
   struct header *freelist;
@@ -81,8 +81,6 @@ static void *__alloc_pages(struct memzone *z, int order) {
 
     expand(z, p, order, i);
 
-    memset(p, 0, order);
-
     return (void *)p;
   }
 
@@ -104,6 +102,8 @@ void *alloc_pages(int order) {
 
   if(!p)
     panic("nomem");
+
+  memset(p, 0, PAGESIZE << order);
 
   return p;
 }
@@ -137,10 +137,11 @@ void free_pages(void *pages, int order) {
 }
 
 static void buddydump(void) {
+  printf("----------buddy allocator debug----------\n");
   for(int i = 0; i < MAX_ORDER; i++) {
     struct free_chunk *f = &mem.chunks[i];
 
-    printf("order %d %p nfree %d\n", i, f->freelist, f->nfree);
+    printf("order %d %p(->%p) nfree %d\n", i, f->freelist, f->freelist->next, f->nfree);
   }
 }
 
@@ -150,6 +151,15 @@ static void pageallocator_test() {
   free_page(p);
   p = alloc_page();
   printf("alloc_page1 %p\n", p);
+  free_page(p);
+
+  buddydump();
+
+  p = alloc_pages(1);
+
+  buddydump();
+
+  p = alloc_pages(1);
 
   buddydump();
 }
@@ -169,5 +179,5 @@ void pageallocator_init() {
     free_pages((void *)s, MAX_ORDER - 1);
   }
 
-  pageallocator_test();
+  // pageallocator_test();
 }

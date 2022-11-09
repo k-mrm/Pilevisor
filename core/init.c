@@ -16,6 +16,7 @@
 #include "psci.h"
 #include "node.h"
 #include "virtio-mmio.h"
+#include "panic.h"
 
 #define KiB   (1024)
 #define MiB   (1024 * 1024)
