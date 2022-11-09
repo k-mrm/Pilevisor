@@ -13,86 +13,113 @@
 #include "compiler.h"
 #include "panic.h"
 
-#define MAX_ORDER   10
-
-struct header {
-  struct header *next;
-};
-
 extern char vmm_end[];
 
-struct free_chunk {
-  spinlock_t lock; 
-  struct header *freelist;
+#define MAX_ORDER   11
+
+static u64 used_bitmap[PHYSIZE >> 12 >> 6];
+
+static void pageallocator_test(void) __unused;
+
+struct header {
+  struct header *next, *prev;
+  int order;
 };
 
-static struct free_chunk free_chunks[MAX_ORDER];
+struct free_chunk {
+  struct header *freelist;
+  int nfree;
+};
 
-static void *__alloc_pages(int order);
+static struct memzone {
+  u64 start;
+  u64 end;
+  struct free_chunk chunks[MAX_ORDER];
+  spinlock_t lock;
+} mem;
 
 /*
  *  TODO: consider spinlock
  */
 
-static void *buddy_request_page(int order) {
-  if(order == MAX_ORDER-1)
-    return NULL;
-
-  void *large_page = __alloc_pages(order + 1);
-  if(!large_page) {
-    large_page = buddy_request_page(order + 1);
-    if(!large_page)
-      return NULL;
-  }
-
-  u64 split_offset = PAGESIZE << order;
-  free_pages(large_page, order);
-
-  return (char *)large_page + split_offset;
+static inline u64 page_buddy_pfn(u64 pfn, int order) {
+  return pfn ^ (1 << order);
 }
 
-static void *__alloc_pages(int order) {
-  struct free_chunk *f = &free_chunks[order];
+static void freelist_add(struct free_chunk *f, void *page) {
+  struct header *hp = (struct header *)page;
 
-  struct header *new = f->freelist;
-  if(new)
-    goto get_from_freelist;
-  
-  new = buddy_request_page(order);
-  if(new)
-    goto get_pages;
+  hp->next = f->freelist;
+  f->freelist = hp;
+  f->nfree++;
+}
 
+static void expand(struct memzone *z, void *page, int order, int page_order) {
+  unsigned int size = 1 << page_order;
+
+  while(page_order > order) {
+    page_order--;
+    size >>= 1;
+
+    u8 *p = (u8 *)page + (size << PAGESHIFT);
+    freelist_add(&z->chunks[page_order], p);
+
+    ((struct header *)p)->order = page_order;
+  }
+}
+
+static void *__alloc_pages(struct memzone *z, int order) {
+  for(int i = order; i < MAX_ORDER; i++) {
+    struct free_chunk *f = &z->chunks[i];
+
+    if(!f->freelist)
+      continue;
+
+    struct header *p = f->freelist;
+    f->freelist = p->next;
+    f->nfree--;
+
+    expand(z, p, order, i);
+
+    memset(p, 0, order);
+
+    return (void *)p;
+  }
+
+  /* no mem */
   return NULL;
-
-get_from_freelist:
-  f->freelist = new->next;
-
-get_pages:
-  return new;
 }
 
 void *alloc_pages(int order) {
-  if(order > MAX_ORDER-1)
-    panic("invalid order");
+  u64 flags;
 
-  void *p = __alloc_pages(order);
+  if(order > MAX_ORDER-1)
+    panic("invalid order %d", order);
+
+  spin_lock_irqsave(&mem.lock, flags);
+
+  void *p = __alloc_pages(&mem, order);
+
+  spin_unlock_irqrestore(&mem.lock, flags);
+
   if(!p)
     panic("nomem");
 
   return p;
 }
 
-static void __free_pages(void *pages, int order) {
-  struct free_chunk *f = &free_chunks[order];
-  struct header *fp = (struct header *)pages;
+static void __free_pages(struct memzone *z, void *pages, int order) {
+  struct free_chunk *f = &z->chunks[order];
 
   memset(pages, 0, PAGESIZE << order);
 
-  fp->next = f->freelist;
-  f->freelist = fp;
+  freelist_add(f, pages);
+  ((struct header *)pages)->order = order;
 }
 
 void free_pages(void *pages, int order) {
+  u64 flags;
+
   if(!pages)
     return;
 
@@ -102,48 +129,45 @@ void free_pages(void *pages, int order) {
   if(order > MAX_ORDER-1)
     panic("invalid order");
 
-  __free_pages(pages, order);
+  spin_lock_irqsave(&mem.lock, flags);
+
+  __free_pages(&mem, pages, order);
+
+  spin_unlock_irqrestore(&mem.lock, flags);
 }
 
-static void buddyinit() {
-  printf("buddy %d MB byte\n", (PAGESIZE << (MAX_ORDER - 1)) / 1024 / 1024);
+static void buddydump(void) {
+  for(int i = 0; i < MAX_ORDER; i++) {
+    struct free_chunk *f = &mem.chunks[i];
 
-  u64 s = ((u64)vmm_end + (PAGESIZE << (MAX_ORDER - 1)) - 1) &
-              ~((PAGESIZE << (MAX_ORDER - 1)) - 1);
-  for(; s < PHYEND; s += PAGESIZE << (MAX_ORDER - 1)) {
-    free_pages((void *)s, MAX_ORDER - 1);
+    printf("order %d %p nfree %d\n", i, f->freelist, f->nfree);
   }
 }
 
-__unused
 static void pageallocator_test() {
-  void *a[100];
+  void *p = alloc_page();
+  printf("alloc_page0 %p\n", p);
+  free_page(p);
+  p = alloc_page();
+  printf("alloc_page1 %p\n", p);
 
-  for(int i = 0; i < 100; i++) {
-    a[i] = alloc_page();
-    printf("pageallocator %p\n", a[i]);
-  }
-
-  for(int i = 0; i < 100; i++) {
-    free_page(a[i]);
-    printf("frreeeeing %p\n", a[i]);
-  }
-
-  for(int i = 0; i < 100; i++) {
-    a[i] = alloc_page();
-    printf("pageallocator %p\n", a[i]);
-  }
-
-  for(int i = 0; i < 100; i++) {
-    free_page(a[i]);
-    printf("frreeeeing %p\n", a[i]);
-  }
+  buddydump();
 }
 
 void pageallocator_init() {
-  for(struct free_chunk *f = free_chunks; f < &free_chunks[MAX_ORDER]; f++) {
-    spinlock_init(&f->lock);
+  /* align to PAGESIZE << (MAX_ORDER-1) */
+  u64 s = ((u64)vmm_end + (PAGESIZE << (MAX_ORDER - 1)) - 1) &
+              ~((PAGESIZE << (MAX_ORDER - 1)) - 1);
+
+  mem.start = s;
+  mem.end = PHYEND;
+
+  printf("buddy: heap [%p - %p) (free area: %d MB) \n", mem.start, mem.end, (mem.end - mem.start) >> 20);
+  printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);
+
+  for(; s < PHYEND; s += PAGESIZE << (MAX_ORDER - 1)) {
+    free_pages((void *)s, MAX_ORDER - 1);
   }
 
-  buddyinit();
+  pageallocator_test();
 }

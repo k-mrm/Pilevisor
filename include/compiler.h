@@ -1,7 +1,7 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
-#define __unused        __attribute__((maybe_unused))
+#define __unused        __attribute__((unused))
 #define __fallthrough   __attribute__((fallthrough))
 #define __packed        __attribute__((packed))
 #define __aligned(n)    __attribute__((aligned(n)))
