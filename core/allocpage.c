@@ -11,6 +11,7 @@
 #include "param.h"
 #include "allocpage.h"
 #include "compiler.h"
+#include "panic.h"
 
 #define MAX_ORDER   10
 

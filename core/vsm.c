@@ -14,6 +14,7 @@
 #include "msg.h"
 #include "cluster.h"
 #include "tlb.h"
+#include "panic.h"
 
 #define ipa_to_pfn(ipa)   ((ipa - 0x40000000) >> PAGESHIFT)
 
@@ -319,7 +320,7 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 
   vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
 
-  printf("vsm: cache @%p(%p) copyset: %p count%d\n", ipa_page, page, copyset, ++count);
+  // printf("vsm: cache @%p(%p) copyset: %p count%d\n", ipa_page, page, copyset, ++count);
 
   /*
    *  TODO: free old page

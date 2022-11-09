@@ -5,6 +5,7 @@
 #include "node.h"
 #include "param.h"
 #include "memory.h"
+#include "panic.h"
 
 enum node_status {
   NODE_NULL,

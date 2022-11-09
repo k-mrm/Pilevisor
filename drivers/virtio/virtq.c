@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
+#include "panic.h"
 
 static void desc_init(struct virtq *vq) {
   for(int i = 0; i < NQUEUE; i++) {

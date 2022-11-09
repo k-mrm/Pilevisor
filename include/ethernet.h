@@ -3,13 +3,14 @@
 
 #include "types.h"
 #include "net.h"
+#include "compiler.h"
 
 /* Ethernet II header */
 struct etherheader {
   u8 dst[6];
   u8 src[6];
   u16 type;
-} __attribute__((packed));
+} __packed;
 
 void ethernet_recv_intr(struct nic *nic, void **packets, int *lens, int npackets);
 

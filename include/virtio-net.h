@@ -5,6 +5,7 @@
 #include "types.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
+#include "compiler.h"
 
 #define VIRTIO_NET_F_CSUM       0
 #define VIRTIO_NET_F_GUEST_CSUM 1
@@ -37,7 +38,7 @@ struct virtio_net_config {
   u16 status;
   u16 max_virtqueue_pairs;
   u16 mtu;
-} __attribute__((packed));
+} __packed;
 
 struct virtio_net {
   void *base;
@@ -63,6 +64,6 @@ struct virtio_net_hdr {
   u16 csum_start;   /* Position to start checksumming from */
   u16 csum_offset;  /* Offset after that to place checksum */
   u16 num_buffers;  /* Number of merged rx buffers */
-} __attribute__((packed));
+} __packed;
 
 #endif

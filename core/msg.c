@@ -13,6 +13,7 @@
 #include "msg.h"
 #include "lib.h"
 #include "cluster.h"
+#include "panic.h"
 
 extern struct pocv2_msg_data __pocv2_msg_data_start[], __pocv2_msg_data_end[];
 

@@ -9,6 +9,7 @@
 #include "allocpage.h"
 #include "printf.h"
 #include "guest.h"
+#include "panic.h"
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len);
 

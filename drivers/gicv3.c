@@ -10,6 +10,7 @@
 #include "vcpu.h"
 #include "emul.h"
 #include "compiler.h"
+#include "panic.h"
 
 /* gicv3 controller */
 

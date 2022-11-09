@@ -9,6 +9,7 @@
 #include "msg.h"
 #include "cluster.h"
 #include "pcpu.h"
+#include "panic.h"
 
 void _start(void);
 

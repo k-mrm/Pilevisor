@@ -14,6 +14,7 @@
 #include "node.h"
 #include "cluster.h"
 #include "msg.h"
+#include "panic.h"
 
 static struct vgic vgic_dist;
 

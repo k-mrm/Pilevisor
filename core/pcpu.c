@@ -3,7 +3,7 @@
 #include "log.h"
 
 struct pcpu pcpus[NCPU];
-char _stack[PAGESIZE*NCPU] __attribute__((aligned(PAGESIZE)));
+char _stack[PAGESIZE*NCPU] __aligned(PAGESIZE);
 
 void pcpu_init() {
   mycpu->stackbase = _stack + PAGESIZE*(cpuid() + 1);

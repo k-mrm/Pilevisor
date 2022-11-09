@@ -6,6 +6,7 @@
 #include "vcpu.h"
 #include "msg.h"
 #include "cluster.h"
+#include "panic.h"
 
 int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
   int target_nodeid = vcpuid_to_nodeid(target_vcpuid);

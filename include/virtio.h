@@ -2,6 +2,7 @@
 #define VIRTIO_VIRTQ_H
 
 #include "types.h"
+#include "compiler.h"
 
 /* virtqueue */
 #define NQUEUE  128
@@ -14,26 +15,26 @@ struct virtq_desc {
   u32 len;
   u16 flags;
   u16 next;
-} __attribute__((packed, aligned(16)));
+} __packed __aligned(16);
 
 #define VIRTQ_AVAIL_F_NO_INTERRUPT  1
 struct virtq_avail {
   u16 flags;
   u16 idx;
   u16 ring[NQUEUE];
-} __attribute__((packed, aligned(2)));
+} __packed __aligned(2);
 
 struct virtq_used_elem {
   u32 id;
   u32 len;
-} __attribute__((packed));
+} __packed;
 
 #define VIRTQ_USED_F_NO_NOTIFY  1
 struct virtq_used {
   u16 flags;
   u16 idx;
   struct virtq_used_elem ring[NQUEUE];
-} __attribute__((packed, aligned(4)));
+} __packed __aligned(4);
 
 struct virtq {
   struct virtq_desc *desc;

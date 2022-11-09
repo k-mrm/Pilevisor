@@ -4,6 +4,7 @@
 #include "types.h"
 #include "net.h"
 #include "ethernet.h"
+#include "compiler.h"
 
 enum msgtype {
   MSG_NONE            = 0x0,
@@ -65,7 +66,7 @@ struct pocv2_msg_data {
 };
 
 #define DEFINE_POCV2_MSG(ty, hdr_struct, handler)  \
-  struct pocv2_msg_data _mdata_##ty __attribute__((__section__(".rodata.pocv2_msg"))) = {   \
+  struct pocv2_msg_data _mdata_##ty __section(".rodata.pocv2_msg") = {   \
     .type = (ty),   \
     .msg_hdr_size = sizeof(hdr_struct),    \
     .recv_handler = handler,    \

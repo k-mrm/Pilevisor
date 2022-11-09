@@ -14,6 +14,8 @@
 #include "node.h"
 #include "emul.h"
 #include "vsysreg.h"
+#include "compiler.h"
+#include "panic.h"
 
 static void dabort_iss_dump(u64 iss);
 static void iabort_iss_dump(u64 iss);
@@ -22,7 +24,7 @@ struct hyp_context {
   u64 x[31];
   u64 spsr;
   u64 elr;
-} __attribute__((packed));
+} __packed;
 
 void hyp_sync_handler(struct hyp_context *ctx) {
   u64 esr = read_sysreg(esr_el2);

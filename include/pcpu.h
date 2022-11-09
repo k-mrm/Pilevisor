@@ -6,8 +6,9 @@
 #include "param.h"
 #include "mm.h"
 #include "irq.h"
+#include "compiler.h"
 
-extern char _stack[PAGESIZE] __attribute__((aligned(PAGESIZE)));
+extern char _stack[PAGESIZE] __aligned(PAGESIZE);
 
 struct pcpu {
   void *stackbase;

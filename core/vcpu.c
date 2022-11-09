@@ -9,6 +9,7 @@
 #include "memmap.h"
 #include "node.h"
 #include "cluster.h"
+#include "panic.h"
 
 /*
 static void vcpu_features_init(struct vcpu *vcpu) {

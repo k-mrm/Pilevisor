@@ -5,6 +5,7 @@
 #include "pci.h"
 #include "memmap.h"
 #include "log.h"
+#include "panic.h"
 
 struct pci_config_space {
   u8 raw[256][32][8][4096];
