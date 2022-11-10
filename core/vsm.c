@@ -510,7 +510,7 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
 
-    // free_page(pa);
+    free_page(pa);
   }
 
   if(manager == local_nodeid()) {   /* I am manager */
@@ -693,7 +693,7 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
     // send p and copyset;
     send_write_fetch_reply(req_nodeid, page_ipa, (void *)pa, copyset);
 
-    // free_page(pa);
+    free_page(pa);
 
     if(local_nodeid() == manager) {
       struct cache_page *p = ipa_cache_page(page_ipa);
@@ -762,14 +762,11 @@ void vsm_node_init(struct memrange *mem) {
   u64 p;
 
   for(p = 0; p < size; p += PAGESIZE) {
-    u64 *pte = pagewalk(vttbr, start+p, 0);
-    if(!pte || *pte == 0) {
-      char *page = alloc_page();
-      if(!page)
-        panic("ram");
+    char *page = alloc_page();
+    if(!page)
+      panic("ram");
 
-      pagemap(vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
-    }
+    pagemap(vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
   }
 
   vmm_log("Node %d mapped: [%p - %p]\n", local_nodeid(), start, start+p);

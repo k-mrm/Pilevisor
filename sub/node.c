@@ -44,14 +44,14 @@ static void ap_initvm() {
     printf("initvm: fdt_start %p fdt_size %p byte\n", fdt->start, fdt->size);
     map_guest_image(localnode.vttbr, fdt, vm_desc.fdt_base);
   } else {
-    printf("initvm: fdt not found\n");
+    vmm_warn("initvm: fdt not found\n");
   }
 
   if(initrd) {
     printf("initvm: initrd_start %p initrd_size %p byte\n", initrd->start, initrd->size);
     map_guest_image(localnode.vttbr, initrd, vm_desc.initrd_base);
   } else {
-    printf("initvm: initrd not found\n");
+    vmm_warn("initvm: initrd not found\n");
   }
 }
 

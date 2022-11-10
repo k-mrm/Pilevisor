@@ -110,13 +110,23 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   vcpu->dabt.reg = r;
   vcpu->dabt.accbyte = 1 << sas;
 
+  void *pa;
+  if(wnr)
+    pa = vsm_write_fetch_page(fipa_page);
+  else
+    pa = vsm_read_fetch_page(fipa_page);
+
+  if(pa)
+    return 1;
+
+  /*
   u32 op = *(u32 *)at_uva2pa(vcpu->reg.elr);
 
-  /* emulation instruction */
   int c = cpu_emulate(vcpu, op);
 
   if(c >= 0)
     return c;
+  */
 
   enum maccsize accsz;
   switch(sas) {

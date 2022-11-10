@@ -161,7 +161,7 @@ void page_access_invalidate(u64 *pgt, u64 va) {
 
   tlb_s2_flush_all();
 
-  // free_page(pa);
+  free_page(pa);
 }
 
 void page_access_ro(u64 *pgt, u64 va) {
