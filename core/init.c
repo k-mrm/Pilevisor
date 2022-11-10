@@ -62,7 +62,7 @@ int vmm_init_secondary() {
 
 int vmm_init_cpu0() {
   uart_init();
-  vmm_log("vmm booting...\n");
+  printf("vmm booting...\n");
   pcpu_init();
   vcpu_init_core();
   pageallocator_init();

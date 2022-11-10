@@ -4,7 +4,6 @@ LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
 CPU = cortex-a72
-QCPU = cortex-a72
 
 CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
 CFLAGS += -I ./include/
@@ -18,6 +17,7 @@ ifndef NCPU
 NCPU = 2
 endif
 
+# directory
 C = core
 D = drivers
 M = main
@@ -34,7 +34,7 @@ SOBJS = $(patsubst %.c,%.o,$(wildcard $(S)/*.c))
 MAINOBJS = $(COREOBJS) $(DRVOBJS) $(MOBJS)
 SUBOBJS = $(COREOBJS) $(DRVOBJS) $(SOBJS)
 
-QEMUOPTS = -cpu $(QCPU) -machine $(MACHINE) -smp $(NCPU) -m 512
+QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 512
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic -kernel
 
@@ -72,9 +72,10 @@ poc-main-vsm: $(MAINOBJS) $(M)/memory.ld guest/vsmtest.img
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) hello-img.o
 
-poc-sub: $(SUBOBJS) $(S)/memory.ld dtb
+poc-sub: $(SUBOBJS) $(S)/memory.ld dtb guest/linux/rootfs.img
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
-	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o
+	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
+	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o
 
 poc-sub-vsm: $(SUBOBJS) $(S)/memory.ld guest/vsmtest.img
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
@@ -171,4 +172,4 @@ clean:
 	make -C guest clean
 	$(RM) $(COREOBJS) $(DRVOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d *.dtb *.dts
 
-.PHONY: dev-main dev-sub clean dts dtb
+.PHONY: dev-main dev-sub dev-main-vsm dev-sub-vsm clean dts dtb linux linux-gdb gdb-main gdb-sub

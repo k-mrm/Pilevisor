@@ -76,7 +76,7 @@ void alloc_guestmem(u64 *pgt, u64 ipa, u64 size) {
 }
 
 void map_guest_image(u64 *pgt, struct guest *img, u64 ipa) {
-  copy_to_guest_alloc(pgt, ipa, (char *)img->start, img->size);
+  copy_to_guest(pgt, ipa, (char *)img->start, img->size);
 }
 
 void map_peripherals(u64 *pgt) {

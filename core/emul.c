@@ -173,7 +173,7 @@ static int emul_ldst_pair(struct vcpu *vcpu, u32 inst, enum addressing ad) {
   int opc = (inst >> 30) & 0x3;
 
   if(v)
-    panic("stp simd&fp");
+    panic("ldp/stp simd&fp %p", inst);
 
   if(opc & 1)
     panic("unimplemented stgp/ldpsw");

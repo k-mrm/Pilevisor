@@ -1,3 +1,7 @@
+/*
+ *  node 0(bootstrap node) controller
+ */
+
 #include "types.h"
 #include "param.h"
 #include "vcpu.h"
@@ -13,8 +17,6 @@
 #define MiB   (1024 * 1024)
 #define GiB   (1024 * 1024 * 1024)
 
-/* node 0(bootstrap node) controller */
-
 static void initvm(struct vm_desc *desc) {
   struct guest *os = desc->os_img;
   struct guest *fdt = desc->fdt_img;
@@ -26,24 +28,12 @@ static void initvm(struct vm_desc *desc) {
   if(desc->nallocate % PAGESIZE != 0)
     panic("invalid mem size");
 
-  vmm_log("[vm] create vm `%s`\n", os->name);
-  vmm_log("[vm] use %d vcpu(s)\n", desc->nvcpu);
-  vmm_log("[vm] allocated ram: %d byte\n", desc->nallocate);
-  vmm_log("[vm] img_start %p img_size %p byte\n", os->start, os->size);
-  if(fdt)
-    vmm_log("[vm] fdt_start %p fdt_size %p byte\n", fdt->start, fdt->size);
-  else
-    vmm_log("[vm] fdt not found\n");
-  if(initrd)
-    vmm_log("[vm] initrd_start %p initrd_size %p byte\n", initrd->start, initrd->size);
-  else
-    vmm_log("[vm] initrd not found\n");
+  printf("initvm: create vm `%s`\n", os->name);
+  printf("initvm: use %d vcpu(s)\n", desc->nvcpu);
+  printf("initvm: allocated ram: %d (%d M) byte\n", desc->nallocate, desc->nallocate >> 20);
+  printf("initvm: img_start %p img_size %p byte\n", os->start, os->size);
 
   map_guest_image(localnode.vttbr, os, desc->entrypoint);
-  if(fdt)
-    map_guest_image(localnode.vttbr, fdt, desc->fdt_base);
-  if(initrd)
-    map_guest_image(localnode.vttbr, initrd, desc->initrd_base);
 }
 
 static void wait_for_init_ack() {
@@ -83,8 +73,6 @@ static void node0_init() {
 
   localnode.nodeid = 0;
 
-  initvm(&vm_desc);
-
   /* me */
   cluster_node0_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
 
@@ -102,8 +90,11 @@ static void node0_init() {
 
   /* init vcpu0 */
   node0_init_vcpu0(vm_desc.entrypoint, vm_desc.fdt_base);
+
+  initvm(&vm_desc);
 }
 
+/* call per cpu */
 static void node0_start() {
   int cpu = cpuid();
 
