@@ -7,6 +7,7 @@
 #include "uart.h"
 #include "vcpu.h"
 #include "irq.h"
+#include "compiler.h"
 
 #define R(reg)  (volatile u32 *)(UARTBASE+reg)
 
@@ -47,7 +48,7 @@ int uart_getc() {
     return *R(DR);
 }
 
-void uartintr() {
+void uartintr(__unused void *arg) {
   int status = *R(MIS);
 
   if(status & INT_RX_ENABLE) {

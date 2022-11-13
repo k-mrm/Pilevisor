@@ -9,13 +9,10 @@
 #define DEV_STATUS_DRIVER_OK    4
 #define DEV_STATUS_NEEDS_RESET  64
 
-#define VIRTIO_VERSION    0x2
+#define VIRTIO_VERSION      0x2
 
 #define VIRTIO_DEV_NET      0x1
 #define VIRTIO_DEV_BLK      0x2
 #define VIRTIO_DEV_CONSOLE  0x3
-
-int virtio_device_features_ok(void *base);
-int virtio_device_driver_ok(void *base);
 
 #endif

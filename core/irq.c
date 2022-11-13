@@ -17,7 +17,7 @@ struct irq *irq_get(u32 pirq) {
   return NULL;
 }
 
-void irq_register(u32 pirq, void (*handler)(void)) {
+void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
   if(pirq > NIRQ)
     panic("pirq %d", pirq);
 
@@ -26,6 +26,7 @@ void irq_register(u32 pirq, void (*handler)(void)) {
   struct irq *irq = irq_get(pirq);
 
   irq->handler = handler;
+  irq->arg = arg;
 
   gic_setup_spi(pirq);
 }
@@ -35,7 +36,7 @@ int handle_irq(u32 pirq) {
   struct irq *irq = irq_get(pirq);
 
   if(irq->handler) {
-    irq->handler();
+    irq->handler(irq->arg);
     return 1;
   }
 

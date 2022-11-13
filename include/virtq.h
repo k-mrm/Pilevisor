@@ -4,6 +4,8 @@
 #include "types.h"
 #include "compiler.h"
 
+struct virtio_mmio_dev;
+
 /* virtqueue */
 #define NQUEUE  256
 
@@ -37,20 +39,29 @@ struct virtq_used {
 } __packed __aligned(4);
 
 struct virtq {
-  void *dev_base;
+  struct virtio_mmio_dev *dev;
+
+  /* vring */
   struct virtq_desc *desc;
   struct virtq_avail *avail;
   struct virtq_used *used;
+  u16 num;
+
   u16 free_head;
   u16 nfree;
   u16 last_used_idx;
   int qsel;
+
+  void (*intr_handler)(struct virtq *);
+
+  struct virtq *next;
 };
 
-int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel);
+int virtq_reg_to_dev(struct virtq *vq);
 u16 virtq_alloc_desc(struct virtq *vq);
 void virtq_free_desc(struct virtq *vq, u16 n);
-struct virtq *virtq_create(void);
 void virtq_kick(struct virtq *vq);
+struct virtq *virtq_create(struct virtio_mmio_dev *dev, int qsel,
+                            void (*intr_handler)(struct virtq *));
 
 #endif

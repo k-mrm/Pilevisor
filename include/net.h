@@ -14,11 +14,11 @@ struct nic_ops {
 struct nic {
   char *name;
   u8 mac[6];
-  int irq;
+  int mtu;
   void *device;
   struct nic_ops *ops;
 };
 
-void net_init(char *name, u8 *mac, int irq, void *dev, struct nic_ops *ops);
+void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops);
 
 #endif

@@ -128,12 +128,13 @@ static void txintr(struct nic *nic, u16 idx) {
   virtq_free_desc(dev->tx, d1);
 }
 
+static void txintr(struct virtq *txq) {
+  struct virtio_net kl;
+}
+
 static void virtio_net_intr() {
   struct nic *nic = localnode.nic;
   struct virtio_net *dev = nic->device;
-
-  u32 status = vtmmio_read(dev->base, VIRTIO_MMIO_INTERRUPT_STATUS);
-  vtmmio_write(dev->base, VIRTIO_MMIO_INTERRUPT_ACK, status);
 
   while(dev->tx->last_used_idx != dev->tx->used->idx) {
     txintr(nic, dev->tx->last_used_idx % NQUEUE);
@@ -158,46 +159,25 @@ static struct nic_ops virtio_net_ops = {
   .set_recv_intr_callback = virtio_net_set_recv_intr_callback,
 };
 
-int virtio_net_init(void *base, int intid) {
-  vmm_log("virtio_net_init\n");
+int virtio_net_probe(struct virtio_mmio_dev *dev) {
+  vmm_log("virtio_net_probe\n");
 
-  vtnet_dev.base = base;
-  vtnet_dev.cfg = (struct virtio_net_config *)(base + VIRTIO_MMIO_CONFIG);
-  vtnet_dev.intid = intid;
-
-  vtmmio_write(base, VIRTIO_MMIO_DEVICE_FEATURES_SEL, 0);
-  vtmmio_write(base, VIRTIO_MMIO_DRIVER_FEATURES_SEL, 0);
+  vtnet_dev.dev = dev;
+  vtnet_dev.cfg = (struct virtio_net_config *)(dev->base + VIRTIO_MMIO_CONFIG);
 
   /* negotiate */
-  u32 feat = vtmmio_read(base, VIRTIO_MMIO_DEVICE_FEATURES);
-  feat &= ~(1 << VIRTIO_NET_F_GUEST_CSUM);
-  feat &= ~(1 << VIRTIO_NET_F_CTRL_GUEST_OFFLOADS);
-  // feat &= ~(1 << VIRTIO_NET_F_MTU);
-  feat &= ~(1 << VIRTIO_NET_F_GUEST_TSO4);
-  feat &= ~(1 << VIRTIO_NET_F_GUEST_TSO6);
-  feat &= ~(1 << VIRTIO_NET_F_GUEST_ECN);
-  feat &= ~(1 << VIRTIO_NET_F_GUEST_UFO);
-  feat &= ~(1 << VIRTIO_NET_F_HOST_TSO4);
-  feat &= ~(1 << VIRTIO_NET_F_HOST_TSO6);
-  feat &= ~(1 << VIRTIO_NET_F_HOST_ECN);
-  feat &= ~(1 << VIRTIO_NET_F_HOST_UFO);
-  feat &= ~(1 << VIRTIO_NET_F_CTRL_VQ);
-  feat &= ~(1 << VIRTIO_NET_F_CTRL_RX);
-  feat &= ~(1 << VIRTIO_NET_F_CTRL_VLAN);
-  feat &= ~(1 << VIRTIO_NET_F_CTRL_RX_EXTRA);
-  feat &= ~(1 << VIRTIO_NET_F_GUEST_ANNOUNCE);
-  feat &= ~(1 << VIRTIO_NET_F_MQ);
-  feat &= ~(1 << VIRTIO_NET_F_CTRL_MAC_ADDR);
-  vtmmio_write(base, VIRTIO_MMIO_DRIVER_FEATURES, feat & 0x1ffff);
+  u64 features = 0;
+  features |= VIRTIO_NET_F_MAC;
+  features |= VIRTIO_NET_F_STATUS;
+  features |= VIRTIO_NET_F_MTU;
 
-  if(virtio_device_features_ok(base) < 0)
-    panic("virtio-net failed");
+  vtmmio_negotiate(dev, features);
 
-  vtnet_dev.tx = virtq_create();
-  vtnet_dev.rx = virtq_create();
+  vtnet_dev.rx = virtq_create(dev, 0, rxintr);
+  vtnet_dev.tx = virtq_create(dev, 1, txintr);
 
-  virtq_reg_to_dev(base, vtnet_dev.rx, 0);
-  virtq_reg_to_dev(base, vtnet_dev.tx, 1);
+  virtq_reg_to_dev(vtnet_dev.rx);
+  virtq_reg_to_dev(vtnet_dev.tx);
 
   fill_recv_queue(vtnet_dev.rx);
 
@@ -206,7 +186,7 @@ int virtio_net_init(void *base, int intid) {
   vtnet_dev.mtu = vtnet_dev.cfg->mtu;
 
   /* initialize done */
-  if(virtio_device_driver_ok(base) < 0)
+  if(virtio_device_driver_ok(dev) < 0)
     panic("driver ok");
 
   vmm_log("virtio-net ready! %d\n", intid);
@@ -214,9 +194,7 @@ int virtio_net_init(void *base, int intid) {
   u8 mac[6] = {0};
   virtio_net_get_mac(&vtnet_dev, mac);
 
-  net_init("virtio-net", mac, intid, &vtnet_dev, &virtio_net_ops);
-
-  irq_register(intid, virtio_net_intr);
+  net_init("virtio-net", mac, vtnet_dev.mtu, &vtnet_dev, &virtio_net_ops);
 
   return 0;
 }

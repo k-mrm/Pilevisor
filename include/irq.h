@@ -9,11 +9,12 @@
 struct irq {
   int irq;
   int count;
-  void (*handler)(void);
+  void (*handler)(void *);
+  void *arg;
 };
 
 struct irq *irq_get(u32 pirq);
 int handle_irq(u32 pirq);
-void irq_register(u32 pirq, void (*handler)(void));
+void irq_register(u32 pirq, void (*handler)(void *), void *arg);
 
 #endif

@@ -6,13 +6,13 @@
 
 static struct nic netdev;
 
-void net_init(char *name, u8 *mac, int irq, void *dev, struct nic_ops *ops) {
+void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
   if(localnode.nic)
     vmm_warn("net: already initialized");
 
   netdev.name = name;
   memcpy(netdev.mac, mac, 6);
-  netdev.irq = irq;
+  netdev.mtu = mtu;
   netdev.device = dev;
   netdev.ops = ops;
 
