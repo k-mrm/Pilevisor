@@ -64,7 +64,7 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
   dev->tx->avail->idx += 1;
   dsb(sy);
 
-  vtmmio_write(dev->base, VIRTIO_MMIO_QUEUE_NOTIFY, dev->tx->qsel);
+  virtq_kick(dev->tx);
 }
 
 static void fill_recv_queue(struct virtq *rxq) {
@@ -190,13 +190,8 @@ int virtio_net_init(void *base, int intid) {
   feat &= ~(1 << VIRTIO_NET_F_CTRL_MAC_ADDR);
   vtmmio_write(base, VIRTIO_MMIO_DRIVER_FEATURES, feat & 0x1ffff);
 
-  u32 status = vtmmio_read(base, VIRTIO_MMIO_STATUS);
-  vtmmio_write(base, VIRTIO_MMIO_STATUS, status | DEV_STATUS_FEATURES_OK);
-
-  if(!(vtmmio_read(base, VIRTIO_MMIO_STATUS) & DEV_STATUS_FEATURES_OK)) {
-    vmm_warn("features");
-    return -1;
-  }
+  if(virtio_device_features_ok(base) < 0)
+    panic("virtio-net failed");
 
   vtnet_dev.tx = virtq_create();
   vtnet_dev.rx = virtq_create();
@@ -206,13 +201,15 @@ int virtio_net_init(void *base, int intid) {
 
   fill_recv_queue(vtnet_dev.rx);
 
+  vtnet_dev.tx->avail->flags |= VIRTQ_AVAIL_F_NO_INTERRUPT;
+
   vtnet_dev.mtu = vtnet_dev.cfg->mtu;
 
   /* initialize done */
-  status = vtmmio_read(base, VIRTIO_MMIO_STATUS);
-  vtmmio_write(base, VIRTIO_MMIO_STATUS, status | DEV_STATUS_DRIVER_OK);
+  if(virtio_device_driver_ok(base) < 0)
+    panic("driver ok");
 
-  vmm_log("virtio-net ready %p\n", status);
+  vmm_log("virtio-net ready! %d\n", intid);
 
   u8 mac[6] = {0};
   virtio_net_get_mac(&vtnet_dev, mac);

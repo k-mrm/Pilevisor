@@ -33,10 +33,10 @@ void hyp_sync_handler(struct hyp_context *ctx) {
   u64 ec = (esr >> 26) & 0x3f;
   u64 iss = esr & 0x1ffffff;
 
-  vmm_log("ERROR: prohibited sync exception\n");
-  vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
+  printf("ERROR: prohibited sync exception\n");
+  printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
 
-  vmm_log("hypervisor context (%p):\n", ctx);
+  printf("hypervisor context (%p):\n", ctx);
   printf("x0  %18p x1  %18p x2  %18p x3  %18p\n", ctx->x[0], ctx->x[1], ctx->x[2], ctx->x[3]);
   printf("x4  %18p x5  %18p x6  %18p x7  %18p\n", ctx->x[4], ctx->x[5], ctx->x[6], ctx->x[7]);
   printf("x8  %18p x9  %18p x10 %18p x11 %18p\n", ctx->x[8], ctx->x[9], ctx->x[10], ctx->x[11]);

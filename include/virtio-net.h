@@ -4,6 +4,7 @@
 #include "aarch64.h"
 #include "types.h"
 #include "virtio.h"
+#include "virtq.h"
 #include "virtio-mmio.h"
 #include "compiler.h"
 

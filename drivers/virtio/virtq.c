@@ -4,22 +4,15 @@
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
+#include "virtq.h"
 #include "panic.h"
-
-static void desc_init(struct virtq *vq) {
-  for(int i = 0; i < NQUEUE; i++) {
-    if(i != NQUEUE - 1) {
-      vq->desc[i].flags = VIRTQ_DESC_F_NEXT;
-      vq->desc[i].next = i + 1;
-    }
-  }
-}
 
 #define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
 #define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)
 
 /* mmio only */
 int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
+  vq->dev_base = base;
   vq->qsel = qsel;
 
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_SEL, qsel);
@@ -39,6 +32,12 @@ int virtq_reg_to_dev(void *base, struct virtq *vq, int qsel) {
   vtmmio_write(base, VIRTIO_MMIO_QUEUE_READY, 1);
 
   return 0;
+}
+
+void virtq_kick(struct virtq *vq) {
+  if(!(vq->used->flags & VIRTQ_USED_F_NO_NOTIFY)) {
+    vtmmio_write(vq->dev_base, VIRTIO_MMIO_QUEUE_NOTIFY, vq->qsel);
+  }
 }
 
 /* TODO: chain? */
@@ -64,18 +63,24 @@ void virtq_free_desc(struct virtq *vq, u16 n) {
 
 struct virtq *virtq_create() {
   struct virtq *vq = alloc_page();
+  if(!vq)
+    panic("vq");
 
   vq->desc = alloc_page();
   vq->avail = alloc_page();
   vq->used = alloc_page();
+
   vmm_log("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
+
+  for(int i = 0; i < NQUEUE - 1; i++) {
+    vq->desc[i].flags = VIRTQ_DESC_F_NEXT;
+    vq->desc[i].next = i + 1;
+  }
 
   vq->nfree = NQUEUE;
   vq->free_head = 0;
   vq->last_used_idx = 0;
   vq->qsel = 0;
-
-  desc_init(vq);
 
   return vq;
 }

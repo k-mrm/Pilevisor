@@ -124,7 +124,7 @@ void free_pages(void *pages, int order) {
     return;
 
   if((u64)pages & ((PAGESIZE << order) - 1))
-    panic("alignment %p", pages);
+    panic("alignment %p %d", pages, order);
 
   if(order > MAX_ORDER-1)
     panic("invalid order");

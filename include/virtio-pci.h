@@ -5,6 +5,7 @@
 #include "types.h"
 #include "pci.h"
 #include "virtio.h"
+#include "virtq.h"
 
 struct virtio_pci_cap {
   u8 cap_vndr;

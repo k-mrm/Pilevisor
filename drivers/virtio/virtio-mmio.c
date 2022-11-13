@@ -8,7 +8,7 @@
 
 int virtio_net_init(void *base, int intid);
 
-int virtio_mmio_dev_init(void *base, int intid) {
+static int virtio_mmio_dev_init(void *base, int intid) {
   if(vtmmio_read(base, VIRTIO_MMIO_MAGICVALUE) != VIRTIO_MAGIC ||
      vtmmio_read(base, VIRTIO_MMIO_VERSION) != 2) {
     vmm_warn("no device");
@@ -22,7 +22,9 @@ int virtio_mmio_dev_init(void *base, int intid) {
   status = vtmmio_read(base, VIRTIO_MMIO_STATUS) | DEV_STATUS_DRIVER;
   vtmmio_write(base, VIRTIO_MMIO_STATUS, status);
 
-  switch(vtmmio_read(base, VIRTIO_MMIO_DEVICE_ID)) {
+  u32 devid = vtmmio_read(base, VIRTIO_MMIO_DEVICE_ID);
+
+  switch(devid) {
     case VIRTIO_DEV_NET:
       return virtio_net_init(base, intid);
     default:
@@ -32,4 +34,6 @@ int virtio_mmio_dev_init(void *base, int intid) {
 
 int virtio_mmio_init(void) {
   virtio_mmio_dev_init((void *)VIRTIO0, 48);
+
+  return 0;
 }

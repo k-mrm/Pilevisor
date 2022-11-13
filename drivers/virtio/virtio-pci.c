@@ -1,5 +1,7 @@
 #include "pci.h"
 #include "virtio-pci.h"
+#include "virtio.h"
+#include "virtq.h"
 #include "log.h"
 #include "allocpage.h"
 #include "lib.h"
