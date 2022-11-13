@@ -5,7 +5,7 @@
 #include "compiler.h"
 
 /* virtqueue */
-#define NQUEUE  128
+#define NQUEUE  256
 
 #define VIRTQ_DESC_F_NEXT     1
 #define VIRTQ_DESC_F_WRITE    2 

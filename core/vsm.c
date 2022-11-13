@@ -104,7 +104,7 @@ static inline int page_trylock(u64 ipa) {
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
 
-  vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
+  // vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
 
   local_irq_disable();
 
@@ -452,7 +452,7 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     memcpy(d->buf, (char *)page_pa + d->offset, d->size);
 
   s2pte_ro(pte);
-  tlb_s2_flush_all();
+  tlb_s2_flush_ipa(page_ipa);
 
   vsm_process_waitqueue(page_ipa);
 
@@ -703,7 +703,7 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
     struct cache_page *p = ipa_cache_page(page_ipa);
     int p_owner = CACHE_PAGE_OWNER(p);
 
-    vmm_log("write server: forward write fetch request to %d (%p) %p\n", p_owner, page_ipa);
+    vmm_log("write server: forward write fetch request to %d (%p)\n", p_owner, page_ipa);
 
     if(req_nodeid == p_owner)
       panic("write server: req_nodeid(%d) == p_owner(%d) fetch request from owner!", req_nodeid, p_owner);
@@ -734,7 +734,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
 static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
   struct fetch_reply_hdr *a = (struct fetch_reply_hdr *)msg->hdr;
   struct fetch_reply_body *b = msg->body;
-  vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
+  // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
 
   vsm_set_cache_fast(a->ipa, b->page, a->copyset);
 }

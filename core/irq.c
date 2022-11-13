@@ -4,6 +4,7 @@
 #include "vgic.h"
 #include "vcpu.h"
 #include "pcpu.h"
+#include "panic.h"
 
 static struct irq irqlist[NIRQ];
 
@@ -18,7 +19,9 @@ struct irq *irq_get(u32 pirq) {
 
 void irq_register(u32 pirq, void (*handler)(void)) {
   if(pirq > NIRQ)
-    return;
+    panic("pirq %d", pirq);
+
+  vmm_log("new interrupt: %d\n", pirq);
 
   struct irq *irq = irq_get(pirq);
 

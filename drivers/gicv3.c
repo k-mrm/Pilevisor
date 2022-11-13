@@ -124,7 +124,7 @@ void gic_inject_guest_irq(u32 pirq, u32 virq, int grp) {
   /*
   if(pirq==27)
     return;
-    */
+  */
 
   if(is_sgi(pirq)) {
     if(pirq == 2)

@@ -36,9 +36,9 @@ enum msgtype {
  */
 
 struct pocv2_msg_header {
-  u16 src_nodeid;     /* me */
-  enum msgtype type;
-};
+  u32 src_nodeid;     /* me */
+  u32 type;           /* enum msgtype */
+} __aligned(8);
 
 #define POCV2_MSG_HDR_STRUCT      struct pocv2_msg_header hdr
 

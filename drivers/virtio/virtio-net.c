@@ -10,6 +10,7 @@
 #include "ethernet.h"
 #include "msg.h"
 #include "irq.h"
+#include "panic.h"
 
 struct virtio_net vtnet_dev;
 
@@ -108,7 +109,6 @@ static void rxintr(struct nic *nic, u16 idx) {
     nic->ops->recv_intr_callback(nic, p, l, np);
 
   dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d0;
-  // dev->rx->avail->ring[(dev->rx->avail->idx + 1) % NQUEUE] = d1;
   dsb(sy);
   dev->rx->avail->idx += 1;
 }
@@ -116,7 +116,7 @@ static void rxintr(struct nic *nic, u16 idx) {
 static void txintr(struct nic *nic, u16 idx) {
   struct virtio_net *dev = nic->device;
 
-  u16 d0 = dev->tx->avail->ring[idx];
+  u16 d0 = dev->tx->used->ring[idx].id;
   u16 d1 = dev->tx->desc[d0].next;
   struct virtio_net_hdr *h = (struct virtio_net_hdr *)dev->tx->desc[d0].addr;
   u8 *buf = (u8 *)dev->tx->desc[d1].addr;
@@ -219,7 +219,7 @@ int virtio_net_init(void *base, int intid) {
 
   net_init("virtio-net", mac, intid, &vtnet_dev, &virtio_net_ops);
 
-  irq_register(48, virtio_net_intr);
+  irq_register(intid, virtio_net_intr);
 
   return 0;
 }
