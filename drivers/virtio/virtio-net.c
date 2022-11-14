@@ -36,6 +36,7 @@ static struct virtio_tx_hdr *virtio_tx_hdr_alloc(void *p) {
 static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npackets) {
   struct virtio_net *dev = nic->device;
   struct virtio_tx_hdr *hdr;
+  u64 flags = 0;
 
   u8 *body = alloc_pages(1);
   u32 offset = 0;
@@ -51,7 +52,11 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
     { body, offset },
   };
 
+  spin_lock_irqsave(&dev->tx->lock, flags);
+
   virtq_enqueue_out(dev->tx, qs, 2, hdr);
+
+  spin_unlock_irqrestore(&dev->tx->lock, flags);
 
   virtq_kick(dev->tx);
 }
@@ -140,7 +145,7 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
   virtq_reg_to_dev(vtnet_dev.rx);
   virtq_reg_to_dev(vtnet_dev.tx);
 
-  vtnet_dev.tx->avail->flags |= VIRTQ_AVAIL_F_NO_INTERRUPT;
+  // vtnet_dev.tx->avail->flags |= VIRTQ_AVAIL_F_NO_INTERRUPT;
 
   fill_recv_queue(vtnet_dev.rx);
 

@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "compiler.h"
+#include "spinlock.h"
 
 struct virtio_mmio_dev;
 
@@ -41,6 +42,8 @@ struct virtq_used {
 struct virtq {
   struct virtio_mmio_dev *dev;
 
+  struct virtq *next;
+
   /* vring */
   struct virtq_desc *desc;
   struct virtq_avail *avail;
@@ -52,11 +55,10 @@ struct virtq {
   u16 last_used_idx;
   int qsel;
 
-  void (*intr_handler)(struct virtq *);
-
   void *xdata[NQUEUE];
 
-  struct virtq *next;
+  spinlock_t lock;
+  void (*intr_handler)(struct virtq *);
 };
 
 struct qlist {

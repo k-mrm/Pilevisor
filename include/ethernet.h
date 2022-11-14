@@ -12,7 +12,7 @@ struct etherheader {
   u16 type;
 } __packed;
 
-void ethernet_recv_intr(struct nic *nic, void **packets, int *lens, int npackets);
+void ethernet_recv_intr(struct nic *nic, struct receive_buf *buf);
 
 #define ETHER_PACKET_LENGTH_MIN    64
 

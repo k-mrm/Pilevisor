@@ -8,31 +8,17 @@
 
 u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-void ether_packet(u8 *dst_mac, u8 *src_mac, u16 type) {
-  ;
-}
+void ethernet_recv_intr(struct nic *nic, struct receive_buf *buf) {
+  struct etherheader *eth = recvbuf_pull(buf, sizeof(struct etherheader));
+  int body_need_free = 1;
 
-static void *eth_parse(void *packet, u8 **src, u8 **dst, u16 *ethtype) {
-  struct etherheader *eth = (struct etherheader *)packet;
+  vmm_log("ether: recv intr from %m %p\n", eth->src, eth->type);
 
-  *src = eth->src;
-  *dst = eth->dst;
-  *ethtype = eth->type;
-
-  return (void *)((u8 *)packet + sizeof(struct etherheader));
-}
-
-void ethernet_recv_intr(struct nic *nic, void **packets, int *lens, int npackets) {
-  u8 *src;
-  u8 *dst;
-  u16 ethtype;
-  packets[0] = eth_parse(packets[0], &src, &dst, &ethtype);
-
-  vmm_log("ether: recv intr from %m %p\n", src, ethtype);
-
-  if(memcmp(dst, broadcast_mac, 6) == 0 || memcmp(dst, nic->mac, 6) == 0) {
-    // if(ethtype == POCV2_MSG_ETH_PROTO)
-    if((ethtype & 0xff) == 0x19)
-      msg_recv_intr(src, packets, lens, npackets);
+  if(memcmp(eth->dst, broadcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
+    if((eth->type & 0xff) == 0x19)
+      body_need_free = msg_recv_intr(eth->src, buf);
   }
+
+  if(body_need_free)
+    free_page(buf->body);
 }

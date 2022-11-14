@@ -70,23 +70,28 @@ static u32 msg_type_hdr_size(enum msgtype type) {
     panic("msg_hdr_size");
 }
 
-void msg_recv_intr(u8 *src_mac, void **packets, int *lens, int npackets) {
-  vmm_bug_on(npackets != 2 && npackets != 1, "npackets");
+int msg_recv_intr(u8 *src_mac, struct receive_buf *buf) {
   struct pocv2_msg msg;
+  int rc = 1;
 
   /* Packet 1 */
-  struct pocv2_msg_header *hdr = packets[0];
+  struct pocv2_msg_header *hdr = buf->data;
   msg.mac = src_mac;
   msg.hdr = hdr;
 
   /* Packet 2 */
-  msg.body = npackets == 2 ? packets[1] : NULL;
-  msg.body_len = npackets == 2 ? lens[1] : 0;
+  if(buf->len > 64) {
+    msg.body = buf->body;
+    msg.body_len = buf->len - 64;
+    rc = 0;
+  }
 
   if(hdr->type < NUM_MSG && msg_data[hdr->type]->recv_handler)
     msg_data[hdr->type]->recv_handler(&msg);
   else
     panic("unknown msg received: %d\n", hdr->type);
+
+  return rc;
 }
 
 void send_msg(struct pocv2_msg *msg) {

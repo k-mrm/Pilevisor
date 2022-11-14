@@ -74,24 +74,5 @@ void *recvbuf_pull(struct receive_buf *buf, u32 size) {
 }
 
 void netdev_recv(struct receive_buf *buf) {
-  u32 len = buf->len;
-
-  if(len < 64)
-    panic("recvbuf len");
-
-  void *p[2];
-  int l[2], np = 1;
-
-  p[0] = buf->data;
-  l[0] = 64;
-
-  if(len > 64) {
-    p[1] = buf->body;
-    l[1] = len - 64;
-    np++;
-  } else {
-    free_page(buf->body);
-  }
-
-  ethernet_recv_intr(&netdev, p, l, np);
+  ethernet_recv_intr(&netdev, buf);
 }
