@@ -45,6 +45,7 @@ void virtq_enqueue(struct virtq *vq, struct qlist *qs, int nqs, void *x, bool in
 
     desc->addr = (u64)qs[i].buf;
     desc->len = qs[i].len;
+
     desc->flags = 0;
     if(i != nqs - 1)
       desc->flags |= VIRTQ_DESC_F_NEXT;
@@ -57,8 +58,9 @@ void virtq_enqueue(struct virtq *vq, struct qlist *qs, int nqs, void *x, bool in
   vq->free_head = idx;
 
   vq->avail->ring[vq->avail->idx % vq->num] = head;
-  dsb(ishst);
+  dsb(sy);
   vq->avail->idx += 1;
+  dsb(sy);
 }
 
 void *virtq_dequeue(struct virtq *vq, u32 *len) {
@@ -73,6 +75,8 @@ void *virtq_dequeue(struct virtq *vq, u32 *len) {
 
   void *x = vq->xdata[d];
   vq->xdata[d] = NULL;
+  if(!x)
+    panic("oi");
 
   vq->last_used_idx++;
 

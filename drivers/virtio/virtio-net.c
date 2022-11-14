@@ -27,7 +27,6 @@ static struct virtio_tx_hdr *virtio_tx_hdr_alloc(void *p) {
   hdr->vh.gso_size = 0;
   hdr->vh.csum_start = 0;
   hdr->vh.csum_offset = 0;
-  hdr->vh.num_buffers = 0;
 
   hdr->packet = p;
 
@@ -59,8 +58,9 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
 
 static void txintr(struct virtq *txq) {
   struct virtio_tx_hdr *hdr;
+  u32 len;
 
-  while((hdr = virtq_dequeue(txq, NULL)) != NULL) {
+  while((hdr = virtq_dequeue(txq, &len)) != NULL) {
     void *buf = hdr->packet;
 
     free_page(hdr);
@@ -122,6 +122,9 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
   dev->priv = &vtnet_dev;
   vtnet_dev.cfg = (struct virtio_net_config *)(dev->base + VIRTIO_MMIO_CONFIG);
 
+  vtnet_dev.mtu = vtnet_dev.cfg->mtu;
+  vtnet_dev.n_rxbuf = 0;
+
   /* negotiate */
   u64 features = 0;
   features |= 1 << VIRTIO_NET_F_MAC;
@@ -137,18 +140,15 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
   virtq_reg_to_dev(vtnet_dev.rx);
   virtq_reg_to_dev(vtnet_dev.tx);
 
+  // vtnet_dev.tx->avail->flags |= VIRTQ_AVAIL_F_NO_INTERRUPT;
+
   fill_recv_queue(vtnet_dev.rx);
-
-  vtnet_dev.tx->avail->flags |= VIRTQ_AVAIL_F_NO_INTERRUPT;
-
-  vtnet_dev.mtu = vtnet_dev.cfg->mtu;
-  vtnet_dev.n_rxbuf = 0;
 
   /* initialize done */
   if(vtmmio_driver_ok(dev) < 0)
     panic("driver ok");
 
-  vmm_log("virtio-net ready! %d\n", intid);
+  vmm_log("virtio-net ready! irq: %d\n", dev->intid);
 
   u8 mac[6] = {0};
   virtio_net_get_mac(&vtnet_dev, mac);
