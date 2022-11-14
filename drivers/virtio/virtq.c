@@ -33,7 +33,7 @@ void virtq_enqueue(struct virtq *vq, struct qlist *qs, int nqs, void *x, bool in
   struct virtq_desc *desc;
 
   if(!x)
-    panic("xdata");
+    panic("enqueue: xdata");
 
   head = idx = vq->free_head;
 
@@ -76,7 +76,7 @@ void *virtq_dequeue(struct virtq *vq, u32 *len) {
   void *x = vq->xdata[d];
   vq->xdata[d] = NULL;
   if(!x)
-    panic("oi");
+    panic("dequeue: xdata %d", d);
 
   vq->last_used_idx++;
 

@@ -14,6 +14,7 @@ static struct virtio_mmio_dev vtmmio_device;
 #define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)
 
 static void vtmmio_intr(void *arg);
+
 int virtio_net_probe(struct virtio_mmio_dev *dev);
 
 static inline u32 vtmmio_read(struct virtio_mmio_dev *dev, u32 off) {
@@ -165,7 +166,7 @@ static void vtmmio_intr(void *arg) {
 
 int virtio_mmio_init(void) {
   if(vtmmio_probe((void *)VIRTIO0, 48) < 0)
-    return -1;
+    panic("virtio-net dead");
 
   return 0;
 }

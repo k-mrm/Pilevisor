@@ -31,7 +31,7 @@ struct receive_buf {
 
 struct receive_buf *alloc_recvbuf(u32 size);
 void free_recvbuf(struct receive_buf *buf);
-void recvbuf_pull(struct receive_buf *buf, u32 size);
+void *recvbuf_pull(struct receive_buf *buf, u32 size);
 void recvbuf_set_len(struct receive_buf *buf, u32 len);
 
 void netdev_recv(struct receive_buf *buf);

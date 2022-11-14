@@ -5,6 +5,7 @@
 #include "lib.h"
 #include "mm.h"
 #include "panic.h"
+#include "allocpage.h"
 
 static struct nic netdev;
 
@@ -65,8 +66,11 @@ void recvbuf_set_len(struct receive_buf *buf, u32 len) {
   buf->len = len;
 }
 
-void recvbuf_pull(struct receive_buf *buf, u32 size) {
+void *recvbuf_pull(struct receive_buf *buf, u32 size) {
+  void *old = buf->data;
   buf->data = (u8 *)buf->data + size;
+
+  return old;
 }
 
 void netdev_recv(struct receive_buf *buf) {
@@ -85,6 +89,8 @@ void netdev_recv(struct receive_buf *buf) {
     p[1] = buf->body;
     l[1] = len - 64;
     np++;
+  } else {
+    free_page(buf->body);
   }
 
   ethernet_recv_intr(&netdev, p, l, np);
