@@ -54,6 +54,7 @@ struct virtio_pci_dev {
   struct virtio_pci_common_cfg *vtcfg;
   struct virtq virtq;
   void *notify_base;
+  int dev_id;
   u32 notify_off_multiplier;
 };
 
@@ -67,5 +68,7 @@ struct virtio_pci_dev {
 #define VIRTIO_PCI_CAP_DEVICE_CFG        4
 /* PCI configuration access */ 
 #define VIRTIO_PCI_CAP_PCI_CFG           5
+
+int virtio_pci_dev_init(struct pci_dev *pci_dev);
 
 #endif

@@ -27,7 +27,7 @@ void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
 }
 
 struct receive_buf *alloc_recvbuf(u32 size) {
-  u64 flags;
+  u64 flags = 0;
 
   spin_lock_irqsave(&rbuf_lock, flags);
 
@@ -52,6 +52,8 @@ struct receive_buf *alloc_recvbuf(u32 size) {
 }
 
 void free_recvbuf(struct receive_buf *buf) {
+  u64 flags = 0;
+
   spin_lock_irqsave(&rbuf_lock, flags);
 
   buf->used = 0;
@@ -59,9 +61,12 @@ void free_recvbuf(struct receive_buf *buf) {
   spin_unlock_irqrestore(&rbuf_lock, flags);
 }
 
-void recvbuf_push(struct receive_buf *buf, u32 size) {
-  (u8 *)buf->data += size;
-  buf->len -= size;
+void recvbuf_set_len(struct receive_buf *buf, u32 len) {
+  buf->len = len;
+}
+
+void recvbuf_pull(struct receive_buf *buf, u32 size) {
+  buf->data = (u8 *)buf->data + size;
 }
 
 void netdev_recv(struct receive_buf *buf) {

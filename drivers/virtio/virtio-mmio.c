@@ -5,11 +5,16 @@
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
+#include "irq.h"
+#include "panic.h"
 
 static struct virtio_mmio_dev vtmmio_device;
 
 #define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
 #define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)
+
+static void vtmmio_intr(void *arg);
+int virtio_net_probe(struct virtio_mmio_dev *dev);
 
 static inline u32 vtmmio_read(struct virtio_mmio_dev *dev, u32 off) {
   return *(volatile u32 *)((volatile char *)dev->base + off);
@@ -44,7 +49,7 @@ static int vtmmio_probe(void *base, int intid) {
   status = vtmmio_read(dev, VIRTIO_MMIO_STATUS) | DEV_STATUS_DRIVER;
   vtmmio_write(dev, VIRTIO_MMIO_STATUS, status);
 
-  irq_regsiter(intid, vtmmio_intr, dev); 
+  irq_register(intid, vtmmio_intr, dev); 
 
   u32 devid = vtmmio_read(dev, VIRTIO_MMIO_DEVICE_ID);
 
@@ -86,8 +91,7 @@ int vtmmio_negotiate(struct virtio_mmio_dev *dev, u64 features) {
 
   features &= host_features;
 
-  if(features != host_features)
-    panic("feaaaaatures");
+  printf("virtio: features %p\n", features);
 
   vtmmio_write(dev, VIRTIO_MMIO_DRIVER_FEATURES_SEL, 1);
   vtmmio_write(dev, VIRTIO_MMIO_DRIVER_FEATURES, (u32)(features >> 32));
@@ -135,7 +139,7 @@ int vtmmio_set_virtq(struct virtio_mmio_dev *dev, struct virtq *vq, int qsel) {
   return 0;
 }
 
-void vtmmio_notify(struct virtio_mmio_dev *dev int qsel) {
+void vtmmio_notify(struct virtio_mmio_dev *dev, int qsel) {
   vtmmio_write(dev, VIRTIO_MMIO_QUEUE_NOTIFY, qsel);
 }
 

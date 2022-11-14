@@ -14,5 +14,6 @@
 #define VIRTIO_DEV_NET      0x1
 #define VIRTIO_DEV_BLK      0x2
 #define VIRTIO_DEV_CONSOLE  0x3
+#define VIRTIO_DEV_RNG      0x4
 
 #endif

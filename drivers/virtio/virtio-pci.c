@@ -6,13 +6,16 @@
 #include "allocpage.h"
 #include "lib.h"
 
-static void virtio_pci_notify_queue(struct virtio_pci_dev *vdev, int queue) {
-  u16 notify_off = vdev->vtcfg->queue_notify_off;
-  u32 *addr = (u32 *)((u64)vdev->notify_base + notify_off * vdev->notify_off_multiplier);
+static struct virtio_pci_dev vtpci_dev;
 
-  *addr = queue;
+void vtpci_notify(struct virtio_pci_dev *dev, int qsel) {
+  u16 notify_off = dev->vtcfg->queue_notify_off;
+  u32 *addr = (u32 *)((u64)dev->notify_base + notify_off * dev->notify_off_multiplier);
+
+  *addr = qsel;
 }
 
+/*
 static void virtio_pci_rng_req(struct virtio_pci_dev *vdev, u64 *rnd) {
   struct virtq *vq = &vdev->virtq;
   *rnd = 0;
@@ -79,6 +82,7 @@ static int virtio_pci_rng_init(struct virtio_pci_dev *vdev) {
 
   return 0;
 }
+*/
 
 static void __virtio_pci_scan_cap(struct virtio_pci_dev *vdev, struct virtio_pci_cap *cap) {
   if(cap->cap_vndr != 0x9)
@@ -128,16 +132,13 @@ int virtio_pci_dev_init(struct pci_dev *pci_dev) {
   if(pci_dev->dev_id < 0x1040)
     return -1;
 
-  struct virtio_pci_dev vdev;
-  vdev.pci = pci_dev;
-  virtio_pci_scan_cap(&vdev);
+  vtpci_dev.pci = pci_dev;
+  virtio_pci_scan_cap(&vtpci_dev);
 
   switch(pci_dev->dev_id - 0x1040) {
-    case 1:
-      /* net */
+    case VIRTIO_DEV_NET:
       break;
-    case 4:
-      virtio_pci_rng_init(&vdev);
+    case VIRTIO_DEV_RNG:
       break;
     default:
       return -1;

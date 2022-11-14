@@ -48,7 +48,7 @@ struct virtio_mmio_dev {
 int vtmmio_set_virtq(struct virtio_mmio_dev *dev, struct virtq *vq, int qsel);
 int vtmmio_driver_ok(struct virtio_mmio_dev *dev);
 int vtmmio_negotiate(struct virtio_mmio_dev *dev, u64 features);
-void vtmmio_notify(struct virtio_mmio_dev *dev int qsel);
+void vtmmio_notify(struct virtio_mmio_dev *dev, int qsel);
 
 int virtio_mmio_init(void);
 

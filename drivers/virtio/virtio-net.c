@@ -19,7 +19,7 @@ static inline void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
 }
 
 static struct virtio_tx_hdr *virtio_tx_hdr_alloc(void *p) {
-  struct virtio_tx_hdr *hdr = alloc_page();    // FIXME
+  struct virtio_tx_hdr *hdr = alloc_page();    // FIXME: malloc(sizeof(*hdr))
 
   hdr->vh.flags = 0;
   hdr->vh.gso_type = VIRTIO_NET_HDR_GSO_NONE;
@@ -47,7 +47,7 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
 
   hdr = virtio_tx_hdr_alloc(body);
 
-  struct qlist qs[] = {
+  struct qlist qs[2] = {
     { hdr, sizeof(struct virtio_net_hdr) },
     { body, offset },
   };
@@ -55,41 +55,6 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
   virtq_enqueue_out(dev->tx, qs, 2, hdr);
 
   virtq_kick(dev->tx);
-}
-
-static void fill_recv_queue(struct virtq *rxq) {
-  struct virtio_net *dev = rxq->dev->priv;
-  struct qlist qs[2];
-  void *hbuf, bbuf;
-  u32 hdr_len = sizeof(struct virtio_net_hdr) + ETH_POCV2_MSG_HDR_SIZE;
-
-  while(dev->n_rxbuf < NQUEUE/2) {
-    struct receive_buf *buf = alloc_recvbuf(hdr_len);
-
-    qs[0] = { buf->data, hdr_len };
-    qs[1] = { buf->body, 4096 };
-
-    virtq_enqueue_in(rxq, qs, 2, buf);
-
-    dev->n_rxbuf++;
-  }
-}
-
-static void rxintr(struct virtq *rxq) {
-  struct receive_buf *buf;
-
-  while((buf = virtq_dequeue(rxq, &len)) != NULL) {
-    recvbuf_push(buf, sizeof(struct virtio_net_hdr));
-
-    dev->n_rxbuf--;
-
-    netdev_recv(buf);
-
-    free(buf->head);
-    free_recvbuf(buf);
-  }
-
-  fill_recv_queue(rxq);
 }
 
 static void txintr(struct virtq *txq) {
@@ -101,6 +66,43 @@ static void txintr(struct virtq *txq) {
     free_page(hdr);
     free_pages(buf, 1);
   }
+}
+
+static void fill_recv_queue(struct virtq *rxq) {
+  struct virtio_net *dev = rxq->dev->priv;
+  struct qlist qs[2];
+  u32 hdr_len = sizeof(struct virtio_net_hdr) + ETH_POCV2_MSG_HDR_SIZE;
+
+  while(dev->n_rxbuf < NQUEUE/2) {
+    struct receive_buf *buf = alloc_recvbuf(hdr_len);
+
+    qs[0] = (struct qlist){ buf->data, hdr_len };
+    qs[1] = (struct qlist){ buf->body, 4096 };
+
+    virtq_enqueue_in(rxq, qs, 2, buf);
+
+    dev->n_rxbuf++;
+  }
+}
+
+static void rxintr(struct virtq *rxq) {
+  struct virtio_net *dev = rxq->dev->priv;
+  struct receive_buf *buf;
+  u32 len;
+
+  while((buf = virtq_dequeue(rxq, &len)) != NULL) {
+    recvbuf_pull(buf, sizeof(struct virtio_net_hdr));
+    recvbuf_set_len(buf, len - sizeof(struct virtio_net_hdr));
+
+    dev->n_rxbuf--;
+
+    netdev_recv(buf);
+
+    free_page(buf->head);
+    free_recvbuf(buf);
+  }
+
+  fill_recv_queue(rxq);
 }
 
 static void virtio_net_set_recv_intr_callback(struct nic *nic, 
@@ -126,10 +128,11 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
   features |= 1 << VIRTIO_NET_F_STATUS;
   features |= 1 << VIRTIO_NET_F_MTU;
 
-  vtmmio_negotiate(dev, features);
+  if(vtmmio_negotiate(dev, features) < 0)
+    panic("failed negotiate");
 
-  vtnet_dev.rx = virtq_create(&vtnet_dev, 0, rxintr);
-  vtnet_dev.tx = virtq_create(&vtnet_dev, 1, txintr);
+  vtnet_dev.rx = virtq_create(dev, 0, rxintr);
+  vtnet_dev.tx = virtq_create(dev, 1, txintr);
 
   virtq_reg_to_dev(vtnet_dev.rx);
   virtq_reg_to_dev(vtnet_dev.tx);
@@ -142,7 +145,7 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
   vtnet_dev.n_rxbuf = 0;
 
   /* initialize done */
-  if(virtio_device_driver_ok(dev) < 0)
+  if(vtmmio_driver_ok(dev) < 0)
     panic("driver ok");
 
   vmm_log("virtio-net ready! %d\n", intid);

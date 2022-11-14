@@ -95,7 +95,8 @@ struct virtq *virtq_create(struct virtio_mmio_dev *dev, int qsel,
 
   vmm_log("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
 
-  for(int i = 0; i < NQUEUE - 1; i++)
+  int i;
+  for(i = 0; i < NQUEUE - 1; i++)
     vq->desc[i].next = i + 1;
   vq->desc[i].next = 0xffff;    /* last entry */
 

@@ -29,9 +29,13 @@ struct receive_buf {
   u32 len;
 };
 
-void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops);
 struct receive_buf *alloc_recvbuf(u32 size);
 void free_recvbuf(struct receive_buf *buf);
-void recvbuf_push(struct receive_buf *buf, u32 size);
+void recvbuf_pull(struct receive_buf *buf, u32 size);
+void recvbuf_set_len(struct receive_buf *buf, u32 len);
+
+void netdev_recv(struct receive_buf *buf);
+
+void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops);
 
 #endif
