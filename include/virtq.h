@@ -54,13 +54,29 @@ struct virtq {
 
   void (*intr_handler)(struct virtq *);
 
+  void *xdata[NQUEUE];
+
   struct virtq *next;
 };
 
+struct qlist {
+  void *buf;
+  u32 len;
+};
+
+static inline void virtq_enqueue_in(struct virtq *vq, struct qlist *qs, int nqs, void *x) {
+  return virtq_enqueue(vq, qs, nqs, x, true);
+}
+
+static inline void virtq_enqueue_out(struct virtq *vq, struct qlist *qs, int nqs, void *x) {
+  return virtq_enqueue(vq, qs, nqs, x, false);
+}
+
 int virtq_reg_to_dev(struct virtq *vq);
-u16 virtq_alloc_desc(struct virtq *vq);
-void virtq_free_desc(struct virtq *vq, u16 n);
+void virtq_free_chain(struct virtq *vq, u16 n);
 void virtq_kick(struct virtq *vq);
+void virtq_enqueue(struct virtq *vq, struct qlist *qs, int nqs, void *x, bool in);
+void *virtq_dequeue(struct virtq *vq, u32 *len);
 struct virtq *virtq_create(struct virtio_mmio_dev *dev, int qsel,
                             void (*intr_handler)(struct virtq *));
 

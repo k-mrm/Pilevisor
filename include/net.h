@@ -19,6 +19,19 @@ struct nic {
   struct nic_ops *ops;
 };
 
+/* receive_buf is optimized for pocv2-msg */
+struct receive_buf {
+  int used;
+  void *head;
+  void *data;
+  /* page */
+  void *body;
+  u32 len;
+};
+
 void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops);
+struct receive_buf *alloc_recvbuf(u32 size);
+void free_recvbuf(struct receive_buf *buf);
+void recvbuf_push(struct receive_buf *buf, u32 size);
 
 #endif

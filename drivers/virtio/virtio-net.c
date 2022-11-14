@@ -12,29 +12,31 @@
 #include "irq.h"
 #include "panic.h"
 
-struct virtio_net vtnet_dev;
+static struct virtio_net vtnet_dev;
 
 static inline void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
   memcpy(buf, dev->cfg->mac, sizeof(u8)*6);
 }
 
-static struct virtio_net_hdr *virtio_net_hdr_alloc() {
-  struct virtio_net_hdr *hdr = alloc_page();
+static struct virtio_tx_hdr *virtio_tx_hdr_alloc(void *p) {
+  struct virtio_tx_hdr *hdr = alloc_page();    // FIXME
 
-  hdr->flags = 0;
-  hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
-  hdr->hdr_len = 0;
-  hdr->gso_size = 0;
-  hdr->csum_start = 0;
-  hdr->csum_offset = 0;
-  hdr->num_buffers = 0;
+  hdr->vh.flags = 0;
+  hdr->vh.gso_type = VIRTIO_NET_HDR_GSO_NONE;
+  hdr->vh.hdr_len = 0;
+  hdr->vh.gso_size = 0;
+  hdr->vh.csum_start = 0;
+  hdr->vh.csum_offset = 0;
+  hdr->vh.num_buffers = 0;
+
+  hdr->packet = p;
 
   return hdr;
 }
 
 static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npackets) {
   struct virtio_net *dev = nic->device;
-  struct virtio_net_hdr *hdr = virtio_net_hdr_alloc();
+  struct virtio_tx_hdr *hdr;
 
   u8 *body = alloc_pages(1);
   u32 offset = 0;
@@ -42,110 +44,62 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
     memcpy(body+offset, packets[i], lens[i]);
     offset += lens[i];
   }
-  
-  /* hdr */
-  u16 d0 = virtq_alloc_desc(dev->tx);
 
-  dev->tx->desc[d0].len = sizeof(struct virtio_net_hdr);
-  dev->tx->desc[d0].addr = (u64)hdr;
-  dev->tx->desc[d0].flags = VIRTQ_DESC_F_NEXT;
+  hdr = virtio_tx_hdr_alloc(body);
 
-  /* body */
-  u16 d1 = virtq_alloc_desc(dev->tx);
+  struct qlist qs[] = {
+    { hdr, sizeof(struct virtio_net_hdr) },
+    { body, offset },
+  };
 
-  dev->tx->desc[d1].len = offset;
-  dev->tx->desc[d1].addr = (u64)body;
-  dev->tx->desc[d1].flags = 0;
-
-  dev->tx->desc[d0].next = d1;
-
-  dev->tx->avail->ring[dev->tx->avail->idx % NQUEUE] = d0;
-  dsb(sy);
-  dev->tx->avail->idx += 1;
-  dsb(sy);
+  virtq_enqueue_out(dev->tx, qs, 2, hdr);
 
   virtq_kick(dev->tx);
 }
 
 static void fill_recv_queue(struct virtq *rxq) {
-  for(int i = 0; i < NQUEUE/2; i++) {
-    u16 d0 = virtq_alloc_desc(rxq);
-    u16 d1 = virtq_alloc_desc(rxq);
-    rxq->desc[d0].addr = (u64)alloc_page();     // FIXME
-    rxq->desc[d0].len = sizeof(struct virtio_net_hdr) + ETH_POCV2_MSG_HDR_SIZE;
-    rxq->desc[d0].flags = VIRTQ_DESC_F_WRITE | VIRTQ_DESC_F_NEXT;
-    rxq->desc[d0].next = d1;
-    rxq->desc[d1].addr = (u64)alloc_page();
-    rxq->desc[d1].len = 4096;
-    rxq->desc[d1].flags = VIRTQ_DESC_F_WRITE;
-    rxq->avail->ring[rxq->avail->idx] = d0;
-    dsb(sy);
-    rxq->avail->idx += 1;
+  struct virtio_net *dev = rxq->dev->priv;
+  struct qlist qs[2];
+  void *hbuf, bbuf;
+  u32 hdr_len = sizeof(struct virtio_net_hdr) + ETH_POCV2_MSG_HDR_SIZE;
+
+  while(dev->n_rxbuf < NQUEUE/2) {
+    struct receive_buf *buf = alloc_recvbuf(hdr_len);
+
+    qs[0] = { buf->data, hdr_len };
+    qs[1] = { buf->body, 4096 };
+
+    virtq_enqueue_in(rxq, qs, 2, buf);
+
+    dev->n_rxbuf++;
   }
 }
 
-static void rxintr(struct nic *nic, u16 idx) {
-  struct virtio_net *dev = nic->device;
+static void rxintr(struct virtq *rxq) {
+  struct receive_buf *buf;
 
-  u16 d0 = dev->rx->used->ring[idx].id;
-  u16 d1 = dev->rx->desc[d0].next;
-  u32 len = dev->rx->used->ring[idx].len - sizeof(struct virtio_net_hdr);
+  while((buf = virtq_dequeue(rxq, &len)) != NULL) {
+    recvbuf_push(buf, sizeof(struct virtio_net_hdr));
 
-  void *p[2];
-  int l[2];
-  int np = 1;
-  p[0] = (void *)(dev->rx->desc[d0].addr + sizeof(struct virtio_net_hdr));
-  l[0] = 64;
+    dev->n_rxbuf--;
 
-  if(len > 64) {
-    p[1] = (void *)dev->rx->desc[d1].addr;
-    l[1] = len - 64;
-    np++;
+    netdev_recv(buf);
 
-    dev->rx->desc[d1].addr = (u64)alloc_page();
+    free(buf->head);
+    free_recvbuf(buf);
   }
 
-  if(nic->ops->recv_intr_callback)
-    nic->ops->recv_intr_callback(nic, p, l, np);
-
-  dev->rx->avail->ring[dev->rx->avail->idx % NQUEUE] = d0;
-  dsb(sy);
-  dev->rx->avail->idx += 1;
-}
-
-static void txintr(struct nic *nic, u16 idx) {
-  struct virtio_net *dev = nic->device;
-
-  u16 d0 = dev->tx->used->ring[idx].id;
-  u16 d1 = dev->tx->desc[d0].next;
-  struct virtio_net_hdr *h = (struct virtio_net_hdr *)dev->tx->desc[d0].addr;
-  u8 *buf = (u8 *)dev->tx->desc[d1].addr;
-
-  free_page(h);
-  free_pages(buf, 1);
-
-  virtq_free_desc(dev->tx, d0);
-  virtq_free_desc(dev->tx, d1);
+  fill_recv_queue(rxq);
 }
 
 static void txintr(struct virtq *txq) {
-  struct virtio_net kl;
-}
+  struct virtio_tx_hdr *hdr;
 
-static void virtio_net_intr() {
-  struct nic *nic = localnode.nic;
-  struct virtio_net *dev = nic->device;
+  while((hdr = virtq_dequeue(txq, NULL)) != NULL) {
+    void *buf = hdr->packet;
 
-  while(dev->tx->last_used_idx != dev->tx->used->idx) {
-    txintr(nic, dev->tx->last_used_idx % NQUEUE);
-    dev->tx->last_used_idx++;
-    dsb(sy);
-  }
-
-  while(dev->rx->last_used_idx != dev->rx->used->idx) {
-    rxintr(nic, dev->rx->last_used_idx % NQUEUE);
-    dev->rx->last_used_idx++;
-    dsb(sy);
+    free_page(hdr);
+    free_pages(buf, 1);
   }
 }
 
@@ -163,18 +117,19 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
   vmm_log("virtio_net_probe\n");
 
   vtnet_dev.dev = dev;
+  dev->priv = &vtnet_dev;
   vtnet_dev.cfg = (struct virtio_net_config *)(dev->base + VIRTIO_MMIO_CONFIG);
 
   /* negotiate */
   u64 features = 0;
-  features |= VIRTIO_NET_F_MAC;
-  features |= VIRTIO_NET_F_STATUS;
-  features |= VIRTIO_NET_F_MTU;
+  features |= 1 << VIRTIO_NET_F_MAC;
+  features |= 1 << VIRTIO_NET_F_STATUS;
+  features |= 1 << VIRTIO_NET_F_MTU;
 
   vtmmio_negotiate(dev, features);
 
-  vtnet_dev.rx = virtq_create(dev, 0, rxintr);
-  vtnet_dev.tx = virtq_create(dev, 1, txintr);
+  vtnet_dev.rx = virtq_create(&vtnet_dev, 0, rxintr);
+  vtnet_dev.tx = virtq_create(&vtnet_dev, 1, txintr);
 
   virtq_reg_to_dev(vtnet_dev.rx);
   virtq_reg_to_dev(vtnet_dev.tx);
@@ -184,6 +139,7 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
   vtnet_dev.tx->avail->flags |= VIRTQ_AVAIL_F_NO_INTERRUPT;
 
   vtnet_dev.mtu = vtnet_dev.cfg->mtu;
+  vtnet_dev.n_rxbuf = 0;
 
   /* initialize done */
   if(virtio_device_driver_ok(dev) < 0)

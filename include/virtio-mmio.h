@@ -41,6 +41,8 @@ struct virtio_mmio_dev {
   void *base;
   int intid;
   struct virtq *vqs;
+  int dev_id;
+  void *priv;
 };
 
 int vtmmio_set_virtq(struct virtio_mmio_dev *dev, struct virtq *vq, int qsel);

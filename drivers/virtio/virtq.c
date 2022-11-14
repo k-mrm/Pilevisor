@@ -17,28 +17,74 @@ void virtq_kick(struct virtq *vq) {
   }
 }
 
-/* TODO: chain? */
-u16 virtq_alloc_desc(struct virtq *vq) {
-  if(vq->nfree == 0)
-    panic("virtq kokatu");
+static void virtq_free_chain(struct virtq *vq, u16 n) {
+  u16 head = n;
 
-  u16 d = vq->free_head;
-  if(vq->desc[d].flags & VIRTQ_DESC_F_NEXT)
-    vq->free_head = vq->desc[d].next;
-  
-  vq->nfree--;
+  while(vq->desc[n].flags & VIRTQ_DESC_F_NEXT) {
+    n = vq->desc[n].next;
+  }
 
-  return d;
-}
-
-void virtq_free_desc(struct virtq *vq, u16 n) {
   vq->desc[n].next = vq->free_head;
-  vq->desc[n].flags = VIRTQ_DESC_F_NEXT;
-  vq->free_head = n;
-  vq->nfree++;  /* TODO: chain? */
+  vq->free_head = head;
 }
 
-struct virtq *virtq_create(struct virtio_mmio_dev *dev, int qsel, void (*intr_handler)(struct virtq *)) {
+void virtq_enqueue(struct virtq *vq, struct qlist *qs, int nqs, void *x, bool in) {
+  u16 head, idx;
+  struct virtq_desc *desc;
+
+  if(!x)
+    panic("xdata");
+
+  head = idx = vq->free_head;
+
+  for(int i = 0; i < nqs; i++, idx = desc->next) {
+    if(idx == 0xffff)
+      panic("no desc");
+
+    desc = &vq->desc[idx];
+
+    desc->addr = (u64)qs[i].buf;
+    desc->len = qs[i].len;
+    desc->flags = 0;
+    if(i != nqs - 1)
+      desc->flags |= VIRTQ_DESC_F_NEXT;
+    if(in)
+      desc->flags |= VIRTQ_DESC_F_WRITE;
+  }
+
+  vq->xdata[head] = x;
+
+  vq->free_head = idx;
+
+  vq->avail->ring[vq->avail->idx % vq->num] = head;
+  dsb(ishst);
+  vq->avail->idx += 1;
+}
+
+void *virtq_dequeue(struct virtq *vq, u32 *len) {
+  u16 idx = vq->last_used_idx;
+
+  if(idx == vq->used->idx)
+    return NULL;
+
+  u32 d = vq->used->ring[idx % vq->num].id;
+  if(len)
+    *len = vq->used->ring[idx % vq->num].len;
+
+  void *x = vq->xdata[d];
+  vq->xdata[d] = NULL;
+
+  vq->last_used_idx++;
+
+  dsb(ishst);
+
+  virtq_free_chain(vq, d);
+
+  return x;
+}
+
+struct virtq *virtq_create(struct virtio_mmio_dev *dev, int qsel,
+                            void (*intr_handler)(struct virtq *)) {
   struct virtq *vq = alloc_page();
   if(!vq)
     panic("vq");
@@ -49,16 +95,16 @@ struct virtq *virtq_create(struct virtio_mmio_dev *dev, int qsel, void (*intr_ha
 
   vmm_log("virtq d %p a %p u %p\n", vq->desc, vq->avail, vq->used);
 
-  for(int i = 0; i < NQUEUE - 1; i++) {
-    vq->desc[i].flags = VIRTQ_DESC_F_NEXT;
+  for(int i = 0; i < NQUEUE - 1; i++)
     vq->desc[i].next = i + 1;
-  }
+  vq->desc[i].next = 0xffff;    /* last entry */
 
   vq->dev = dev;
   vq->qsel = qsel;
   vq->num = vq->nfree = NQUEUE;
   vq->free_head = 0;
   vq->last_used_idx = 0;
+  vq->intr_handler = intr_handler;
 
   return vq;
 }

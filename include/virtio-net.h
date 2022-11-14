@@ -47,6 +47,7 @@ struct virtio_net {
   struct virtq *tx;
   struct virtq *rx;
   u32 mtu;
+  u32 n_rxbuf;
 };
 
 struct virtio_net_hdr {
@@ -65,5 +66,11 @@ struct virtio_net_hdr {
   u16 csum_offset;  /* Offset after that to place checksum */
   u16 num_buffers;  /* Number of merged rx buffers */
 } __packed;
+
+struct virtio_tx_hdr {
+  struct virtio_net_hdr vh;
+
+  void *packet;
+};
 
 #endif

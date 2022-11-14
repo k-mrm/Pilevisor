@@ -48,6 +48,8 @@ static int vtmmio_probe(void *base, int intid) {
 
   u32 devid = vtmmio_read(dev, VIRTIO_MMIO_DEVICE_ID);
 
+  dev->dev_id = devid;
+
   switch(devid) {
     case VIRTIO_DEV_NET:
       return virtio_net_probe(dev);
@@ -145,7 +147,10 @@ static void vtmmio_intr(void *arg) {
 
   if(status & VIRTIO_MMIO_USED_BUFFER_NOTIFY) {
     for(struct virtq *vq = dev->vqs; vq != NULL; vq = vq->next) {
-      vq->intr_handler(vq);
+      if(vq->intr_handler)
+        vq->intr_handler(vq);
+      else
+        panic("intrhandler?");
     }
   }
 
