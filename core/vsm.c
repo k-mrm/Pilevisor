@@ -452,7 +452,7 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     memcpy(d->buf, (char *)page_pa + d->offset, d->size);
 
   s2pte_ro(pte);
-  tlb_s2_flush_ipa(page_ipa);
+  tlb_s2_flush_all();
 
   vsm_process_waitqueue(page_ipa);
 
@@ -508,7 +508,7 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     void *pa = (void *)PTE_PA(*pte);
 
     s2pte_invalidate(pte);
-    tlb_s2_flush_ipa(page_ipa);
+    tlb_s2_flush_all();
 
     free_page(pa);
   }
@@ -544,7 +544,7 @@ inv_phase:
     memcpy((char *)page_pa + d->offset, d->buf, d->size);
 
   s2pte_rw(pte);
-  tlb_s2_flush_ipa(page_ipa);
+  // tlb_s2_flush_all();
 
   vsm_process_waitqueue(page_ipa);
 
@@ -633,7 +633,7 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
   if((pte = page_rwable_pte(vttbr, page_ipa)) != NULL ||
       (((pte = page_ro_pte(vttbr, page_ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
     s2pte_ro(pte);
-    tlb_s2_flush_ipa(page_ipa);
+    tlb_s2_flush_all();
 
     /* copyset = copyset | request node */
     s2pte_add_copyset(pte, req_nodeid);
@@ -682,16 +682,16 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
   if((pte = page_rwable_pte(vttbr, page_ipa)) != NULL ||
       (((pte = page_ro_pte(vttbr, page_ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
     /* I am owner */
-    u64 pa = PTE_PA(*pte);
+    void *pa = (void *)PTE_PA(*pte);
     u64 copyset = s2pte_copyset(pte);
 
     vmm_log("write server: send write fetch reply: i am owner! %p\n", s2pte_copyset(pte));
 
     s2pte_invalidate(pte);
-    tlb_s2_flush_ipa(page_ipa);
+    tlb_s2_flush_all();
 
     // send p and copyset;
-    send_write_fetch_reply(req_nodeid, page_ipa, (void *)pa, copyset);
+    send_write_fetch_reply(req_nodeid, page_ipa, pa, copyset);
 
     free_page(pa);
 

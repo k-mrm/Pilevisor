@@ -18,6 +18,7 @@ static inline void tlb_s2_flush_all() {
   isb();
 }
 
+/* QEMU does not emulate tlbi ipas2e1 ;; */
 static inline void tlb_s2_flush_ipa(u64 ipa) {
   dsb(ishst);
   asm volatile("tlbi  ipas2e1, %0" :: "r"(ipa >> PAGESHIFT) : "memory");
