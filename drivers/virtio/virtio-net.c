@@ -56,9 +56,9 @@ static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npac
 
   virtq_enqueue_out(dev->tx, qs, 2, hdr);
 
-  spin_unlock_irqrestore(&dev->tx->lock, flags);
-
   virtq_kick(dev->tx);
+
+  spin_unlock_irqrestore(&dev->tx->lock, flags);
 }
 
 static void txintr(struct virtq *txq) {
