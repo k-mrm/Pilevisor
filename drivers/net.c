@@ -6,11 +6,9 @@
 #include "mm.h"
 #include "panic.h"
 #include "allocpage.h"
+#include "malloc.h"
 
 static struct nic netdev;
-
-static struct receive_buf rbufs[256];
-static spinlock_t rbuf_lock;
 
 void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
   if(localnode.nic)
@@ -28,38 +26,18 @@ void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
 }
 
 struct receive_buf *alloc_recvbuf(u32 size) {
-  u64 flags = 0;
+  struct receive_buf *buf = malloc(sizeof(*buf));
 
-  spin_lock_irqsave(&rbuf_lock, flags);
+  buf->head = buf->data = malloc(size);   /* TODO: malloc(size) */
+  buf->body = alloc_page();
 
-  for(struct receive_buf *r = rbufs; r < &rbufs[256]; r++) {
-    if(r->used == 0) {
-      r->used = 1;
+  buf->len = size + PAGESIZE;
 
-      r->head = r->data = alloc_page();   /* TODO: malloc(size) */
-      r->body = alloc_page();
-
-      r->len = size + PAGESIZE;
-
-      spin_unlock_irqrestore(&rbuf_lock, flags);
-
-      return r;
-    }
-  }
-
-  spin_unlock_irqrestore(&rbuf_lock, flags);
-
-  panic("recvbuf");
+  return buf;
 }
 
 void free_recvbuf(struct receive_buf *buf) {
-  u64 flags = 0;
-
-  spin_lock_irqsave(&rbuf_lock, flags);
-
-  buf->used = 0;
-
-  spin_unlock_irqrestore(&rbuf_lock, flags);
+  free(buf);
 }
 
 void recvbuf_set_len(struct receive_buf *buf, u32 len) {

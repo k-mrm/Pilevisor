@@ -170,8 +170,8 @@ vectable:
 /* current EL with spx */
   ventry  el2_sync
   ventry  el2_irq
-  ventry  .
-  ventry  .
+  ventry  el2_fiq
+  ventry  el2_serror
 
 /* lower EL using aarch64 */
   ventry  guest_sync
@@ -204,6 +204,19 @@ el2_irq:
   hyp_restore_reg
 
   eret
+
+el2_fiq:
+  b fiq_handler
+
+  /* never return here */
+
+el2_serror:
+  hyp_save_reg
+
+  mov x0, sp
+  bl hyp_serror_handler
+
+  /* never return here */
 
 guest_sync:
   vm_save_reg

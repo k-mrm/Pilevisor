@@ -38,10 +38,6 @@ static struct memzone {
   spinlock_t lock;
 } mem;
 
-/*
- *  TODO: consider spinlock
- */
-
 static inline u64 page_buddy_pfn(u64 pfn, int order) {
   return pfn ^ (1 << order);
 }
@@ -121,7 +117,7 @@ void free_pages(void *pages, int order) {
   u64 flags;
 
   if(!pages)
-    return;
+    panic("null free_page");
 
   if((u64)pages & ((PAGESIZE << order) - 1))
     panic("alignment %p %d", pages, order);

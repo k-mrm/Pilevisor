@@ -29,4 +29,6 @@ struct mmio_reply_hdr {
   enum vmmio_status status;
 };
 
+int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio);
+
 #endif

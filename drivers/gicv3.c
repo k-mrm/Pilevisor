@@ -120,12 +120,7 @@ static u64 gic_pending_lr(u32 pirq, u32 virq, int grp) {
   return lr;
 }
 
-void gic_inject_guest_irq(u32 pirq, u32 virq, int grp) {
-  /*
-  if(pirq==27)
-    return;
-  */
-
+int gic_inject_guest_irq(u32 pirq, u32 virq, int grp) {
   if(is_sgi(pirq)) {
     if(pirq == 2)
       panic("!? maybe kernel panicked");
@@ -144,15 +139,17 @@ void gic_inject_guest_irq(u32 pirq, u32 virq, int grp) {
     }
 
     if((u32)gic_read_lr(i) == pirq)
-      panic("busy %d", pirq);
+      return -1;    // busy
   }
 
   if(freelr < 0)
-    panic("no free lr ;;");
+    return -1;
 
   lr = gic_pending_lr(pirq, virq, grp);
 
   gic_write_lr(freelr, lr);
+
+  return 0;
 }
 
 bool gic_irq_pending(u32 irq) {

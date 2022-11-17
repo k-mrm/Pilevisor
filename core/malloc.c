@@ -95,7 +95,7 @@ void *malloc(u32 size) {
   u64 flags = 0;
 
   if(size == 0)
-    return NULL;
+    panic("0 malloc");
 
   int order = get_order(size);
   if(order >= 8)
@@ -119,7 +119,7 @@ void free(void *ptr) {
   u64 flags = 0;
 
   if(!ptr)
-    return;
+    panic("null free");
 
   struct frame *frame = (struct frame *)PAGE_ADDRESS(ptr);
 

@@ -104,7 +104,7 @@ static void rxintr(struct virtq *rxq) {
 
     netdev_recv(buf);
 
-    free_page(buf->head);
+    free(buf->head);
     free_recvbuf(buf);
   }
 

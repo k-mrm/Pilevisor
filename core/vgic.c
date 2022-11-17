@@ -9,6 +9,7 @@
 #include "param.h"
 #include "vcpu.h"
 #include "mmio.h"
+#include "vmmio.h"
 #include "allocpage.h"
 #include "lib.h"
 #include "node.h"
@@ -67,7 +68,8 @@ int vgic_inject_virq(struct vcpu *target, u32 pirq, u32 virq, int grp) {
     return -1;
 
   if(target == current) {
-    gic_inject_guest_irq(pirq, virq, 1);
+    if(gic_inject_guest_irq(pirq, virq, 1) < 0)
+      ;   /* TODO: do nothing? */
   } else {
     int tail = (target->pending.tail + 1) % 4;
 
@@ -468,11 +470,6 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   vmm_warn("vgicr_mmio_read: unhandled %p\n", offset);
   return -1;
-
-unimplemented:
-  vmm_warn("vgicr_mmio_read: unimplemented %p\n", offset);
-  mmio->val = 0;
-  goto end;
 
 badwidth:
   vmm_warn("bad width: %d %p", mmio->accsize*8, offset);

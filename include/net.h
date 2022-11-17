@@ -21,7 +21,6 @@ struct nic {
 
 /* receive_buf is optimized for pocv2-msg */
 struct receive_buf {
-  int used;
   void *head;
   void *data;
   /* page */

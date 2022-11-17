@@ -189,7 +189,7 @@ void gic_irq_disable(u32 irq);
 void gic_irq_enable_redist(u32 cpuid, u32 irq);
 void gic_host_eoi(u32 iar, int grp);
 void gic_guest_eoi(u32 iar, int grp);
-void gic_inject_guest_irq(u32 pirq, u32 virq, int grp);
+int gic_inject_guest_irq(u32 pirq, u32 virq, int grp);
 
 void gic_restore_state(struct gic_state *gic);
 void gic_init_state(struct gic_state *gic);
