@@ -89,7 +89,7 @@ static void *__alloc_pages(struct memzone *z, int order) {
 }
 
 void *alloc_pages(int order) {
-  u64 flags;
+  u64 flags = 0;
 
   if(order > MAX_ORDER-1)
     panic("invalid order %d", order);

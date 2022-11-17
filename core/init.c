@@ -16,6 +16,7 @@
 #include "psci.h"
 #include "node.h"
 #include "virtio-mmio.h"
+#include "malloc.h"
 #include "panic.h"
 
 #define KiB   (1024)
@@ -63,10 +64,11 @@ int vmm_init_secondary() {
 int vmm_init_cpu0() {
   uart_init();
   printf("vmm booting...\n");
+  write_sysreg(vbar_el2, (u64)vectable);
   pcpu_init();
   vcpu_init_core();
   pageallocator_init();
-  write_sysreg(vbar_el2, (u64)vectable);
+  malloc_init();
   virtio_mmio_init();
   // pci_init();
   gic_init();
