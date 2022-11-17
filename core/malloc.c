@@ -5,6 +5,9 @@
 #include "mm.h"
 #include "panic.h"
 #include "lib.h"
+#include "compiler.h"
+
+static void __malloc_test() __unused;
 
 static const u32 blocksize[8] = {
   16, 32, 64, 128, 248, 504, 1016, 2040
@@ -52,7 +55,7 @@ static struct frame *malloc_frame(int order) {
 
   u32 bsize = blocksize[order];
 
-  for(u64 maddr = (u64)f + sizeof(struct frame); maddr < (u64)f + PAGESIZE; maddr += bsize) {
+  for(u64 maddr = (u64)f + sizeof(struct frame); maddr + bsize < (u64)f + PAGESIZE; maddr += bsize) {
     ((struct mhdr *)maddr)->next = freelist;
     freelist = (struct mhdr *)maddr;
   }
@@ -95,7 +98,7 @@ void *malloc(u32 size) {
     return NULL;
 
   int order = get_order(size);
-  if(order == 8)
+  if(order >= 8)
     panic("too big: %d", size);
 
   struct chunk *chunk = &malloc_chunk[order];
@@ -105,6 +108,9 @@ void *malloc(u32 size) {
   void *p = __malloc(chunk, size);
 
   spin_unlock_irqrestore(&heaplock, flags);
+
+  if((u64)p & 0x7)
+    panic("malloc: not aligned to 8 byte: %p", p);
 
   return p;
 }
@@ -146,5 +152,5 @@ static void __malloc_test() {
 void malloc_init() {
   spinlock_init(&heaplock);
 
-  __malloc_test();
+  // __malloc_test();
 }

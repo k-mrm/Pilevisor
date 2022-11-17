@@ -1,6 +1,7 @@
 #include "aarch64.h"
 #include "log.h"
 #include "allocpage.h"
+#include "malloc.h"
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
@@ -19,7 +20,7 @@ static inline void virtio_net_get_mac(struct virtio_net *dev, u8 *buf) {
 }
 
 static struct virtio_tx_hdr *virtio_tx_hdr_alloc(void *p) {
-  struct virtio_tx_hdr *hdr = alloc_page();    // FIXME: malloc(sizeof(*hdr))
+  struct virtio_tx_hdr *hdr = malloc(sizeof(*hdr));
 
   hdr->vh.flags = 0;
   hdr->vh.gso_type = VIRTIO_NET_HDR_GSO_NONE;
@@ -68,7 +69,7 @@ static void txintr(struct virtq *txq) {
   while((hdr = virtq_dequeue(txq, &len)) != NULL) {
     void *buf = hdr->packet;
 
-    free_page(hdr);
+    free(hdr);
     free_pages(buf, 1);
   }
 }
