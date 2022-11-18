@@ -49,8 +49,6 @@ static void wait_for_sub_init_done() {
 }
 
 static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
-  vcpu_initstate_core();
-
   current->reg.elr = ep;
   current->reg.x[0] = fdt_base;
 
@@ -88,20 +86,22 @@ static void node0_init() {
 
   cluster_node_me_init();
 
+  initvm(&vm_desc);
+
   /* init vcpu0 */
   node0_init_vcpu0(vm_desc.entrypoint, vm_desc.fdt_base);
-
-  initvm(&vm_desc);
 }
 
 /* call per cpu */
 static void node0_start() {
   int cpu = cpuid();
-
   vmm_log("cpu%d: node0@cpu%d: start\n", cpu, cpu);
+
+  vcpu_initstate_core();
 
   cluster_dump();
 
+  // waiting wakeup signal from vpsci
   wait_for_current_vcpu_online();
 
   vmm_log("cpu%d: entry to vcpu\n", cpu);

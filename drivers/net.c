@@ -28,7 +28,7 @@ void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
 struct receive_buf *alloc_recvbuf(u32 size) {
   struct receive_buf *buf = malloc(sizeof(*buf));
 
-  buf->head = buf->data = malloc(size);   /* TODO: malloc(size) */
+  buf->head = buf->data = malloc(size);
   buf->body = alloc_page();
 
   buf->len = size + PAGESIZE;
