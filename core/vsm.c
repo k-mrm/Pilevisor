@@ -7,6 +7,7 @@
 #include "vsm.h"
 #include "mm.h"
 #include "allocpage.h"
+#include "malloc.h"
 #include "log.h"
 #include "lib.h"
 #include "node.h"
@@ -21,9 +22,6 @@
 #define ipa_to_desc(ipa)  (&ptable[ipa_to_pfn(ipa)])
 
 static struct cache_page pages[NR_CACHE_PAGES];
-static struct vsm_server_proc proctable[128];
-static struct vsm_waitqueue wqs[128];
-
 static struct page_desc ptable[256*1024*1024 / PAGESIZE];
 
 static char *pte_state[4] = {
@@ -127,49 +125,8 @@ static inline void page_unlock(u64 ipa) {
   asm volatile("stlrb wzr, [%0]" :: "r"(lock) : "memory");
 }
 
-static struct vsm_waitqueue *alloc_wq() {
-  struct vsm_waitqueue *wq;
-
-  for(wq = wqs; wq < &wqs[128]; wq++) {
-    if(!wq->used) {
-      wq->used = 1;
-      return wq;
-    }
-  }
-
-  panic("no wq");
-}
-
-static void free_wq(struct vsm_waitqueue *wq) {
-  if(!wq)
-    panic("free null wq");
-
-  wq->used = 0;
-}
-
-static struct vsm_server_proc *allocvsp() {
-  struct vsm_server_proc *p;
-
-  for(p = proctable; p < &proctable[128]; p++) {
-    if(!p->used) {
-      p->used = 1;
-      p->next = NULL;
-      return p;
-    }
-  }
-
-  panic("no process");
-}
-
-static void free_vsm_server_proc(struct vsm_server_proc *p) {
-  if(!p)
-    panic("free null vsm server process");
-
-  p->used = 0;
-}
-
 static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid, bool wnr) {
-  struct vsm_server_proc *p = allocvsp();
+  struct vsm_server_proc *p = malloc(sizeof(*p));
 
   p->type = wnr ? WRITE_SERVER : READ_SERVER;
   p->page_ipa = page_ipa;
@@ -180,7 +137,7 @@ static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid,
 }
 
 static struct vsm_server_proc *new_vsm_inv_server_proc(u64 page_ipa, int from_nodeid, u64 copyset) {
-  struct vsm_server_proc *p = allocvsp();
+  struct vsm_server_proc *p = malloc(sizeof(*p));
 
   p->type = INV_SERVER;
   p->page_ipa = page_ipa;
@@ -202,7 +159,7 @@ static void vsm_enqueue_proc(u64 ipa, struct vsm_server_proc *p) {
   struct page_desc *page = ipa_to_desc(ipa);
 
   if(!page->wq)
-    page->wq = alloc_wq();
+    page->wq = malloc(sizeof(*page->wq));
 
   spin_lock_irqsave(&page->wq->lock, flags);
 
@@ -249,7 +206,7 @@ static void vsm_process_waitqueue(u64 ipa) {
     if(invoke_vsm_process(p, true) < 0)
       panic("bug");
     p_next = p->next;
-    free_vsm_server_proc(p);
+    free(p);
   }
 
   /*
@@ -727,7 +684,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   if(invoke_vsm_process(p, false) < 0)
     return;
 
-  free_vsm_server_proc(p);
+  free(p);
   vsm_process_waitqueue(a->ipa);
 }
 
@@ -746,7 +703,7 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   if(invoke_vsm_process(p, false) < 0)
     return;
 
-  free_vsm_server_proc(p);
+  free(p);
   vsm_process_waitqueue(h->ipa);
 }
 

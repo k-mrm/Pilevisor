@@ -8,34 +8,21 @@
 #include "log.h"
 #include "spinlock.h"
 #include "mm.h"
+#include "malloc.h"
 #include "panic.h"
 
-static struct mmio_region regions[128];
-static spinlock_t m_lock;
-
 static struct mmio_region *alloc_mmio_region(struct mmio_region *prev) {
-  spin_lock(&m_lock);
+  struct mmio_region *m = malloc(sizeof(*m));
 
-  for(struct mmio_region *m = regions; m < &regions[128]; m++) {
-    if(m->size == 0) {
-      m->size = 1;
-      m->next = prev;
-      spin_unlock(&m_lock);
-      return m;
-    }
-  }
+  m->next = prev;
 
-  spin_unlock(&m_lock);
-
-  panic("no entry");
+  return m;
 }
 
 int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct mmio_region *map = localnode.pmap;
   int c = -1;
   u64 ipa = mmio->ipa;
-
-  spin_lock(&m_lock);
 
   for(struct mmio_region *m = map; m; m = m->next) {
     if(m->base <= ipa && ipa < m->base + m->size) {
@@ -47,8 +34,6 @@ int mmio_emulate(struct vcpu *vcpu, struct mmio_access *mmio) {
       break;
     }
   }
-
-  spin_unlock(&m_lock);
 
   return c;
 }
@@ -75,5 +60,5 @@ int mmio_reg_handler(u64 ipa, u64 size,
 }
 
 void mmio_init() {
-  spinlock_init(&m_lock);
+  spinlock_init(&localnode.lock);
 }

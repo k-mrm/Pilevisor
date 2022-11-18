@@ -34,7 +34,6 @@ struct vsm_waitqueue {
   struct vsm_server_proc *head;
   struct vsm_server_proc *tail;
   spinlock_t lock;
-  int used;
 };
 
 struct page_desc {
@@ -48,7 +47,6 @@ struct vsm_server_proc {
   u64 copyset;        // for invalidate server
   int req_nodeid;
   int type;           // for debug
-  int used;
   int (*do_process)(struct vsm_server_proc *, bool locked);
 };
 
