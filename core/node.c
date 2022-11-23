@@ -95,7 +95,7 @@ static inline void node_set_active(int nodeid, bool active) {
 static inline bool all_node_is_online() {
   u64 nodemask = (1 << 3) - 1;
 
-  return (node_active_map & nodemask) == nodemask;
+  return (node_online_map & nodemask) == nodemask;
 }
 
 static inline bool all_node_is_active() {
@@ -124,6 +124,7 @@ static void __node0 node0_ack_node(u8 *mac, int nvcpus, u64 allocated) {
   vmm_log("node0 ack Node%d %m %d %p byte\n", nodeid, mac, nvcpus, allocated);
   
   node_set_online(nodeid, true);
+  printf("node online status: %p\n", node_online_map);
 
   c->nodeid = nodeid;
   memcpy(c->mac, mac, 6);
