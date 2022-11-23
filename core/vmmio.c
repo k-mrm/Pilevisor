@@ -5,7 +5,8 @@
 #include "vmmio.h"
 #include "vcpu.h"
 #include "msg.h"
-#include "cluster.h"
+#include "localnode.h"
+#include "node.h"
 #include "panic.h"
 
 int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {

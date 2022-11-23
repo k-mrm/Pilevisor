@@ -7,8 +7,8 @@
 #include "mm.h"
 #include "spinlock.h"
 #include "memmap.h"
+#include "localnode.h"
 #include "node.h"
-#include "cluster.h"
 #include "panic.h"
 
 /*

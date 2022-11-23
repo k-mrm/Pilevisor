@@ -4,6 +4,7 @@
 
 #include "log.h"
 #include "aarch64.h"
+#include "localnode.h"
 #include "node.h"
 #include "net.h"
 #include "pcpu.h"
@@ -12,7 +13,6 @@
 #include "ethernet.h"
 #include "msg.h"
 #include "lib.h"
-#include "cluster.h"
 #include "panic.h"
 
 extern struct pocv2_msg_data __pocv2_msg_data_start[], __pocv2_msg_data_end[];

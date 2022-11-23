@@ -10,10 +10,10 @@
 #include "malloc.h"
 #include "log.h"
 #include "lib.h"
+#include "localnode.h"
 #include "node.h"
 #include "vcpu.h"
 #include "msg.h"
-#include "cluster.h"
 #include "tlb.h"
 #include "panic.h"
 

@@ -17,6 +17,19 @@
 #define MiB   (1024 * 1024)
 #define GiB   (1024 * 1024 * 1024)
 
+static struct vm_desc vm_desc = {
+  .os_img = &linux_img,
+  .fdt_img = &virt_dtb,
+  .initrd_img = &rootfs_img,
+  /* TODO: determine parameters by fdt file */
+  .nvcpu = 2,
+  .nallocate = 256 * MiB,
+  .ram_start = 0x40000000,
+  .entrypoint = 0x40200000,
+  .fdt_base = 0x48400000,
+  .initrd_base = 0x48000000,
+};
+
 static void initvm(struct vm_desc *desc) {
   struct guest *os = desc->os_img;
   struct guest *fdt = desc->fdt_img;
@@ -36,16 +49,6 @@ static void initvm(struct vm_desc *desc) {
   map_guest_image(localnode.vttbr, os, desc->entrypoint);
 }
 
-static inline void wait_for_all_node_online() {
-  while(!all_node_is_online())
-    wfi();
-}
-
-static inline void wait_for_all_node_ready() {
-  while(!all_node_is_active())
-    wfi();
-}
-
 static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
   current->reg.elr = ep;
   current->reg.x[0] = fdt_base;
@@ -53,54 +56,10 @@ static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
   current->online = true;
 }
 
-/*
- *
- *  Node discover protocol:
- *
- *          1      2          3        4
- *  Node0 --+--------+----+---+----------+---+----->
- *           \\      ^    ^    \\        ^   ^
- *            v\    /    /      v\      /   /
- *  Node1 ----+-\--+----/-------+-\----+---/------->
- *               \     /           \      /
- *                v   /             v    /
- *  Node2 --------+--+--------------+---+---------->
- *
- *
- */
-
 static void node0_init() {
-  struct vm_desc vm_desc = {
-    .os_img = &linux_img,
-    .fdt_img = &virt_dtb,
-    .initrd_img = &rootfs_img,
-    /* TODO: determine parameters by fdt file */
-    .nvcpu = 2,
-    .nallocate = 256 * MiB,
-    .ram_start = 0x40000000,
-    .entrypoint = 0x40200000,
-    .fdt_base = 0x48400000,
-    .initrd_base = 0x48000000,
-  };
-
   localnode.nodeid = 0;
 
-  /* me */
-  cluster_node0_init(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
-
-  intr_enable();
-
-  /* 1. send initialization request to sub-node */
-  broadcast_init_request();
-  /* 2. */
-  wait_for_all_node_online();
-
-  /* 3. broadcast cluster information to sub-node */
-  broadcast_cluster_info();
-  /* 4.sub-node setup done! */
-  wait_for_all_node_ready();
-
-  cluster_node_me_setup();
+  cluster_init();
 
   initvm(&vm_desc);
 
@@ -115,7 +74,7 @@ static void node0_start() {
 
   vcpu_initstate_core();
 
-  cluster_dump();
+  node_cluster_dump();
 
   // waiting wakeup signal from vpsci
   wait_for_current_vcpu_online();

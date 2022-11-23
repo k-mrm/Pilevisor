@@ -4,11 +4,11 @@
 
 #include "types.h"
 #include "vcpu.h"
+#include "localnode.h"
 #include "node.h"
 #include "nodectl.h"
 #include "lib.h"
 #include "log.h"
-#include "cluster.h"
 #include "guest.h"
 
 #define KiB   (1024)
@@ -66,7 +66,7 @@ static void sub_init() {
 
   vmm_log("Node %d initializing...\n", cluster_me()->nodeid);
 
-  status = cluster_node_me_init();
+  status = cluster_node_me_setup();
 
   send_setup_done_notify(status);
 

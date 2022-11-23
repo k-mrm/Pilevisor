@@ -8,21 +8,29 @@
 #include "printf.h"
 #include "log.h"
 #include "mmio.h"
+#include "localnode.h"
 #include "node.h"
-#include "cluster.h"
 #include "vsm.h"
 #include "spinlock.h"
 #include "panic.h"
+
+static void __node0 broadcast_init_request();
+static void __node0 broadcast_cluster_info();
+static void __node0 recv_init_ack_intr(struct pocv2_msg *msg);
+static void __node0 recv_sub_setup_done_notify_intr(struct pocv2_msg *msg);
+static void __subnode init_ack_reply(u8 *node0_mac, int nvcpu, u64 allocated);
+static void __subnode recv_init_request_intr(struct pocv2_msg *msg);
+static void __subnode send_setup_done_notify(u8 status);
+static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg);
+
+static int cluster_node_me_setup();
 
 struct cluster_node cluster[NODE_MAX];
 int nr_cluster_nodes = 0;
 int nr_cluster_vcpus = 0;
 
-u64 node_ack_map = 0;
-static spinlock_t ack_lk;
-
 u64 node_online_map = 0;
-static spinlock_t online_lk;
+u64 node_active_map = 0;
 
 static int __node0 alloc_nodeid() {
   u64 flags = 0;
@@ -52,7 +60,7 @@ static int __node0 alloc_vcpuid() {
   return id;
 }
 
-static void cluster_setup_vsm_memrange(struct memrange *m, u64 alloc) {
+static void setup_vsm_memrange(struct memrange *m, u64 alloc) {
   static u64 ram_start = 0x40000000;
   u64 flags = 0;
 
@@ -79,11 +87,36 @@ static inline void node_set_active(int nodeid, bool active) {
   u64 mask = 1ul << nodeid;
 
   if(active) 
-    node_active_map |= 1ul << nodeid;
+    node_active_map |= mask;
   else
-    node_active_map &= ~(1ul << nodeid);
+    node_active_map &= ~mask;
 }
 
+static inline bool all_node_is_online() {
+  u64 nodemask = (1 << 3) - 1;
+
+  return (node_active_map & nodemask) == nodemask;
+}
+
+static inline bool all_node_is_active() {
+  u64 nodemask = (1 << nr_cluster_nodes) - 1;
+
+  return (node_active_map & nodemask) == nodemask;
+}
+
+static inline void wait_for_all_node_online() {
+  while(!all_node_is_online())
+    wfi();
+}
+
+static inline void wait_for_all_node_ready() {
+  while(!all_node_is_active())
+    wfi();
+}
+
+/*
+ *  Node0 ack sub-node
+ */
 static void __node0 node0_ack_node(u8 *mac, int nvcpus, u64 allocated) {
   int nodeid = alloc_nodeid();
   struct cluster_node *c = cluster_node(nodeid);
@@ -94,27 +127,67 @@ static void __node0 node0_ack_node(u8 *mac, int nvcpus, u64 allocated) {
 
   c->nodeid = nodeid;
   memcpy(c->mac, mac, 6);
-  cluster_setup_vsm_memrange(&c->mem, allocated);
+  setup_vsm_memrange(&c->mem, allocated);
   c->nvcpu = nvcpus;
   for(int i = 0; i < nvcpus; i++)
     c->vcpus[i] = alloc_vcpuid();
 }
 
-void cluster_node0_init() {
-  node_set_online(0, true);
-  node_set_active(0, true);
+static void __node0 cluster_node0_init(u8 *mac, int nvcpu, u64 allocated) {
+  /* Node0 acked Node0 */
+  node0_ack_node(mac, nvcpu, allocated);
 }
 
-static void update_cluster_info(int nnodes, int nvcpus, struct cluster_node *c) {
+/*
+ *
+ *  Node discover protocol:
+ *
+ *          1       2          3        4
+ *  Node0 --+---------+----+---+----------+---+----->
+ *           \\       ^    ^    \\        ^   ^
+ *            v\     /    /      v\      /   /
+ *  Node1 ----+-\---+----/-------+-\----+---/------->
+ *               \      /           \      /
+ *                v    /             v    /
+ *  Node2 --------+---+--------------+---+---------->
+ *
+ */
+
+void __node0 cluster_init() {
+  cluster_node0_init(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
+
+  intr_enable();
+
+  /* 1. send initialization request to sub-node */
+  broadcast_init_request();
+  /* 2. */
+  wait_for_all_node_online();
+
+  /* 3. broadcast cluster information to sub-node */
+  broadcast_cluster_info();
+  /* 4.sub-node setup done! */
+  wait_for_all_node_ready();
+
+  if(cluster_node_me_setup() < 0)
+    panic("my node failed");
+}
+
+/*
+ *  recv cluster info from Node0
+ */
+static void __subnode update_cluster_info(int nnodes, int nvcpus, struct cluster_node *c) {
+  node_set_online(0, true);
+  node_set_active(0, true);
+
   nr_cluster_nodes = nnodes;
   nr_cluster_vcpus = nvcpus;
   memcpy(cluster, c, sizeof(cluster));
-  cluster_dump();
+  node_cluster_dump();
 
   /* recognize me */
   for(int i = 0; i < nr_cluster_nodes; i++) {
-    printf("cluster[%d] %d %m\n", i, cluster[i].status, cluster[i].mac);
-    if(cluster[i].status == NODE_ACK && node_macaddr_is_me(cluster[i].mac)) {
+    printf("cluster[%d] %m\n", i, cluster[i].mac);
+    if(node_macaddr_is_me(cluster[i].mac)) {
       vmm_log("cluster info: I am Node %d\n", i);
       localnode.nodeid = i;
       localnode.node = &cluster[i];
@@ -126,15 +199,17 @@ static void update_cluster_info(int nnodes, int nvcpus, struct cluster_node *c) 
   panic("whoami??????");
 }
 
-int cluster_node_me_setup() {
+static int cluster_node_me_setup() {
   struct cluster_node *me = cluster_me();
 
   vmm_log("cluster node%p %d init\n", me, me->nodeid);
-  cluster_dump();
+  node_cluster_dump();
 
   vsm_node_init(&me->mem);
 
   vcpuid_init(me->vcpus, me->nvcpu);
+
+  node_set_active(me->nodeid, true);
 
   return 0;
 }
@@ -147,7 +222,7 @@ void node_cluster_dump() {
   }
 }
 
-void __node0 broadcast_init_request() {
+static void __node0 broadcast_init_request() {
   printf("broadcast init request");
   struct pocv2_msg msg;
   struct init_req_hdr hdr;
@@ -159,7 +234,7 @@ void __node0 broadcast_init_request() {
 
 static void __node0 broadcast_cluster_info() {
   vmm_log("broadcast cluster info from Node0\n");
-  cluster_dump();
+  node_cluster_dump();
 
   struct pocv2_msg msg;
   struct cluster_info_hdr hdr;
@@ -188,12 +263,12 @@ static void __node0 recv_sub_setup_done_notify_intr(struct pocv2_msg *msg) {
   else
     vmm_log("Node %d: setup failed\n", src_nodeid);
 
-  cluster_node(src_nodeid)->status = NODE_ONLINE;
+  node_set_active(src_nodeid, true);
 
-  vmm_log("node %d online\n", src_nodeid);
+  vmm_log("node %d READY!\n", src_nodeid);
 }
 
-static void init_ack_reply(u8 *node0_mac, int nvcpu, u64 allocated) {
+static void __subnode init_ack_reply(u8 *node0_mac, int nvcpu, u64 allocated) {
   vmm_log("send init ack\n");
   struct pocv2_msg msg;
   struct init_ack_hdr hdr;
@@ -215,7 +290,7 @@ static void __subnode recv_init_request_intr(struct pocv2_msg *msg) {
   init_ack_reply(node0_mac, localnode.nvcpu, localnode.nalloc);
 }
 
-void __subnode send_setup_done_notify(u8 status) {
+static void __subnode send_setup_done_notify(u8 status) {
   struct pocv2_msg msg;
   struct setup_done_hdr hdr;
 

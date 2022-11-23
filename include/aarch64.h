@@ -82,7 +82,7 @@ static inline u64 __irqsave() {
   return flags;
 }
 
-static inline u64 __irqrestore(u64 flags) {
+static inline void __irqrestore(u64 flags) {
   write_sysreg(daif, flags);  
 }
 

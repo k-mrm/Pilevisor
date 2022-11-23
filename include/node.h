@@ -3,22 +3,17 @@
 
 #include "types.h"
 #include "param.h"
-#include "vgic.h"
+#include "localnode.h"
 #include "spinlock.h"
 #include "guest.h"
-#include "net.h"
 #include "vsm.h"
 #include "nodectl.h"
-#include "vcpu.h"
 #include "lib.h"
-#include "cluster.h"
 #include "panic.h"
 #include "compiler.h"
 
 #define __node0     __section(".text.node0")
 #define __subnode   __section(".text.subnode")
-
-extern struct localnode localnode;
 
 /* vm descriptor */
 struct vm_desc {
@@ -39,41 +34,25 @@ struct nodeconfig {
   u64 nallocate;
 };
 
-/* localnode */
-struct localnode {
-  struct vcpu vcpus[VCPU_PER_NODE_MAX];
-  int nvcpu;    /* nvcpu <= npcpu */
-  u64 nalloc;
+/* node information of the cluster */
+struct cluster_node {
   int nodeid;
-  /* Am I recognized by cluster? */
-  bool acked;
-  /* stage 2 pagetable */
-  u64 *vttbr;
-  /* interrupt controller */
-  struct vgic *vgic;
-  /* network interface card */
-  struct nic *nic;
-  /* mmio */
-  spinlock_t lock;
-  struct mmio_region *pmap;
-  int npmap;
-  /* node control dispatcher */
-  struct nodectl *ctl;
-  /* my node in the cluster */
-  struct cluster_node *node;
+  u8 mac[6];
+  struct memrange mem;
+  u32 vcpus[VCPU_PER_NODE_MAX];
+  int nvcpu;
 };
 
-#define local_nodeid()    (localnode.nodeid)
+extern struct cluster_node cluster[NODE_MAX];
 
-static inline struct vcpu *node_vcpu(int vcpuid) {
-  for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[localnode.nvcpu]; v++) {
-    if(v->vcpuid == vcpuid)
-      return v;
-  }
+extern int nr_cluster_nodes;
+extern int nr_cluster_vcpus;
 
-  /* vcpu in remote node */
-  return NULL;
-}
+extern u64 node_online_map;
+extern u64 node_active_map;
+
+#define foreach_cluster_node(c)   \
+  for(c = cluster; c < &cluster[nr_cluster_nodes]; c++)
 
 static inline struct cluster_node *cluster_me() {
   if(!localnode.node)
@@ -85,19 +64,52 @@ static inline int cluster_me_nodeid() {
   return cluster_me()->nodeid;
 }
 
-static inline int vcpu_localid(struct vcpu *v) {
-  return (int)(v - localnode.vcpus);
+static inline struct cluster_node *vcpuid_to_node(int vcpuid) {
+  struct cluster_node *node;
+  foreach_cluster_node(node) {
+    for(int i = 0; i < node->nvcpu; i++) {
+      if(node->vcpus[i] == vcpuid)
+        return node;
+    }
+  }
+
+  return NULL;
 }
 
-static inline struct vcpu *node_vcpu_by_localid(int localcpuid) {
-  return &localnode.vcpus[localcpuid];
+static inline struct cluster_node *macaddr_to_node(u8 *mac) {
+  struct cluster_node *node;
+  foreach_cluster_node(node) {
+    if(memcmp(node->mac, mac, 6) == 0)
+      return node;
+  }
+
+  return NULL;
 }
 
-void localnode_preinit(int nvcpu, u64 nalloc, struct guest *guest_fdt);
-
-static inline bool node_macaddr_is_me(u8 *mac) {
-  return memcmp(localnode.nic->mac, mac, 6) == 0;
+static inline int vcpuid_to_nodeid(int vcpuid) {
+  return vcpuid_to_node(vcpuid)->nodeid;
 }
+
+static inline struct cluster_node *cluster_node(int nodeid) {
+  if(nodeid >= NODE_MAX)
+    panic("node");
+
+  return &cluster[nodeid];
+}
+
+static inline bool vcpuid_in_cluster(struct cluster_node *c, int vcpuid) {
+  for(int i = 0; i < c->nvcpu; i++) {
+    if(c->vcpus[i] == vcpuid)
+      return true;
+  }
+
+  return false;
+}
+
+static inline u8 *node_macaddr(int nodeid) {
+  return cluster_node(nodeid)->mac;
+}
+
 
 /*
  *  Node initialize message
@@ -151,6 +163,7 @@ struct cluster_info_body {
   struct cluster_node cluster_info[NODE_MAX];
 };
 
-void node0_broadcast_init_request(void);
+void node_cluster_dump(void);
+void __node0 cluster_init(void);
 
 #endif

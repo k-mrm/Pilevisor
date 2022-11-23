@@ -5,9 +5,9 @@
 #include "types.h"
 #include "vpsci.h"
 #include "log.h"
+#include "localnode.h"
 #include "node.h"
 #include "msg.h"
-#include "cluster.h"
 #include "pcpu.h"
 #include "panic.h"
 

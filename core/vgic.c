@@ -12,8 +12,8 @@
 #include "vmmio.h"
 #include "allocpage.h"
 #include "lib.h"
+#include "localnode.h"
 #include "node.h"
-#include "cluster.h"
 #include "msg.h"
 #include "panic.h"
 
