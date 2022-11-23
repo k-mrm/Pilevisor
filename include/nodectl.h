@@ -1,13 +1,9 @@
 #ifndef NODECTL_H
 #define NODECTL_H
 
-#include "types.h"
-#include "msg.h"
-
-struct recv_msg;
 struct nodectl {
   void (*init)(void);
-  void (*start)(void);
+  void (*startcore)(void);
 };
 
 void nodectl_init(void);

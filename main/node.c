@@ -5,12 +5,12 @@
 #include "types.h"
 #include "param.h"
 #include "vcpu.h"
+#include "localnode.h"
 #include "node.h"
 #include "nodectl.h"
 #include "msg.h"
 #include "lib.h"
 #include "log.h"
-#include "cluster.h"
 #include "guest.h"
 
 #define KiB   (1024)
@@ -86,7 +86,7 @@ static void node0_start() {
 
 static struct nodectl node0_ctl = {
   .init = node0_init,
-  .start = node0_start,
+  .startcore = node0_start,
 };
 
 void nodectl_init() {

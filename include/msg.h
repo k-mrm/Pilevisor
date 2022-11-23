@@ -59,6 +59,16 @@ struct pocv2_msg {
 
 #define POCV2_MSG_ETH_PROTO       0x0019
 
+struct pocv2_msg_size_data {
+  enum msgtype type;
+  u32 msg_hdr_size;
+} __aligned(16);
+
+struct pocv2_msg_handler_data {
+  enum msgtype type;
+  void (*recv_handler)(struct pocv2_msg *);
+} __aligned(16);
+
 struct pocv2_msg_data {
   enum msgtype type;
   u32 msg_hdr_size;
@@ -66,10 +76,33 @@ struct pocv2_msg_data {
 };
 
 #define DEFINE_POCV2_MSG(ty, hdr_struct, handler)  \
-  struct pocv2_msg_data _mdata_##ty __section(".rodata.pocv2_msg") = {   \
-    .type = (ty),   \
-    .msg_hdr_size = sizeof(hdr_struct),    \
-    .recv_handler = handler,    \
+  struct pocv2_msg_size_data _msdata_##ty __section(".rodata.pocv2_msg") = {            \
+    .type = (ty),                                                                       \
+    .msg_hdr_size = sizeof(hdr_struct),                                                 \
+  };                                                                                    \
+  struct pocv2_msg_handler_data _mhdata_##ty __section(".rodata.pocv2_msg.common") = {  \
+    .type = (ty),                                                                       \
+    .recv_handler = handler,                                                            \
+  };
+
+#define DEFINE_POCV2_MSG_RECV_NODE0(ty, hdr_struct, handler)  \
+  struct pocv2_msg_size_data _msdata_##ty __section(".rodata.pocv2_msg") = {          \
+    .type = (ty),                                                                     \
+    .msg_hdr_size = sizeof(hdr_struct),                                               \
+  };                                                                                  \
+  struct pocv2_msg_handler_data _mhdata_##ty __section(".rodata.pocv2_msg.node0") = { \
+    .type = (ty),                                                                     \
+    .recv_handler = handler,                                                          \
+  };
+
+#define DEFINE_POCV2_MSG_RECV_SUBNODE(ty, hdr_struct, handler)  \
+  struct pocv2_msg_size_data _msdata_##ty __section(".rodata.pocv2_msg") = {            \
+    .type = (ty),                                                                       \
+    .msg_hdr_size = sizeof(hdr_struct),                                                 \
+  };                                                                                    \
+  struct pocv2_msg_handler_data _mhdata_##ty __section(".rodata.pocv2_msg.subnode") = { \
+    .type = (ty),                                                                       \
+    .recv_handler = handler,                                                            \
   };
 
 void send_msg(struct pocv2_msg *msg);

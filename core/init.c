@@ -58,7 +58,7 @@ int vmm_init_secondary() {
   arch_timer_init_core();
   write_sysreg(vttbr_el2, localnode.vttbr);
 
-  localnode.ctl->start();
+  localnode.ctl->startcore();
 
   panic("unreachable");
 }
@@ -86,7 +86,7 @@ int vmm_init_cpu0() {
   localnode_preinit(1, 128 * MiB, &virt_dtb);
 
   localnode.ctl->init();
-  localnode.ctl->start();
+  localnode.ctl->startcore();
 
   panic("unreachable");
 }

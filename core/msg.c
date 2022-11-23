@@ -15,9 +15,13 @@
 #include "lib.h"
 #include "panic.h"
 
-extern struct pocv2_msg_data __pocv2_msg_data_start[], __pocv2_msg_data_end[];
+extern struct pocv2_msg_size_data __pocv2_msg_size_data_start[];
+extern struct pocv2_msg_size_data __pocv2_msg_size_data_end[];
 
-static struct pocv2_msg_data *msg_data[NUM_MSG];
+extern struct pocv2_msg_handler_data __pocv2_msg_handler_data_start[];
+extern struct pocv2_msg_handler_data __pocv2_msg_handler_data_end[];
+
+static struct pocv2_msg_data msg_data[NUM_MSG];
 
 static enum msgtype reqrep[NUM_MSG] = {
   [MSG_INIT]          MSG_INIT_ACK,
@@ -58,14 +62,14 @@ static struct mq {
 
 static u32 msg_hdr_size(struct pocv2_msg *msg) {
   if(msg->hdr->type < NUM_MSG)
-    return msg_data[msg->hdr->type]->msg_hdr_size;
+    return msg_data[msg->hdr->type].msg_hdr_size;
   else
     panic("msg_hdr_size");
 }
 
 static u32 msg_type_hdr_size(enum msgtype type) {
   if(type < NUM_MSG)
-    return msg_data[type]->msg_hdr_size;
+    return msg_data[type].msg_hdr_size;
   else
     panic("msg_hdr_size");
 }
@@ -86,8 +90,8 @@ int msg_recv_intr(u8 *src_mac, struct receive_buf *buf) {
     rc = 0;
   }
 
-  if(hdr->type < NUM_MSG && msg_data[hdr->type]->recv_handler)
-    msg_data[hdr->type]->recv_handler(&msg);
+  if(hdr->type < NUM_MSG && msg_data[hdr->type].recv_handler)
+    msg_data[hdr->type].recv_handler(&msg);
   else
     panic("unknown msg received: %d\n", hdr->type);
 
@@ -190,7 +194,7 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
                       struct pocv2_msg_header *hdr, void *body, int body_len) {
   vmm_bug_on(!hdr, "hdr");
 
-  hdr->src_nodeid = cluster_me_nodeid();
+  hdr->src_nodeid = local_nodeid();
   hdr->type = type;
 
   msg->hdr = hdr;
@@ -199,21 +203,17 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
   msg->body_len = body_len;
 }
 
-static void unknown_msg_recv(struct pocv2_msg *msg) {
-  panic("msg: unknown msg received: %d", pocv2_msg_type(msg));
-}
-
 void msg_sysinit() {
-  struct pocv2_msg_data *d;
+  struct pocv2_msg_size_data *sd;
+  struct pocv2_msg_handler_data *hd;
 
-  for(d = __pocv2_msg_data_start; d < __pocv2_msg_data_end; d++) {
-    vmm_log("pocv2-msg found: %s(%d) sizeof %d\n", msmap[d->type], d->type, d->msg_hdr_size);
-    msg_data[d->type] = d;
+  for(sd = __pocv2_msg_size_data_start; sd < __pocv2_msg_size_data_end; sd++) {
+    printf("pocv2-msg found: %s(%d) sizeof %d\n", msmap[sd->type], sd->type, sd->msg_hdr_size);
+    msg_data[sd->type].type = sd->type;
+    msg_data[sd->type].msg_hdr_size = sd->msg_hdr_size;
   }
 
-  /* fill unused field */
-  for(int i = 0; i < NUM_MSG; i++) {
-    if(msg_data[i]->recv_handler == NULL)
-      msg_data[i]->recv_handler = unknown_msg_recv;
+  for(hd = __pocv2_msg_handler_data_start; hd < __pocv2_msg_handler_data_end; hd++) {
+    msg_data[hd->type].recv_handler = hd->recv_handler;
   }
 }

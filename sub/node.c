@@ -15,13 +15,6 @@
 #define MiB   (1024 * 1024)
 #define GiB   (1024 * 1024 * 1024)
 
-static void wait_for_acked_me() {
-  while(!localnode.acked)
-    wfi();
-
-  isb();
-}
-
 static void ap_initvm() {
   struct vm_desc vm_desc = {
     .os_img = NULL,
@@ -55,20 +48,9 @@ static void ap_initvm() {
 }
 
 static void sub_init() {
-  int status;
-
   vmm_log("sub-node init\n");
-  vmm_log("Waiting for recognition from cluster...\n");
 
-  intr_enable();
-
-  wait_for_acked_me();
-
-  vmm_log("Node %d initializing...\n", cluster_me()->nodeid);
-
-  status = cluster_node_me_setup();
-
-  send_setup_done_notify(status);
+  subnode_cluster_init();
 
   ap_initvm();
 }
@@ -85,7 +67,7 @@ static void sub_start() {
 
 struct nodectl subnode_ctl = {
   .init = sub_init,
-  .start = sub_start,
+  .startcore = sub_start,
 };
 
 void nodectl_init() {

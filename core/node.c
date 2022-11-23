@@ -142,10 +142,10 @@ static void __node0 cluster_node0_init(u8 *mac, int nvcpu, u64 allocated) {
  *
  *  Node discover protocol:
  *
- *          1       2          3        4
+ *          1         2'       3          4'
  *  Node0 --+---------+----+---+----------+---+----->
  *           \\       ^    ^    \\        ^   ^
- *            v\     /    /      v\      /   /
+ *            v\ 1'  /2   /      v\3'  4 /   /
  *  Node1 ----+-\---+----/-------+-\----+---/------->
  *               \      /           \      /
  *                v    /             v    /
@@ -160,16 +160,41 @@ void __node0 cluster_init() {
 
   /* 1. send initialization request to sub-node */
   broadcast_init_request();
-  /* 2. */
+  /* 2'. */
   wait_for_all_node_online();
 
   /* 3. broadcast cluster information to sub-node */
   broadcast_cluster_info();
-  /* 4.sub-node setup done! */
+
   wait_for_all_node_ready();
+  /* 4'. receive setup done notify from sub-node! */
 
   if(cluster_node_me_setup() < 0)
     panic("my node failed");
+}
+
+static void __subnode wait_for_acked_me() {
+  while(!localnode.acked)
+    wfi();
+
+  isb();
+}
+
+void __subnode subnode_cluster_init() {
+  vmm_log("Waiting for recognition from cluster...\n");
+
+  intr_enable();
+
+  /* 1' and 2 and 3' */
+  wait_for_acked_me();
+
+  vmm_log("Node %d initializing...\n", cluster_me()->nodeid);
+
+  /* sub-node setup */
+  int status = cluster_node_me_setup();
+
+  /* 4. sub-node setup done! */
+  send_setup_done_notify(status);
 }
 
 /*
@@ -247,6 +272,30 @@ static void __node0 broadcast_cluster_info() {
   send_msg(&msg);
 }
 
+static void __subnode send_setup_done_notify(u8 status) {
+  struct pocv2_msg msg;
+  struct setup_done_hdr hdr;
+
+  hdr.status = status;
+
+  pocv2_msg_init2(&msg, 0, MSG_SETUP_DONE, &hdr, NULL, 0);
+
+  send_msg(&msg);
+}
+
+static void __subnode init_ack_reply(u8 *node0_mac, int nvcpu, u64 allocated) {
+  vmm_log("send init ack\n");
+  struct pocv2_msg msg;
+  struct init_ack_hdr hdr;
+
+  hdr.nvcpu = nvcpu;
+  hdr.allocated = allocated;
+
+  pocv2_msg_init(&msg, node0_mac, MSG_INIT_ACK, &hdr, NULL, 0);
+
+  send_msg(&msg);
+}
+
 static void __node0 recv_init_ack_intr(struct pocv2_msg *msg) {
   struct init_ack_hdr *i = (struct init_ack_hdr *)msg->hdr;
 
@@ -268,19 +317,6 @@ static void __node0 recv_sub_setup_done_notify_intr(struct pocv2_msg *msg) {
   vmm_log("node %d READY!\n", src_nodeid);
 }
 
-static void __subnode init_ack_reply(u8 *node0_mac, int nvcpu, u64 allocated) {
-  vmm_log("send init ack\n");
-  struct pocv2_msg msg;
-  struct init_ack_hdr hdr;
-
-  hdr.nvcpu = nvcpu;
-  hdr.allocated = allocated;
-
-  pocv2_msg_init(&msg, node0_mac, MSG_INIT_ACK, &hdr, NULL, 0);
-
-  send_msg(&msg);
-}
-
 static void __subnode recv_init_request_intr(struct pocv2_msg *msg) {
   u8 *node0_mac = pocv2_msg_src_mac(msg);
   vmm_log("node0 mac address: %m\n", node0_mac);
@@ -290,17 +326,6 @@ static void __subnode recv_init_request_intr(struct pocv2_msg *msg) {
   init_ack_reply(node0_mac, localnode.nvcpu, localnode.nalloc);
 }
 
-static void __subnode send_setup_done_notify(u8 status) {
-  struct pocv2_msg msg;
-  struct setup_done_hdr hdr;
-
-  hdr.status = status;
-
-  pocv2_msg_init2(&msg, 0, MSG_SETUP_DONE, &hdr, NULL, 0);
-
-  send_msg(&msg);
-}
-
 static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg) {
   struct cluster_info_hdr *h = (struct cluster_info_hdr *)msg->hdr;
   struct cluster_info_body *b = msg->body;
@@ -308,7 +333,7 @@ static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg) {
   update_cluster_info(h->nnodes, h->nvcpus, b->cluster_info);
 }
 
-DEFINE_POCV2_MSG(MSG_INIT, struct init_req_hdr, recv_init_request_intr);
-DEFINE_POCV2_MSG(MSG_INIT_ACK, struct init_ack_hdr, recv_init_ack_intr);
-DEFINE_POCV2_MSG(MSG_SETUP_DONE, struct setup_done_hdr, recv_sub_setup_done_notify_intr);
-DEFINE_POCV2_MSG(MSG_CLUSTER_INFO, struct cluster_info_hdr, recv_cluster_info_intr);
+DEFINE_POCV2_MSG_RECV_NODE0(MSG_INIT_ACK, struct init_ack_hdr, recv_init_ack_intr);
+DEFINE_POCV2_MSG_RECV_NODE0(MSG_SETUP_DONE, struct setup_done_hdr, recv_sub_setup_done_notify_intr);
+DEFINE_POCV2_MSG_RECV_SUBNODE(MSG_INIT, struct init_req_hdr, recv_init_request_intr);
+DEFINE_POCV2_MSG_RECV_SUBNODE(MSG_CLUSTER_INFO, struct cluster_info_hdr, recv_cluster_info_intr);

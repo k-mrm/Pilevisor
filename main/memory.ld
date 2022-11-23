@@ -10,9 +10,11 @@ SECTIONS {
 
     . = ALIGN(4096);
 
+    /*
     /DISCARD/ : {
       *(.text.subnode)
     }
+    */
     .text : {
       *(.text) *(.text.*)
     }
@@ -21,11 +23,14 @@ SECTIONS {
       *(.rodata) 
 
       . = ALIGN(16);
-      __pocv2_msg_data_start = .;
+      __pocv2_msg_size_data_start = .;
       *(.rodata.pocv2_msg)
-      __pocv2_msg_data_end = .;
-
-      *(.rodata.*)
+      __pocv2_msg_size_data_end = .;
+      . = ALIGN(16);
+      __pocv2_msg_handler_data_start = .;
+      *(.rodata.pocv2_msg.common)
+      *(.rodata.pocv2_msg.node0)
+      __pocv2_msg_handler_data_end = .;
     }
 
     .data : {

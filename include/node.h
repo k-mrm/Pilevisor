@@ -4,10 +4,11 @@
 #include "types.h"
 #include "param.h"
 #include "localnode.h"
+#include "nodectl.h"
 #include "spinlock.h"
 #include "guest.h"
 #include "vsm.h"
-#include "nodectl.h"
+#include "msg.h"
 #include "lib.h"
 #include "panic.h"
 #include "compiler.h"
@@ -55,13 +56,16 @@ extern u64 node_active_map;
   for(c = cluster; c < &cluster[nr_cluster_nodes]; c++)
 
 static inline struct cluster_node *cluster_me() {
-  if(!localnode.node)
-    panic("oi");
   return localnode.node;
 }
 
 static inline int cluster_me_nodeid() {
-  return cluster_me()->nodeid;
+  struct cluster_node *me = cluster_me();
+
+  if(me)
+    return me->nodeid;
+  else
+    return 0;
 }
 
 static inline struct cluster_node *vcpuid_to_node(int vcpuid) {
@@ -165,5 +169,6 @@ struct cluster_info_body {
 
 void node_cluster_dump(void);
 void __node0 cluster_init(void);
+void __subnode subnode_cluster_init(void);
 
 #endif
