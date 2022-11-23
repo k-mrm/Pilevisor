@@ -10,6 +10,11 @@ SECTIONS {
 
     . = ALIGN(4096);
 
+    /DISCARD/ : {
+      *(.comment)
+      *(.text.node0)
+    }
+
     .text : {
       *(.text) *(.text.*)
     }

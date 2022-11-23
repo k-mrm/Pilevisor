@@ -36,15 +36,13 @@ static void initvm(struct vm_desc *desc) {
   map_guest_image(localnode.vttbr, os, desc->entrypoint);
 }
 
-static void wait_for_init_ack() {
-  // TODO: now Node 1 only
-  while(cluster_node(1)->status != NODE_ACK)
+static inline void wait_for_all_node_online() {
+  while(!all_node_is_online())
     wfi();
 }
 
-static void wait_for_sub_init_done() {
-  // TODO: now Node 1 only
-  while(cluster_node(1)->status != NODE_ONLINE)
+static inline void wait_for_all_node_ready() {
+  while(!all_node_is_active())
     wfi();
 }
 
@@ -54,6 +52,22 @@ static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
 
   current->online = true;
 }
+
+/*
+ *
+ *  Node discover protocol:
+ *
+ *          1      2          3        4
+ *  Node0 --+--------+----+---+----------+---+----->
+ *           \\      ^    ^    \\        ^   ^
+ *            v\    /    /      v\      /   /
+ *  Node1 ----+-\--+----/-------+-\----+---/------->
+ *               \     /           \      /
+ *                v   /             v    /
+ *  Node2 --------+--+--------------+---+---------->
+ *
+ *
+ */
 
 static void node0_init() {
   struct vm_desc vm_desc = {
@@ -72,19 +86,21 @@ static void node0_init() {
   localnode.nodeid = 0;
 
   /* me */
-  cluster_node0_ack_node(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
+  cluster_node0_init(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
 
   intr_enable();
 
-  /* send initialization request to sub-node */
-  node0_broadcast_init_request();
-  wait_for_init_ack();
+  /* 1. send initialization request to sub-node */
+  broadcast_init_request();
+  /* 2. */
+  wait_for_all_node_online();
 
-  /* broadcast cluster information to sub-node */
-  node0_broadcast_cluster_info();
-  wait_for_sub_init_done();
+  /* 3. broadcast cluster information to sub-node */
+  broadcast_cluster_info();
+  /* 4.sub-node setup done! */
+  wait_for_all_node_ready();
 
-  cluster_node_me_init();
+  cluster_node_me_setup();
 
   initvm(&vm_desc);
 

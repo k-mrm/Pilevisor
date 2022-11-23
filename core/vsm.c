@@ -24,6 +24,10 @@
 static struct cache_page pages[NR_CACHE_PAGES];
 static struct page_desc ptable[256*1024*1024 / PAGESIZE];
 
+static u64 w_copyset = 0;
+static u64 w_roowner = 0;
+static u64 w_inv = 0;
+
 static char *pte_state[4] = {
   [0]   "INV",
   [1]   " RO",
@@ -453,14 +457,14 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
     if(s2pte_copyset(pte) != 0) {
       /* I am owner */
-      vmm_log("wf: write to owner ro page %p elr %p far %p\n", page_ipa, current->reg.elr, far);
+      vmm_log("wf: write to owner ro page %p elr %p far %p %d\n", page_ipa, current->reg.elr, far, ++w_roowner);
       goto inv_phase;
     }
 
     /*
      *  TODO: no need to fetch page from remote node
      */
-    vmm_log("wf: write to ro page(copyset) %p elr %p far %p\n", page_ipa, current->reg.elr, far);
+    vmm_log("wf: write to ro page(copyset) %p elr %p far %p %d\n", page_ipa, current->reg.elr, far, ++w_copyset);
 
     void *pa = (void *)PTE_PA(*pte);
 

@@ -10,6 +10,9 @@ SECTIONS {
 
     . = ALIGN(4096);
 
+    /DISCARD/ : {
+      *(.text.subnode)
+    }
     .text : {
       *(.text) *(.text.*)
     }

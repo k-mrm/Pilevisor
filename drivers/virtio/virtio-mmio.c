@@ -7,8 +7,7 @@
 #include "virtio-mmio.h"
 #include "irq.h"
 #include "panic.h"
-
-static struct virtio_mmio_dev vtmmio_device;
+#include "malloc.h"
 
 #define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
 #define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)
@@ -27,7 +26,7 @@ static inline void vtmmio_write(struct virtio_mmio_dev *dev, u32 off, u32 val) {
 }
 
 static int vtmmio_probe(void *base, int intid) {
-  struct virtio_mmio_dev *dev = &vtmmio_device;
+  struct virtio_mmio_dev *dev = malloc(sizeof(*dev));
 
   dev->base = base;
   dev->intid = intid;

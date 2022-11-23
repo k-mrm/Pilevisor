@@ -6,6 +6,7 @@
 #include "virtio-mmio.h"
 #include "virtq.h"
 #include "panic.h"
+#include "malloc.h"
 
 int virtq_reg_to_dev(struct virtq *vq) {
   return vtmmio_set_virtq(vq->dev, vq, vq->qsel);

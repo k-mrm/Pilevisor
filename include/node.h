@@ -11,8 +11,12 @@
 #include "nodectl.h"
 #include "vcpu.h"
 #include "lib.h"
+#include "cluster.h"
+#include "panic.h"
+#include "compiler.h"
 
-struct mmio_access;
+#define __node0     __section(".text.node0")
+#define __subnode   __section(".text.subnode")
 
 extern struct localnode localnode;
 
@@ -55,6 +59,8 @@ struct localnode {
   int npmap;
   /* node control dispatcher */
   struct nodectl *ctl;
+  /* my node in the cluster */
+  struct cluster_node *node;
 };
 
 #define local_nodeid()    (localnode.nodeid)
@@ -69,6 +75,16 @@ static inline struct vcpu *node_vcpu(int vcpuid) {
   return NULL;
 }
 
+static inline struct cluster_node *cluster_me() {
+  if(!localnode.node)
+    panic("oi");
+  return localnode.node;
+}
+
+static inline int cluster_me_nodeid() {
+  return cluster_me()->nodeid;
+}
+
 static inline int vcpu_localid(struct vcpu *v) {
   return (int)(v - localnode.vcpus);
 }
@@ -77,7 +93,7 @@ static inline struct vcpu *node_vcpu_by_localid(int localcpuid) {
   return &localnode.vcpus[localcpuid];
 }
 
-void node_preinit(int nvcpu, u64 nalloc, struct guest *guest_fdt);
+void localnode_preinit(int nvcpu, u64 nalloc, struct guest *guest_fdt);
 
 static inline bool node_macaddr_is_me(u8 *mac) {
   return memcmp(localnode.nic->mac, mac, 6) == 0;
@@ -115,6 +131,24 @@ struct init_ack_hdr {
 struct setup_done_hdr {
   POCV2_MSG_HDR_STRUCT;
   u8 status;
+};
+
+/*
+ *  cluster_info_msg: Node 0 -broadcast-> Node n
+ *    send argv:
+ *      num of cluster nodes
+ *    send body:
+ *      struct cluster_node cluster[nremote];
+ *
+ */
+struct cluster_info_hdr {
+  POCV2_MSG_HDR_STRUCT;
+  int nnodes;
+  int nvcpus;
+};
+
+struct cluster_info_body {
+  struct cluster_node cluster_info[NODE_MAX];
 };
 
 void node0_broadcast_init_request(void);

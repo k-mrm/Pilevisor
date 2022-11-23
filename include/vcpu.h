@@ -50,6 +50,8 @@ struct vcpu {
 
   struct cpu_features features;
 
+  u64 vmm_boot_clk;
+
   struct gic_state gic;
   struct vgic_cpu vgic;
   /* pending irqs */

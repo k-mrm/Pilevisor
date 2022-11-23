@@ -74,4 +74,19 @@ static inline u64 r_sp() {
   return x;
 }
 
+static inline u64 __irqsave() {
+  u64 flags = read_sysreg(daif);
+
+  local_irq_disable();
+
+  return flags;
+}
+
+static inline u64 __irqrestore(u64 flags) {
+  write_sysreg(daif, flags);  
+}
+
+#define irqsave(flags)      do { flags = __irqsave(); } while(0)
+#define irqrestore(flags)   __irqrestore(flags)
+
 #endif

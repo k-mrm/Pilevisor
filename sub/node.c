@@ -16,8 +16,7 @@
 #define GiB   (1024 * 1024 * 1024)
 
 static void wait_for_acked_me() {
-  vmm_log("hey %d\n", localnode.acked);
-  while(localnode.acked == 0)
+  while(!localnode.acked)
     wfi();
 
   isb();
@@ -56,6 +55,8 @@ static void ap_initvm() {
 }
 
 static void sub_init() {
+  int status;
+
   vmm_log("sub-node init\n");
   vmm_log("Waiting for recognition from cluster...\n");
 
@@ -65,9 +66,9 @@ static void sub_init() {
 
   vmm_log("Node %d initializing...\n", cluster_me()->nodeid);
 
-  cluster_node_me_init();
+  status = cluster_node_me_init();
 
-  send_setup_done_notify(0);
+  send_setup_done_notify(status);
 
   ap_initvm();
 }

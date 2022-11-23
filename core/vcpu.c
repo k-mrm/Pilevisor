@@ -97,6 +97,9 @@ void vcpu_init_core() {
   set_current_vcpu(vcpu);
 }
 
+void vcpu_shutdown(struct vcpu *vcpu) {
+}
+
 void wait_for_current_vcpu_online() {
   vmm_log("cpu%d: current online: %d\n", cpuid(), current->online);
 
