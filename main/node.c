@@ -47,6 +47,20 @@ static void initvm(struct vm_desc *desc) {
   printf("initvm: img_start %p img_size %p byte\n", os->start, os->size);
 
   map_guest_image(localnode.vttbr, os, desc->entrypoint);
+
+  if(fdt) {
+    printf("initvm: fdt_start %p fdt_size %p byte\n", fdt->start, fdt->size);
+    map_guest_image(localnode.vttbr, fdt, vm_desc.fdt_base);
+  } else {
+    vmm_warn("initvm: fdt not found\n");
+  }
+
+  if(initrd) {
+    printf("initvm: initrd_start %p initrd_size %p byte\n", initrd->start, initrd->size);
+    map_guest_image(localnode.vttbr, initrd, vm_desc.initrd_base);
+  } else {
+    vmm_warn("initvm: initrd not found\n");
+  }
 }
 
 static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
@@ -58,6 +72,7 @@ static void node0_init_vcpu0(u64 ep, u64 fdt_base) {
 
 static void node0_init() {
   localnode.nodeid = 0;
+  localnode.node = &cluster[0];
 
   cluster_init();
 

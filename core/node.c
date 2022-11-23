@@ -93,7 +93,7 @@ static inline void node_set_active(int nodeid, bool active) {
 }
 
 static inline bool all_node_is_online() {
-  u64 nodemask = (1 << 3) - 1;
+  u64 nodemask = (1 << 2) - 1;
 
   return (node_online_map & nodemask) == nodemask;
 }
@@ -115,7 +115,7 @@ static inline void wait_for_all_node_ready() {
 }
 
 /*
- *  Node0 ack sub-node
+ *  Node0 ack me or sub-node
  */
 static void __node0 node0_ack_node(u8 *mac, int nvcpus, u64 allocated) {
   int nodeid = alloc_nodeid();
@@ -167,11 +167,11 @@ void __node0 cluster_init() {
   /* 3. broadcast cluster information to sub-node */
   broadcast_cluster_info();
 
-  wait_for_all_node_ready();
-  /* 4'. receive setup done notify from sub-node! */
-
   if(cluster_node_me_setup() < 0)
     panic("my node failed");
+
+  wait_for_all_node_ready();
+  /* 4'. receive setup done notify from sub-node! */
 }
 
 static void __subnode wait_for_acked_me() {
