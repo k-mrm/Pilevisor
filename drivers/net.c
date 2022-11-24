@@ -25,32 +25,40 @@ void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
   vmm_log("found nic: %s %m @%p\n", name, mac, &netdev);
 }
 
-struct receive_buf *alloc_recvbuf(u32 size) {
-  struct receive_buf *buf = malloc(sizeof(*buf));
+struct iobuf *alloc_iobuf(u32 size) {
+  struct iobuf *buf = malloc(sizeof(*buf));
 
   buf->head = buf->data = malloc(size);
   buf->body = alloc_page();
 
-  buf->len = size + PAGESIZE;
+  buf->len = size;
 
   return buf;
 }
 
-void free_recvbuf(struct receive_buf *buf) {
+void free_iobuf(struct iobuf *buf) {
+  free(buf->head);
   free(buf);
 }
 
-void recvbuf_set_len(struct receive_buf *buf, u32 len) {
-  buf->len = len;
-}
-
-void *recvbuf_pull(struct receive_buf *buf, u32 size) {
+void *iobuf_push(struct iobuf *buf, u32 size) {
   void *old = buf->data;
-  buf->data = (u8 *)buf->data + size;
+
+  buf->data = (u8 *)buf->data - size;
+  buf->len += size;
 
   return old;
 }
 
-void netdev_recv(struct receive_buf *buf) {
+void *iobuf_pull(struct iobuf *buf, u32 size) {
+  void *old = buf->data;
+
+  buf->data = (u8 *)buf->data + size;
+  buf->len -= size;
+
+  return old;
+}
+
+void netdev_recv(struct iobuf *buf) {
   ethernet_recv_intr(&netdev, buf);
 }

@@ -74,7 +74,7 @@ static u32 msg_type_hdr_size(enum msgtype type) {
     panic("msg_hdr_size");
 }
 
-int msg_recv_intr(u8 *src_mac, struct receive_buf *buf) {
+int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
   struct pocv2_msg msg;
   int rc = 1;
 
@@ -84,9 +84,9 @@ int msg_recv_intr(u8 *src_mac, struct receive_buf *buf) {
   msg.hdr = hdr;
 
   /* Packet 2 */
-  if(buf->len > 64) {
+  if(buf->body_len != 0) {
     msg.body = buf->body;
-    msg.body_len = buf->len - 64;
+    msg.body_len = buf->body_len;
     rc = 0;
   }
 
@@ -102,28 +102,19 @@ void send_msg(struct pocv2_msg *msg) {
   if(memcmp(pocv2_msg_dst_mac(msg), cluster_me()->mac, 6) == 0)
     panic("send msg to me %m %m", pocv2_msg_dst_mac(msg), cluster_me()->mac);
 
-  /* build header */
-  void *ps[2];
-  int ls[2], np;
-  char header[ETH_POCV2_MSG_HDR_SIZE] = {0};
+  struct iobuf *buf = alloc_iobuf(64);
 
-  struct etherheader *eth = (struct etherheader *)header;
+  struct etherheader *eth = (struct etherheader *)buf->data;
   memcpy(eth->dst, pocv2_msg_dst_mac(msg), 6);
   memcpy(eth->src, localnode.nic->mac, 6);
   eth->type = POCV2_MSG_ETH_PROTO | (msg->hdr->type << 8);
-  memcpy(header+sizeof(struct etherheader), msg->hdr, msg_hdr_size(msg));
 
-  ps[0] = header;
-  ls[0] = sizeof(header);
-  np = 1;
+  memcpy((u8 *)buf->data + sizeof(struct etherheader), msg->hdr, msg_hdr_size(msg));
 
-  if(msg->body) {
-    ps[1] = msg->body;
-    ls[1] = msg->body_len;
-    np++;
-  }
+  buf->body = msg->body;
+  buf->body_len = msg->body_len;
 
-  localnode.nic->ops->xmit(localnode.nic, ps, ls, np);
+  localnode.nic->ops->xmit(localnode.nic, buf);
 }
 
 static inline bool mq_is_empty(struct mq *mq) {

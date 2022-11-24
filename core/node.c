@@ -202,6 +202,8 @@ void __subnode subnode_cluster_init() {
  *  recv cluster info from Node0
  */
 static void __subnode update_cluster_info(int nnodes, int nvcpus, struct cluster_node *c) {
+  printf("receive cluster info from Node0\n");
+
   node_set_online(0, true);
   node_set_active(0, true);
 

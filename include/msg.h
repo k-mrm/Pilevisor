@@ -107,7 +107,7 @@ struct pocv2_msg_data {
 
 void send_msg(struct pocv2_msg *msg);
 
-int msg_recv_intr(u8 *src_mac, struct receive_buf *buf);
+int msg_recv_intr(u8 *src_mac, struct iobuf *buf);
 
 #define pocv2_broadcast_msg_init(msg, type, hdr, body, body_len)   \
   _pocv2_broadcast_msg_init(msg, type, (struct pocv2_msg_header *)hdr, body, body_len)

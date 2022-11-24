@@ -73,7 +73,6 @@ int vmm_init_cpu0() {
   pageallocator_init();
   malloc_init();
   virtio_mmio_init();
-  // pci_init();
   gic_init();
   gic_init_cpu();
   arch_timer_init();

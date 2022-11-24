@@ -34,28 +34,25 @@ static struct virtio_tx_hdr *virtio_tx_hdr_alloc(void *p) {
   return hdr;
 }
 
-static void virtio_net_xmit(struct nic *nic, void **packets, int *lens, int npackets) {
+static void virtio_net_xmit(struct nic *nic, struct iobuf *iobuf) {
   struct virtio_net *dev = nic->device;
   struct virtio_tx_hdr *hdr;
   u64 flags = 0;
+  int np;
 
-  u8 *body = alloc_pages(1);
-  u32 offset = 0;
-  for(int i = 0; i < npackets; i++) {
-    memcpy(body+offset, packets[i], lens[i]);
-    offset += lens[i];
-  }
+  hdr = virtio_tx_hdr_alloc(iobuf);
+  
+  np = iobuf->body ? 3 : 2;
 
-  hdr = virtio_tx_hdr_alloc(body);
-
-  struct qlist qs[2] = {
+  struct qlist qs[3] = {
     { hdr, sizeof(struct virtio_net_hdr) },
-    { body, offset },
+    { iobuf->data, iobuf->len },
+    { iobuf->body, iobuf->body_len },
   };
 
   spin_lock_irqsave(&dev->tx->lock, flags);
 
-  virtq_enqueue_out(dev->tx, qs, 2, hdr);
+  virtq_enqueue_out(dev->tx, qs, np, hdr);
 
   virtq_kick(dev->tx);
 
@@ -67,10 +64,10 @@ static void txintr(struct virtq *txq) {
   u32 len;
 
   while((hdr = virtq_dequeue(txq, &len)) != NULL) {
-    void *buf = hdr->packet;
+    struct iobuf *iobuf = hdr->packet;
 
     free(hdr);
-    free_pages(buf, 1);
+    free_iobuf(iobuf);
   }
 }
 
@@ -80,12 +77,12 @@ static void fill_recv_queue(struct virtq *rxq) {
   u32 hdr_len = sizeof(struct virtio_net_hdr) + ETH_POCV2_MSG_HDR_SIZE;
 
   while(dev->n_rxbuf < NQUEUE/2) {
-    struct receive_buf *buf = alloc_recvbuf(hdr_len);
+    struct iobuf *iobuf = alloc_iobuf(hdr_len);
 
-    qs[0] = (struct qlist){ buf->data, hdr_len };
-    qs[1] = (struct qlist){ buf->body, 4096 };
+    qs[0] = (struct qlist){ iobuf->data, iobuf->len };
+    qs[1] = (struct qlist){ iobuf->body, 4096 };
 
-    virtq_enqueue_in(rxq, qs, 2, buf);
+    virtq_enqueue_in(rxq, qs, 2, iobuf);
 
     dev->n_rxbuf++;
   }
@@ -93,19 +90,18 @@ static void fill_recv_queue(struct virtq *rxq) {
 
 static void rxintr(struct virtq *rxq) {
   struct virtio_net *dev = rxq->dev->priv;
-  struct receive_buf *buf;
+  struct iobuf *iobuf;
   u32 len;
 
-  while((buf = virtq_dequeue(rxq, &len)) != NULL) {
-    recvbuf_pull(buf, sizeof(struct virtio_net_hdr));
-    recvbuf_set_len(buf, len - sizeof(struct virtio_net_hdr));
+  while((iobuf = virtq_dequeue(rxq, &len)) != NULL) {
+    iobuf->body_len = len - iobuf->len;
+    iobuf_pull(iobuf, sizeof(struct virtio_net_hdr));
 
     dev->n_rxbuf--;
 
-    netdev_recv(buf);
+    netdev_recv(iobuf);
 
-    free(buf->head);
-    free_recvbuf(buf);
+    free_iobuf(iobuf);
   }
 
   fill_recv_queue(rxq);

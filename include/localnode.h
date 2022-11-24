@@ -26,8 +26,8 @@ struct localnode {
   /* machine power controller */
   struct powerctl *powerctl;
   /* mmio */
-  spinlock_t lock;
   struct mmio_region *pmap;
+  spinlock_t lock;
   int npmap;
   /* node control dispatcher */
   struct nodectl *ctl;
