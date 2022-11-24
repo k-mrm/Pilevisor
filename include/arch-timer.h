@@ -6,6 +6,8 @@
 
 void arch_timer_init_core(void);
 
+void arch_timer_init(void);
+
 static inline u64 now_cycles() {
   return read_sysreg(cntpct_el0);
 }

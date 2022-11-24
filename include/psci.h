@@ -2,13 +2,16 @@
 #define MVMM_PSCI_H
 
 #include "types.h"
+#include "power.h"
 
 #define PSCI_VERSION            0x84000000
 #define PSCI_MIGRATE_INFO_TYPE  0x84000006
 #define PSCI_SYSTEM_OFF         0x84000008
 #define PSCI_SYSTEM_RESET       0x84000009
-#define PSCI_SYSTEM_FEATURES    0x8400000a
+#define PSCI_FEATURES           0x8400000a
 #define PSCI_SYSTEM_CPUON       0xc4000003
+
+#define PSCI_VERSION_1_1        (u32)((1 << 16) | 1)
 
 #define PSCI_SUCCESS            0
 #define PSCI_NOT_SUPPORTED      -1
@@ -21,6 +24,8 @@
 #define PSCI_DISABLED           -8
 #define PSCI_INVALID_ADDRESS    -9
 
-u64 psci_call(u32 func, u64 cpuid, u64 entry, u64 ctxid);
+extern struct powerctl psci;
+
+char *psci_status_map(int status);
 
 #endif

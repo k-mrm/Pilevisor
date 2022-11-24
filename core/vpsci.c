@@ -1,5 +1,6 @@
 /*
  *  virtual psci (power state coordination interface)
+ *  emulate psci 1.1
  */
 
 #include "types.h"
@@ -9,6 +10,7 @@
 #include "node.h"
 #include "msg.h"
 #include "pcpu.h"
+#include "power.h"
 #include "panic.h"
 
 void _start(void);
@@ -24,33 +26,6 @@ struct cpu_wakeup_ack_hdr {
   POCV2_MSG_HDR_STRUCT;
   i32 ret;
 };
-
-static char *psci_status_map(int status) {
-  switch(status) {
-    case PSCI_SUCCESS:
-      return "SUCCESS";
-    case PSCI_NOT_SUPPORTED:
-      return "NOT_SUPPORTED";
-    case PSCI_INVALID_PARAMETERS:
-      return "INVALID_PARAMETERS";
-    case PSCI_DENIED:
-      return "DENIED"; 
-    case PSCI_ALREADY_ON:
-      return "ALREADY_ON";
-    case PSCI_ON_PENDING:
-      return "ON_PENDING"; 
-    case PSCI_INTERNAL_FAILURE:
-      return "INTERNAL_FAILURE"; 
-    case PSCI_NOT_PRESENT:
-      return "NOT_PRESENT"; 
-    case PSCI_DISABLED:
-      return "DISABLED"; 
-    case PSCI_INVALID_ADDRESS:
-      return "INVALID_ADDRESS";
-    default:
-      return "???";
-  }
-}
 
 static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid) {
   struct pocv2_msg msg;
@@ -94,10 +69,11 @@ static int vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
     if(localcpu(localid)->wakeup) {  /* pcpu already wakeup */
       status = PSCI_SUCCESS;
     } else {    /* pcpu sleeping... */
-      status = psci_call(PSCI_SYSTEM_CPUON, localid, (u64)_start, 0);
-
-      if(status != PSCI_SUCCESS)
-        panic("cpu%d wakeup failed: %d(=%s)", localid, status, psci_status_map(status));
+      int c = cpu_power_wakeup(localid, (u64)_start);
+      if(c < 0)
+        panic("cpu%d wakeup failed", localid);
+      
+      status = PSCI_SUCCESS;
     }
 
     vcpu->online = true;
@@ -151,27 +127,27 @@ static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci_argv *argv) {
   return vcpu_wakeup_local(target, ep_addr);
 }
 
-static u32 vpsci_version() {
-  return psci_call(PSCI_VERSION, 0, 0, 0);
-}
-
-static i32 vpsci_migrate_info_type() {
-  return psci_call(PSCI_MIGRATE_INFO_TYPE, 0, 0, 0);
-}
-
-static i32 vpsci_system_features(struct vpsci_argv *argv) {
+static i32 vpsci_features(struct vpsci_argv *argv) {
   u32 fid = argv->x1;
-  return psci_call(PSCI_SYSTEM_FEATURES, fid, 0, 0);
+
+  switch(fid) {
+    case PSCI_VERSION:
+    case PSCI_FEATURES:
+    case PSCI_SYSTEM_OFF:
+    case PSCI_SYSTEM_RESET:
+    case PSCI_SYSTEM_CPUON:
+      return 0;
+    default:
+      return PSCI_NOT_SUPPORTED;
+  }
 }
 
 u64 vpsci_emulate(struct vcpu *vcpu, struct vpsci_argv *argv) {
   switch(argv->funcid) {
     case PSCI_VERSION:
-      return vpsci_version();
-    case PSCI_MIGRATE_INFO_TYPE:
-      return (i64)vpsci_migrate_info_type();
-    case PSCI_SYSTEM_FEATURES:
-      return (i64)vpsci_system_features(argv);
+      return PSCI_VERSION_1_1;
+    case PSCI_FEATURES:
+      return (i64)vpsci_features(argv);
     case PSCI_SYSTEM_OFF:
       /* TODO: shutdown vm */
       break;

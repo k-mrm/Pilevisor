@@ -14,7 +14,7 @@
 static u64 cpu_hz;
 
 static void hyp_timer_intr(void *arg) {
-  ;
+  (void)arg;
 }
 
 void arch_timer_init_core() {

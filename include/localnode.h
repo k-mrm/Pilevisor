@@ -6,6 +6,7 @@
 #include "net.h"
 #include "vgic.h"
 #include "lib.h"
+#include "power.h"
 #include "compiler.h"
 
 /* localnode */
@@ -22,6 +23,8 @@ struct localnode {
   struct vgic *vgic;
   /* network interface card */
   struct nic *nic;
+  /* machine power controller */
+  struct powerctl *powerctl;
   /* mmio */
   spinlock_t lock;
   struct mmio_region *pmap;

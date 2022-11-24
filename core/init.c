@@ -18,6 +18,7 @@
 #include "virtio-mmio.h"
 #include "malloc.h"
 #include "arch-timer.h"
+#include "power.h"
 #include "panic.h"
 
 #define KiB   (1024)
@@ -79,6 +80,7 @@ int vmm_init_cpu0() {
   arch_timer_init_core();
   vtimer_init();
   s2mmu_init();
+  powerctl_init();
   hcr_setup();
 
   nodectl_init();
