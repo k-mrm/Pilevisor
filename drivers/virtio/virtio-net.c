@@ -67,6 +67,8 @@ static void txintr(struct virtq *txq) {
     struct iobuf *iobuf = hdr->packet;
 
     free(hdr);
+    if(iobuf->body)
+      free_page(iobuf->body);
     free_iobuf(iobuf);
   }
 }

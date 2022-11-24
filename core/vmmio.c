@@ -19,6 +19,8 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
   hdr.vcpuid = target_vcpuid;
   memcpy(&hdr.mmio, mmio, sizeof(*mmio));
 
+  vmm_log("vmmio forwarding to vcpu%d\n", target_vcpuid);
+
   pocv2_msg_init2(&msg, target_nodeid, MSG_MMIO_REQUEST, &hdr, NULL, 0);
 
   send_msg(&msg);

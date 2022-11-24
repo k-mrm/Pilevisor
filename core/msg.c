@@ -111,8 +111,11 @@ void send_msg(struct pocv2_msg *msg) {
 
   memcpy((u8 *)buf->data + sizeof(struct etherheader), msg->hdr, msg_hdr_size(msg));
 
-  buf->body = msg->body;
-  buf->body_len = msg->body_len;
+  if(msg->body) {
+    buf->body = alloc_page();
+    memcpy(buf->body, msg->body, msg->body_len);
+    buf->body_len = msg->body_len;
+  }
 
   localnode.nic->ops->xmit(localnode.nic, buf);
 }
