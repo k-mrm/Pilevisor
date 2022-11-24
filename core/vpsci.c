@@ -153,10 +153,10 @@ u64 vpsci_emulate(struct vcpu *vcpu, struct vpsci_argv *argv) {
       return (i64)vpsci_features(argv);
     case PSCI_SYSTEM_OFF:
       /* TODO: shutdown vm */
-      break;
+      panic("PSCI_SYSTEM_OFF");
     case PSCI_SYSTEM_RESET:
       /* TODO: reboot vm */
-      break;
+      panic("PSCI_SYSTEM_RESET");
     case PSCI_SYSTEM_CPUON:
       return (i64)vpsci_cpu_on(vcpu, argv);
     default:

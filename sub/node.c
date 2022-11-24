@@ -9,7 +9,7 @@
 #include "nodectl.h"
 #include "lib.h"
 #include "log.h"
-#include "guest.h"
+#include "arch-timer.h"
 
 #define KiB   (1024)
 #define MiB   (1024 * 1024)
@@ -25,6 +25,8 @@ static void sub_start() {
   vmm_log("node%d@cpu%d: start\n", localnode.nodeid, cpuid());
 
   vcpu_initstate_core();
+
+  current->vmm_boot_clk = now_cycles();
 
   wait_for_current_vcpu_online();
 

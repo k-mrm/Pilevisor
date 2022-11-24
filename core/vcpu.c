@@ -59,8 +59,6 @@ void vcpu_entry() {
   u64 vpidr = read_sysreg(midr_el1);
   write_sysreg(vpidr_el2, vpidr);
 
-  current->vmm_boot_clk = now_cycles();
-
   printf("vmm_boot_clk: %p\n", current->vmm_boot_clk);
   write_sysreg(cntvoff_el2, current->vmm_boot_clk);
 

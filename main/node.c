@@ -12,6 +12,7 @@
 #include "lib.h"
 #include "log.h"
 #include "guest.h"
+#include "arch-timer.h"
 
 #define KiB   (1024)
 #define MiB   (1024 * 1024)
@@ -95,6 +96,8 @@ static void node0_start() {
   wait_for_current_vcpu_online();
 
   vmm_log("cpu%d: entry to vcpu\n", cpu);
+
+  current->vmm_boot_clk = now_cycles();
 
   vcpu_entry();
 }
