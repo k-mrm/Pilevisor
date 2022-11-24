@@ -136,6 +136,7 @@ static i32 vpsci_features(struct vpsci_argv *argv) {
     case PSCI_SYSTEM_OFF:
     case PSCI_SYSTEM_RESET:
     case PSCI_SYSTEM_CPUON:
+    case PSCI_MIGRATE_INFO_TYPE:
       return 0;
     default:
       return PSCI_NOT_SUPPORTED;
@@ -146,6 +147,8 @@ u64 vpsci_emulate(struct vcpu *vcpu, struct vpsci_argv *argv) {
   switch(argv->funcid) {
     case PSCI_VERSION:
       return PSCI_VERSION_1_1;
+    case PSCI_MIGRATE_INFO_TYPE:
+      return PSCI_NOT_SUPPORTED;
     case PSCI_FEATURES:
       return (i64)vpsci_features(argv);
     case PSCI_SYSTEM_OFF:
