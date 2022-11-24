@@ -78,9 +78,11 @@ static void fill_recv_queue(struct virtq *rxq) {
 
   while(dev->n_rxbuf < NQUEUE/2) {
     struct iobuf *iobuf = alloc_iobuf(hdr_len);
+    iobuf->body = alloc_page();
+    iobuf->body_len = 4096;
 
     qs[0] = (struct qlist){ iobuf->data, iobuf->len };
-    qs[1] = (struct qlist){ iobuf->body, 4096 };
+    qs[1] = (struct qlist){ iobuf->body, iobuf->body_len };
 
     virtq_enqueue_in(rxq, qs, 2, iobuf);
 

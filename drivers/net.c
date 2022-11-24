@@ -29,9 +29,10 @@ struct iobuf *alloc_iobuf(u32 size) {
   struct iobuf *buf = malloc(sizeof(*buf));
 
   buf->head = buf->data = malloc(size);
-  buf->body = alloc_page();
-
   buf->len = size;
+
+  buf->body = NULL;
+  buf->body_len = 0;
 
   return buf;
 }
