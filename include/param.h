@@ -13,4 +13,6 @@
 /* max node */
 #define NODE_MAX  32
 
+#define NR_NODE   3
+
 #endif

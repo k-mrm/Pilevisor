@@ -92,8 +92,16 @@ static inline void node_set_active(int nodeid, bool active) {
     node_active_map &= ~mask;
 }
 
+static inline bool node_online(int nodeid) {
+  return !!(node_online_map & (1ul << nodeid));
+}
+
+static inline bool node_active(int nodeid) {
+  return !!(node_active_map & (1ul << nodeid));
+}
+
 static inline bool all_node_is_online() {
-  u64 nodemask = (1 << 2) - 1;
+  u64 nodemask = (1 << NR_NODE) - 1;
 
   return (node_online_map & nodemask) == nodemask;
 }
@@ -231,7 +239,6 @@ static int cluster_node_me_setup() {
   struct cluster_node *me = cluster_me();
 
   vmm_log("cluster node%p %d init\n", me, me->nodeid);
-  node_cluster_dump();
 
   vsm_node_init(&me->mem);
 
@@ -244,9 +251,24 @@ static int cluster_node_me_setup() {
 
 void node_cluster_dump() {
   struct cluster_node *node;
-  printf("nr cluster: %d nvcpus: %d\n", nr_cluster_nodes, nr_cluster_vcpus);
+  char *online, *active;
+
+  printf("Cluster Info:\n");
+  printf("\tnr_nodes: %d nr_vcpus: %d\n", nr_cluster_nodes, nr_cluster_vcpus);
+
   foreach_cluster_node(node) {
-    printf("Node %d: %m nvcpu %d\n", node->nodeid, node->mac, node->nvcpu);
+    int id = node->nodeid;
+    online = node_online(id) ? "online" : "offline";
+    active = node_active(id) ? "active" : "inactive";
+    u64 memstart = node->mem.start;
+    u64 memend = memstart + node->mem.size;
+
+    printf("\tNode %d:\n"
+           "\t\tmac address: %m\n"
+           "\t\tstatus: %s %s\n"
+           "\t\tvm memory: %p - %p\n"
+           "\t\tnum of vcpus: %d\n",
+           id, node->mac, online, active, memstart, memend, node->nvcpu);
   }
 }
 
