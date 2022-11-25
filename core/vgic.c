@@ -4,6 +4,7 @@
 
 #include "aarch64.h"
 #include "gic.h"
+#include "gicv3.h"
 #include "vgic.h"
 #include "log.h"
 #include "param.h"
@@ -31,7 +32,7 @@ static inline int vgic_irq_no(struct vgic_irq *irq) {
   ;
 }
 
-static void vgic_irq_enable(struct vcpu *vcpu, struct vgic_irq *irq) {
+static void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
   if(irq->enabled)
     return;
 
@@ -44,7 +45,7 @@ static void vgic_irq_enable(struct vcpu *vcpu, struct vgic_irq *irq) {
     panic("?");
 }
 
-static void vgic_irq_disable(struct vcpu *vcpu, struct vgic_irq *irq) {
+static void vgic_disable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
   if(!irq->enabled)
     return;
 
@@ -331,7 +332,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
         if((val >> i) & 0x1) {
-          vgic_irq_enable(vcpu, irq);
+          vgic_enable_irq(vcpu, irq);
         }
       }
       goto end;
@@ -341,7 +342,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         irq = vgic_get_irq(vcpu, intid+i);
         if((val >> i) & 0x1) {
           if(irq->enabled) {
-            vgic_irq_disable(vcpu, irq);
+            vgic_disable_irq(vcpu, irq);
           }
         }
       }
@@ -515,7 +516,7 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
         if((val >> i) & 0x1) {
-          vgic_irq_enable(vcpu, irq);
+          vgic_enable_irq(vcpu, irq);
         }
       }
       return 0;

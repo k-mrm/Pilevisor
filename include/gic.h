@@ -15,7 +15,7 @@
 #define is_sgi_ppi(intid)   (is_sgi(intid) || is_ppi(intid))
 #define is_ppi_spi(intid)   (16 <= (intid) && (intid) < 1020)
 #define is_spi(intid)       (32 <= (intid) && (intid) < 1020)
-#define vaild_intid(intid)  (0 <= (intid) && (intid) < 1020)
+#define valid_intid(intid)  (0 <= (intid) && (intid) < 1020)
 
 #define ich_hcr_el2   arm_sysreg(4, c12, c11, 0)
 #define ich_vtr_el2   arm_sysreg(4, c12, c11, 1)
@@ -136,6 +136,7 @@ static inline u64 gicr_typer_affinity(u64 mpidr) {
 
 enum gic_sgi {
   SGI_INJECT,
+  SGI_STOP,
 };
 
 struct gic_irqchip {

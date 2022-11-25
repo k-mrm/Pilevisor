@@ -1,6 +1,8 @@
 #ifndef DRIVER_GICV3_H
 #define DRIVER_GICV3_H
 
+#include "gic.h"
+
 static inline u32 gicd_r(u32 offset) {
   return *(volatile u32 *)(u64)(GICDBASE + offset);
 }
