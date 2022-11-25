@@ -1,5 +1,5 @@
-#ifndef MVMM_GIC_H
-#define MVMM_GIC_H
+#ifndef DRIVER_GIC_H
+#define DRIVER_GIC_H
 
 #include "types.h"
 #include "memmap.h"
@@ -10,11 +10,12 @@
 #define GIC_NPPI          16
 #define GIC_PPI_MAX       31
 
-#define is_sgi(intid)     (0 <= (intid) && (intid) < 16)
-#define is_ppi(intid)     (16 <= (intid) && (intid) < 32)
-#define is_sgi_ppi(intid) (is_sgi(intid) || is_ppi(intid))
-#define is_ppi_spi(intid) (16 <= (intid) && (intid) < 1020)
-#define is_spi(intid)     (32 <= (intid) && (intid) < 1020)
+#define is_sgi(intid)       (0 <= (intid) && (intid) < 16)
+#define is_ppi(intid)       (16 <= (intid) && (intid) < 32)
+#define is_sgi_ppi(intid)   (is_sgi(intid) || is_ppi(intid))
+#define is_ppi_spi(intid)   (16 <= (intid) && (intid) < 1020)
+#define is_spi(intid)       (32 <= (intid) && (intid) < 1020)
+#define vaild_intid(intid)  (0 <= (intid) && (intid) < 1020)
 
 #define ich_hcr_el2   arm_sysreg(4, c12, c11, 0)
 #define ich_vtr_el2   arm_sysreg(4, c12, c11, 1)
@@ -132,36 +133,32 @@ static inline u64 gicr_typer_affinity(u64 mpidr) {
          (u64)MPIDR_AFFINITY_LEVEL3(mpidr) << 56;
 }
 
-static inline u32 gicd_r(u32 offset) {
-  return *(volatile u32 *)(u64)(GICDBASE + offset);
-}
-
-static inline void gicd_w(u32 offset, u32 val) {
-  *(volatile u32 *)(u64)(GICDBASE + offset) = val;
-}
-
-static inline u32 gicr_r32(int cpuid, u32 offset) {
-  return *(volatile u32 *)(u64)(GICRBASEn(cpuid) + offset);
-}
-
-static inline void gicr_w32(int cpuid, u32 offset, u32 val) {
-  *(volatile u32 *)(u64)(GICRBASEn(cpuid) + offset) = val;
-}
-
-static inline u64 gicr_r64(int cpuid, u32 offset) {
-  return *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset);
-}
-
-static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
-  *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset) = val;
-}
-
 enum gic_sgi {
   SGI_INJECT,
 };
 
 struct gic_irqchip {
+  int version;    // 2 or 3
+  int max_spi;
+  int max_lr;
 
+  void (*init)(void);
+  void (*initcore)(void);
+
+  u64 (*read_lr)(int n);
+  void (*write_lr)(int n, u64 val);
+  int (*inject_guest_irq)(u32 pirq, u32 virq, int grp);
+  bool (*irq_pending)(u32 irq);
+  u32 (*read_iar)(void);
+  void (*host_eoi)(u32 iar, int grp);
+  void (*guest_eoi)(u32 iar, int grp);
+  void (*deactive_irq)(u32 irq);
+  void (*send_sgi)(int cpuid, int sgi_id);
+  bool (*irq_enabled)(u32 irq);
+  void (*enable_irq)(u32 irq);
+  void (*disable_irq)(u32 irq);
+  void (*setup_irq)(u32 irq);
+  void (*set_target)(u32 irq, u8 target);
 };
 
 extern struct gic_irqchip irqchip;
@@ -174,24 +171,5 @@ struct gic_state {
 
 void gic_init(void);
 void gic_init_cpu(void);
-
-u32 gic_read_iar(void);
-int gic_max_spi(void);
-
-void gic_setup_spi(u32 irq);
-
-void gic_set_target(u32 irq, u8 target);
-
-void gic_send_sgi(int cpuid, int sgi_id);
-
-void gic_irq_enable(u32 irq);
-void gic_irq_disable(u32 irq);
-void gic_irq_enable_redist(u32 cpuid, u32 irq);
-void gic_host_eoi(u32 iar, int grp);
-void gic_guest_eoi(u32 iar, int grp);
-int gic_inject_guest_irq(u32 pirq, u32 virq, int grp);
-
-void gic_restore_state(struct gic_state *gic);
-void gic_init_state(struct gic_state *gic);
 
 #endif

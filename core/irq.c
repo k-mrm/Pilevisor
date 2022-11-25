@@ -4,6 +4,7 @@
 #include "vgic.h"
 #include "vcpu.h"
 #include "pcpu.h"
+#include "localnode.h"
 #include "panic.h"
 
 static struct irq irqlist[NIRQ];
@@ -28,7 +29,7 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
   irq->handler = handler;
   irq->arg = arg;
 
-  gic_setup_spi(pirq);
+  localnode.irqchip->setup_irq(pirq);
 }
 
 int handle_irq(u32 pirq) {
@@ -41,7 +42,7 @@ int handle_irq(u32 pirq) {
   }
 
   /* inject irq to guest */
-  gic_guest_eoi(pirq, 1);
+  localnode.irqchip->guest_eoi(pirq, 1);
 
   vgic_inject_virq(current, pirq, pirq, 1);
 

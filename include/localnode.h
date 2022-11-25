@@ -25,7 +25,9 @@ struct localnode {
   struct nic *nic;
   /* machine power controller */
   struct powerctl *powerctl;
-  /* mmio */
+  /* irqchip */
+  struct gic_irqchip *irqchip;
+  /* guest mmio */
   struct mmio_region *pmap;
   spinlock_t lock;
   int npmap;

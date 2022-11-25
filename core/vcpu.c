@@ -73,8 +73,6 @@ void vcpu_entry() {
   write_sysreg(cntv_tval_el0, current->sys.cntv_tval_el0);
   write_sysreg(cntfrq_el0, current->sys.cntfrq_el0);
 
-  gic_restore_state(&current->gic);
-
   vcpu_dump(current);
 
   isb();
@@ -85,7 +83,6 @@ void vcpu_entry() {
 
 void vcpu_initstate_core() {
   vgic_cpu_init(current);
-  gic_init_state(&current->gic);
 
   current->reg.spsr = PSR_EL1H;     /* EL1h */
 

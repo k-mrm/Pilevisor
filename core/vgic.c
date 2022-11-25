@@ -27,23 +27,32 @@ struct sgi_msg_hdr {
   int sgi_id;
 };
 
-static void vgic_irq_enable(struct vcpu *vcpu, int vintid) {
-  int cpu = cpuid();
-  vmm_warn("cpu%d: enabled %d irq %p\n", cpu, vintid, current->reg.elr);
+static inline int vgic_irq_no(struct vgic_irq *irq) {
+  ;
+}
 
-  if(is_sgi_ppi(vintid))
-    gic_irq_enable_redist(cpu, vintid);
-  else if(is_spi(vintid))
-    gic_irq_enable(vintid);
+static void vgic_irq_enable(struct vcpu *vcpu, struct vgic_irq *irq) {
+  if(irq->enabled)
+    return;
+
+  irq->enabled = 1;
+  u32 intid = irq->intid;
+
+  if(valid_intid(intid))
+    localnode.irqchip->enable_irq(intid);
   else
     panic("?");
 }
 
-static void vgic_irq_disable(struct vcpu *vcpu, int vintid) {
-  if(is_sgi_ppi(vintid))
-    gic_irq_disable(vintid);
-  else if(is_spi(vintid))
-    gic_irq_disable(vintid);
+static void vgic_irq_disable(struct vcpu *vcpu, struct vgic_irq *irq) {
+  if(!irq->enabled)
+    return;
+
+  irq->enabled = 0;
+  u32 intid = irq->intid;
+
+  if(valid_intid(intid))
+    localnode.irqchip->disable_irq(intid);
   else
     panic("?");
 }
@@ -52,7 +61,7 @@ static void vgic_set_target(struct vcpu *vcpu, int vintid, u8 target) {
   if(is_sgi_ppi(vintid))
     return; /* ignored */
   else if(is_spi(vintid))
-    gic_set_target(vintid, target);
+    localnode.irqchip->set_target(vintid, target);
   else
     panic("?");
 }
@@ -68,7 +77,7 @@ int vgic_inject_virq(struct vcpu *target, u32 pirq, u32 virq, int grp) {
     return -1;
 
   if(target == current) {
-    if(gic_inject_guest_irq(pirq, virq, 1) < 0)
+    if(localnode.irqchip->inject_guest_irq(pirq, virq, 1) < 0)
       ;   /* TODO: do nothing? */
   } else {
     int tail = (target->pending.tail + 1) % 4;
@@ -83,7 +92,7 @@ int vgic_inject_virq(struct vcpu *target, u32 pirq, u32 virq, int grp) {
 
     dsb(ish);
 
-    gic_send_sgi(vcpu_localid(target), SGI_INJECT);
+    localnode.irqchip->send_sgi(vcpu_localid(target), SGI_INJECT);
   }
 
   return 0;
@@ -104,7 +113,7 @@ static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
 static void vgic_dump_irq_state(struct vcpu *vcpu, int intid) {
   struct vgic_irq *virq = vgic_get_irq(vcpu, intid);
   vmm_log("vgic irq dump %d\n", intid);
-  vmm_log("%d %d %d %d\n", virq->priority, virq->target, virq->enabled, virq->igroup);
+  vmm_log("%d %d %d\n", virq->priority, virq->enabled, virq->igroup);
 }
 
 static int vgic_inject_sgi(struct vcpu *vcpu, u64 sgir) {
@@ -250,9 +259,11 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
       intid = offset - GICD_ITARGETSR(0);
       for(int i = 0; i < 4; i++) {
+        /*
         irq = vgic_get_irq(vcpu, intid+i);
         u32 t = irq->target->vmpidr;
         itar |= (u32)t << (i * 8);
+        */
       }
 
       mmio->val = itar;
@@ -320,8 +331,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
         if((val >> i) & 0x1) {
-          irq->enabled = 1;
-          vgic_irq_enable(vcpu, intid+i);
+          vgic_irq_enable(vcpu, irq);
         }
       }
       goto end;
@@ -331,8 +341,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         irq = vgic_get_irq(vcpu, intid+i);
         if((val >> i) & 0x1) {
           if(irq->enabled) {
-            irq->enabled = 0;
-            vgic_irq_disable(vcpu, intid+i);
+            vgic_irq_disable(vcpu, irq);
           }
         }
       }
@@ -353,12 +362,14 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3:
       intid = (offset - GICD_ITARGETSR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
+        /*  TODO: fix bug
         irq = vgic_get_irq(vcpu, intid+i);
         u32 t = (val >> (i * 8)) & 0xff;
         irq->target = node_vcpu(t);
         if(!irq->target)
           panic("target remote");
         vgic_set_target(vcpu, intid+i, t);
+        */
       }
       goto end;
     case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
@@ -504,8 +515,7 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
         if((val >> i) & 0x1) {
-          irq->enabled = 1;
-          vgic_irq_enable(vcpu, i);
+          vgic_irq_enable(vcpu, irq);
         }
       }
       return 0;
@@ -583,14 +593,18 @@ static int vgits_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 static void load_new_vgic(void) {
   struct vgic *vgic = &vgic_dist;
 
-  vgic->spi_max = gic_max_spi();
-  vgic->nspis = vgic->spi_max - 31;
+  u32 max_spi = localnode.irqchip->max_spi;
+  vgic->nspis = max_spi - 31;
   vgic->ctlr = 0;
   vgic->spis = (struct vgic_irq *)alloc_page();
   if(!vgic->spis)
     panic("nomem");
 
-  vmm_log("nspis %d sizeof nspi %d\n", vgic->nspis, sizeof(struct vgic_irq) * vgic->nspis);
+  printf("nspis %d sizeof nspi %d\n", vgic->nspis, sizeof(struct vgic_irq) * vgic->nspis);
+
+  for(int i = 0; i < vgic->nspis; i++) {
+    vgic->spis[i].intid = 32 + i;
+  }
 
   mmio_reg_handler(GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
   mmio_reg_handler(GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
@@ -600,18 +614,19 @@ static void load_new_vgic(void) {
 }
 
 void vgic_cpu_init(struct vcpu *vcpu) {
+  struct vgic_irq *irq;
   struct vgic_cpu *vgic = &vcpu->vgic;
 
-  vgic->used_lr = 0;
-
-  for(struct vgic_irq *v = vgic->sgis; v < &vgic->sgis[GIC_NSGI]; v++) {
-    v->enabled = 1;
-    v->target = vcpu;
+  for(int i = 0; i < GIC_NSGI; i++) {
+    irq = &vgic->sgis[i];
+    irq->intid = i;
+    irq->enabled = true;
   }
 
-  for(struct vgic_irq *v = vgic->ppis; v < &vgic->ppis[GIC_NPPI]; v++) {
-    v->enabled = 0;
-    v->target = vcpu;
+  for(int i = 0; i < GIC_NPPI; i++) {
+    irq = &vgic->ppis[i];
+    irq->intid = i + 16;
+    irq->enabled = false;
   }
 }
 
