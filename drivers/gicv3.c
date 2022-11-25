@@ -4,19 +4,21 @@
 
 #include "aarch64.h"
 #include "gic.h"
+#include "gicv3.h"
 #include "log.h"
 #include "memmap.h"
 #include "irq.h"
 #include "vcpu.h"
-#include "emul.h"
-#include "compiler.h"
 #include "localnode.h"
+#include "compiler.h"
 #include "panic.h"
 
 /* gicv3 controller */
 
+static struct gic_irqchip gicv3_irqchip;
+
 static u64 gicv3_read_lr(int n) {
-  if(localnode.irqchip->max_lr <= n)
+  if(gicv3_irqchip.max_lr <= n)
     panic("lr");
 
   switch(n) {
@@ -41,7 +43,7 @@ static u64 gicv3_read_lr(int n) {
 }
 
 static void gicv3_write_lr(int n, u64 val) {
-  if(localnode.irqchip->max_lr <= n)
+  if(gicv3_irqchip.max_lr <= n)
     panic("lr");
 
   switch(n) {
@@ -153,11 +155,6 @@ static int gicv3_inject_guest_irq(u32 pirq, u32 virq, int grp) {
   return 0;
 }
 
-static bool gicv3_irq_pending(u32 irq) {
-  u32 is = gicd_r(GICD_ISPENDR(irq / 32));
-  return (is & (1 << (irq % 32))) != 0;
-}
-
 static u32 gicv3_read_iar() {
   return read_sysreg(icc_iar1_el1);
 }
@@ -196,6 +193,22 @@ static void gicv3_send_sgi(int cpuid, int sgi_id) {
   isb();
 }
 
+static bool gicv3_irq_pending(u32 irq) {
+  u32 is;
+
+  if(is_sgi_ppi(irq)) {
+    int id = cpuid();
+
+    is = gicr_r32(id, GICR_ISPENDR0);
+    return !!(is & (1 << irq));
+  } else if(is_spi(irq)) {
+    is = gicd_r(GICD_ISPENDR(irq / 32));
+    return !!(is & (1 << (irq % 32)));
+  } else {
+    panic("GICv3: unknown irq: %d", irq);
+  }
+}
+
 static bool gicv3_irq_enabled(u32 irq) {
   u32 is;
 
@@ -207,6 +220,8 @@ static bool gicv3_irq_enabled(u32 irq) {
   } else if(is_spi(irq)) {
     is = gicd_r(GICD_ISENABLER(irq / 32));
     return !!(is & (1 << (irq % 32)));
+  } else {
+    panic("GICv3: unknown irq: %d", irq);
   }
 }
 
@@ -233,7 +248,7 @@ static void gicv3_disable_irq(u32 irq) {
     int id = cpuid();
 
     is = 1 << irq;
-    gicr_w32(cpuid, GICR_ICENABLER0, is);
+    gicr_w32(id, GICR_ICENABLER0, is);
   } else if(is_spi(irq)) {
     is = 1 << (irq % 32);
     gicd_w(GICD_ICENABLER(irq / 32), is);
@@ -375,6 +390,7 @@ static struct gic_irqchip gicv3_irqchip = {
   .read_lr = gicv3_read_lr,
   .write_lr = gicv3_write_lr,
   .inject_guest_irq = gicv3_inject_guest_irq,
+  .irq_pending = gicv3_irq_pending,
   .read_iar = gicv3_read_iar,
   .host_eoi = gicv3_host_eoi,
   .guest_eoi = gicv3_guest_eoi,
