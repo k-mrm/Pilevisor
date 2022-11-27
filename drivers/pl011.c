@@ -2,8 +2,8 @@
  *  pl011 uart driver
  */
 
-#include "memmap.h"
 #include "types.h"
+#include "param.h"
 #include "uart.h"
 #include "vcpu.h"
 #include "irq.h"

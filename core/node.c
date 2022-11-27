@@ -4,7 +4,7 @@
 #include "mm.h"
 #include "allocpage.h"
 #include "lib.h"
-#include "memmap.h"
+#include "param.h"
 #include "printf.h"
 #include "log.h"
 #include "mmio.h"
@@ -163,7 +163,7 @@ static void __node0 cluster_node0_init(u8 *mac, int nvcpu, u64 allocated) {
  */
 
 void __node0 cluster_init() {
-  cluster_node0_init(localnode.nic->mac, localnode.nvcpu, localnode.nalloc);
+  cluster_node0_init(localnode.nic->mac, localvm.nvcpu, localvm.nalloc);
 
   intr_enable();
 
@@ -346,9 +346,9 @@ static void __subnode recv_init_request_intr(struct pocv2_msg *msg) {
   u8 *node0_mac = pocv2_msg_src_mac(msg);
   vmm_log("node0 mac address: %m\n", node0_mac);
   vmm_log("me mac address: %m\n", localnode.nic->mac);
-  vmm_log("sub: %d vcpu %p byte RAM\n", localnode.nvcpu, localnode.nalloc);
+  vmm_log("sub: %d vcpu %p byte RAM\n", localvm.nvcpu, localvm.nalloc);
 
-  init_ack_reply(node0_mac, localnode.nvcpu, localnode.nalloc);
+  init_ack_reply(node0_mac, localvm.nvcpu, localvm.nalloc);
 }
 
 static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg) {

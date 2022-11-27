@@ -2,6 +2,7 @@
 #include "vcpu.h"
 #include "localnode.h"
 #include "gic.h"
+#include "irq.h"
 #include "log.h"
 #include "panic.h"
 

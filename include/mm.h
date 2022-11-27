@@ -126,10 +126,13 @@ u64 *page_ro_pte(u64 *pgt, u64 va);
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
 
+void s2mmu_init_core(void);
 void s2mmu_init(void);
 
 void map_guest_image(u64 *pgt, struct guest *img, u64 ipa);
 void alloc_guestmem(u64 *pgt, u64 ipa, u64 size);
+
+void map_guest_peripherals(u64 *pgt);
 
 void dump_par_el1(void);
 

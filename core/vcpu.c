@@ -6,7 +6,7 @@
 #include "log.h"
 #include "mm.h"
 #include "spinlock.h"
-#include "memmap.h"
+#include "param.h"
 #include "localnode.h"
 #include "node.h"
 #include "panic.h"
@@ -31,7 +31,7 @@ static inline u64 vcpuid_to_vaff(int vcpuid) {
  
 void vcpuid_init(u32 *vcpuids, int nvcpu) {
   for(int i = 0; i < nvcpu; i++) {
-    struct vcpu *vcpu = &localnode.vcpus[i];
+    struct vcpu *vcpu = &localvm.vcpus[i];
     vcpu->vcpuid = vcpuids[i];
     vcpu->vmpidr = vcpuid_to_vaff(vcpu->vcpuid);
 
@@ -52,26 +52,17 @@ void vcpu_entry() {
   if(!current->initialized)
     panic("maybe current vcpu uninitalized");
 
-  write_sysreg(spsr_el1, current->sys.spsr_el1);
-  write_sysreg(elr_el1, current->sys.elr_el1);
   write_sysreg(vmpidr_el2, current->vmpidr);
   
   u64 vpidr = read_sysreg(midr_el1);
   write_sysreg(vpidr_el2, vpidr);
 
-  printf("vmm_boot_clk: %p\n", current->vmm_boot_clk);
+  printf("vmm_boot_clk: %d\n", current->vmm_boot_clk);
   write_sysreg(cntvoff_el2, current->vmm_boot_clk);
 
-  write_sysreg(sp_el0, current->sys.sp_el0);
-  write_sysreg(sp_el1, current->sys.sp_el1);
-  write_sysreg(ttbr0_el1, current->sys.ttbr0_el1);
-  write_sysreg(ttbr1_el1, current->sys.ttbr1_el1);
-  write_sysreg(tcr_el1, current->sys.tcr_el1);
-  write_sysreg(vbar_el1, current->sys.vbar_el1);
-  write_sysreg(sctlr_el1, current->sys.sctlr_el1);
-  write_sysreg(cntv_ctl_el0, current->sys.cntv_ctl_el0);
-  write_sysreg(cntv_tval_el0, current->sys.cntv_tval_el0);
-  write_sysreg(cntfrq_el0, current->sys.cntfrq_el0);
+  write_sysreg(vttbr_el2, localvm.vttbr);
+
+  write_sysreg(sctlr_el1, current->sctlr_el1);
 
   vcpu_dump(current);
 
@@ -81,24 +72,23 @@ void vcpu_entry() {
   trapret();
 }
 
-void vcpu_initstate_core() {
-  vgic_cpu_init(current);
-
-  current->reg.spsr = PSR_EL1H;     /* EL1h */
-
-  current->sys.sctlr_el1 = 0xc50838;
-  current->sys.cntfrq_el0 = 62500000;
-
-  current->initialized = true;
-}
-
 void vcpu_init_core() {
   struct vcpu *vcpu = node_vcpu_by_localid(cpuid());
 
   set_current_vcpu(vcpu);
+
+  /* current = vcpu */
+
+  vgic_cpu_init(vcpu);
+
+  vcpu->reg.spsr = PSR_EL1H;     /* EL1h */
+  vcpu->sctlr_el1 = 0xc50838;
+
+  vcpu->initialized = true;
 }
 
 void vcpu_shutdown(struct vcpu *vcpu) {
+  ;
 }
 
 void wait_for_current_vcpu_online() {
@@ -131,5 +121,5 @@ void vcpu_dump(struct vcpu *vcpu) {
   printf("ttbr0_el1 %18p  ttbr1_el1 %18p  tcr_el1      %18p\n",
          read_sysreg(ttbr0_el1), read_sysreg(ttbr1_el1), read_sysreg(tcr_el1));
   printf("vbar_el1  %18p  sctlr_el1 %18p  cntv_ctl_el0 %18p\n",
-         read_sysreg(vbar_el1), read_sysreg(sctlr_el1), vcpu->sys.cntv_ctl_el0);
+         read_sysreg(vbar_el1), read_sysreg(sctlr_el1), read_sysreg(cntv_ctl_el0));
 }

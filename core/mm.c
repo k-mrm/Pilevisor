@@ -5,7 +5,8 @@
 #include "aarch64.h"
 #include "lib.h"
 #include "mm.h"
-#include "memmap.h"
+#include "param.h"
+#include "localnode.h"
 #include "allocpage.h"
 #include "printf.h"
 #include "guest.h"
@@ -82,11 +83,11 @@ void map_guest_image(u64 *pgt, struct guest *img, u64 ipa) {
   copy_to_guest(pgt, ipa, (char *)img->start, img->size);
 }
 
-void map_peripherals(u64 *pgt) {
+void map_guest_peripherals(u64 *pgt) {
   pagemap(pgt, UARTBASE, UARTBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
   pagemap(pgt, GPIOBASE, GPIOBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
   pagemap(pgt, RTCBASE, RTCBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(pgt, VIRTIO0, VIRTIO0, 0x4000, S2PTE_DEVICE|S2PTE_RW);
+  // pagemap(pgt, VIRTIO0, VIRTIO0, 0x4000, S2PTE_DEVICE|S2PTE_RW);
   pagemap(pgt, PCIE_ECAM_BASE, PCIE_ECAM_BASE, 256*1024*1024,
           S2PTE_DEVICE|S2PTE_RW);
   pagemap(pgt, PCIE_MMIO_BASE, PCIE_MMIO_BASE, 0x2eff0000, S2PTE_DEVICE|S2PTE_RW);
@@ -299,10 +300,7 @@ u64 faulting_ipa_page() {
   return ipa_page & ~(PAGESIZE-1);
 }
 
-void s2mmu_init(void) {
-  u64 mmf = read_sysreg(id_aa64mmfr0_el1);
-  printf("id_aa64mmfr0_el1.parange = %p\n", mmf & 0xf);
-
+void s2mmu_init_core() {
   u64 vtcr = VTCR_T0SZ(20) | VTCR_SH0(0) | VTCR_SL0(2) | VTCR_HA | VTCR_HD |
              VTCR_TG0(0) | VTCR_NSW | VTCR_NSA | VTCR_PS(4);
   write_sysreg(vtcr_el2, vtcr);
@@ -311,4 +309,15 @@ void s2mmu_init(void) {
   write_sysreg(mair_el2, mair);
 
   isb();
+}
+
+void s2mmu_init() {
+  u64 mmf = read_sysreg(id_aa64mmfr0_el1);
+  printf("id_aa64mmfr0_el1.parange = %p\n", mmf & 0xf);
+
+  u64 *vttbr = alloc_page();
+  if(!vttbr)
+    panic("vttbr failed");
+
+  localvm.vttbr = vttbr;
 }

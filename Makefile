@@ -19,7 +19,7 @@ NCPU = 1
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 3
+GUEST_NCPU = 2
 endif
 
 # directory
@@ -168,11 +168,11 @@ linux: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0" -m 768
 
 dts:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 768
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 512
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 768
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m 512
 
 clean:
 	make -C guest clean

@@ -277,7 +277,7 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
 
 static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
   static int count = 0;
-  u64 *vttbr = localnode.vttbr;
+  u64 *vttbr = localvm.vttbr;
 
   vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
 
@@ -335,7 +335,7 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool lock
   u64 ipa = proc->page_ipa;
   u64 copyset = proc->copyset;
   u64 from_nodeid = proc->req_nodeid;
-  u64 *vttbr = localnode.vttbr;
+  u64 *vttbr = localvm.vttbr;
   u64 *pte;
 
   if(!locked && page_trylock(ipa)) {
@@ -375,7 +375,7 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 
 /* read fault handler */
 static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
-  u64 *vttbr = localnode.vttbr;
+  u64 *vttbr = localvm.vttbr;
   u64 *pte;
   void *page_pa = NULL;
   u64 far = read_sysreg(far_el2);
@@ -436,7 +436,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 
 /* write fault handler */
 static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
-  u64 *vttbr = localnode.vttbr;
+  u64 *vttbr = localvm.vttbr;
   u64 *pte;
   void *page_pa;
   u64 far = read_sysreg(far_el2);
@@ -577,7 +577,7 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
 
 /* read server */
 static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
-  u64 *vttbr = localnode.vttbr;
+  u64 *vttbr = localvm.vttbr;
   u64 page_ipa = proc->page_ipa;
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
@@ -626,7 +626,7 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
 
 /* write server */
 static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
-  u64 *vttbr = localnode.vttbr;
+  u64 *vttbr = localvm.vttbr;
   u64 page_ipa = proc->page_ipa;
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
@@ -718,7 +718,7 @@ static void recv_invalidate_ack_intr(struct pocv2_msg *msg) {
 }
 
 void vsm_node_init(struct memrange *mem) {
-  u64 *vttbr = localnode.vttbr;
+  u64 *vttbr = localvm.vttbr;
   u64 start = mem->start, size = mem->size;
   u64 p;
 

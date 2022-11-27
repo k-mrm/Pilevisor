@@ -58,8 +58,7 @@ int vmm_init_secondary() {
 
   gic_init_cpu();
 
-  s2mmu_init();
-  write_sysreg(vttbr_el2, localnode.vttbr);
+  s2mmu_init_core();
 
   arch_timer_init_core();
 
@@ -91,15 +90,15 @@ int vmm_init_cpu0() {
   arch_timer_init();
   arch_timer_init_core();
 
-  vtimer_init();
-  s2mmu_init();
   virtio_mmio_init();
 
   hcr_setup();
 
+  msg_sysinit();
+
   nodectl_init();
 
-  localnode_preinit(1, 256 * MiB, &virt_dtb);
+  localvm_init(1, 256 * MiB, &virt_dtb);
 
   localnode.ctl->init();
   localnode.ctl->startcore();

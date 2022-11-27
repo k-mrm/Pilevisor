@@ -1,13 +1,13 @@
 #include "types.h"
 #include "log.h"
-#include "memmap.h"
+#include "param.h"
 #include "allocpage.h"
 #include "lib.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
 #include "irq.h"
-#include "panic.h"
 #include "malloc.h"
+#include "panic.h"
 
 #define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
 #define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)

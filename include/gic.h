@@ -2,7 +2,6 @@
 #define DRIVER_GIC_H
 
 #include "types.h"
-#include "memmap.h"
 #include "aarch64.h"
 
 #define GIC_NSGI          16

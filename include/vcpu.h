@@ -20,6 +20,7 @@ struct pending_queue {
   spinlock_t lk;
 };
 
+struct vm;
 struct vcpu {
   /* !!! MUST be first field !!! */
   struct {
@@ -28,31 +29,17 @@ struct vcpu {
     u64 elr;    /* elr_el2 */
     u64 sp;     /* stack pointer */
   } reg;
-  struct {
-    u64 spsr_el1;
-    u64 elr_el1;
-    u64 sp_el0;
-    u64 sp_el1;
-    u64 ttbr0_el1;
-    u64 ttbr1_el1;
-    u64 tcr_el1;
-    u64 vbar_el1;
-    u64 sctlr_el1;
-    u64 cntv_ctl_el0;
-    u64 cntv_tval_el0;
-    u64 cntfrq_el0;
-  } sys;
 
   /* vcpuid on cluster */
   int vcpuid;
-
   u64 vmpidr;
 
   struct cpu_features features;
 
   u64 vmm_boot_clk;
 
-  struct gic_state gic;
+  u64 sctlr_el1;
+
   struct vgic_cpu vgic;
   /* pending irqs */
   struct pending_queue pending;

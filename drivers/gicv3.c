@@ -6,7 +6,7 @@
 #include "gic.h"
 #include "gicv3.h"
 #include "log.h"
-#include "memmap.h"
+#include "param.h"
 #include "irq.h"
 #include "vcpu.h"
 #include "localnode.h"
@@ -414,7 +414,14 @@ static int gicv3_max_listregs() {
   return (i & 0x1f) + 1;
 }
 
-static void gicv3_init(void);
+static void gicv3_init(void) {
+  gicv3_d_init();
+
+  gicv3_irqchip.max_spi = gic_max_spi();
+  gicv3_irqchip.max_lr = gicv3_max_listregs();
+
+  printf("max_spi: %d max_lr: %d\n", gicv3_irqchip.max_spi, gicv3_irqchip.max_lr);
+}
 
 static struct gic_irqchip gicv3_irqchip = {
   .version = 3,
@@ -437,15 +444,6 @@ static struct gic_irqchip gicv3_irqchip = {
   .setup_irq        = gicv3_setup_irq,
   .set_target       = gicv3_set_target,
 };
-
-static void gicv3_init(void) {
-  gicv3_d_init();
-
-  gicv3_irqchip.max_spi = gic_max_spi();
-  gicv3_irqchip.max_lr = gicv3_max_listregs();
-
-  printf("max_spi: %d max_lr: %d\n", gicv3_irqchip.max_spi, gicv3_irqchip.max_lr);
-}
 
 void gicv3_sysinit() {
   localnode.irqchip = &gicv3_irqchip;

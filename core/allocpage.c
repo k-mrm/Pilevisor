@@ -6,7 +6,6 @@
 #include "spinlock.h"
 #include "log.h"
 #include "mm.h"
-#include "memmap.h"
 #include "lib.h"
 #include "param.h"
 #include "allocpage.h"

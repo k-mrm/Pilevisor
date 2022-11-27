@@ -9,7 +9,7 @@
 #include "vcpu.h"
 #include "log.h"
 #include "mm.h"
-#include "mmio.h"
+#include "vmmio.h"
 #include "vpsci.h"
 #include "node.h"
 #include "emul.h"
@@ -161,7 +161,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     .wnr = wnr,
   };
 
-  if(mmio_emulate(vcpu, &mmio) >= 0) {
+  if(vmmio_emulate(vcpu, &mmio) >= 0) {
     if(!mmio.wnr)   // mmio read
       vcpu->reg.x[r] = mmio.val;
     return 0;

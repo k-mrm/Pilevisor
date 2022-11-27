@@ -9,28 +9,38 @@
 #include "power.h"
 #include "compiler.h"
 
+/* localvm */
+struct vm {
+  struct vcpu vcpus[VCPU_PER_NODE_MAX];
+  int nvcpu;
+  /* allocated RAM size to vm */
+  u64 nalloc;
+  /* stage 2 pagetable */
+  u64 *vttbr;
+  /* virtual interrupt controller */
+  struct vgic *vgic;
+  /* guest mmio */
+  struct mmio_region *pmap;
+  spinlock_t lock;
+  int npmap;
+  /* device tree blob */
+  // struct guest_fdt *fdt;
+};
+
 /* localnode */
 struct localnode {
-  struct vcpu vcpus[VCPU_PER_NODE_MAX];
-  int nvcpu;    /* nvcpu <= npcpu */
-  u64 nalloc;
+  /* localvm */
+  struct vm vm;
+  /* Node id in the cluster */
   int nodeid;
   /* Am I recognized by cluster? */
   bool acked;
-  /* stage 2 pagetable */
-  u64 *vttbr;
-  /* interrupt controller */
-  struct vgic *vgic;
   /* network interface card */
   struct nic *nic;
   /* machine power controller */
   struct powerctl *powerctl;
   /* irqchip */
   struct gic_irqchip *irqchip;
-  /* guest mmio */
-  struct mmio_region *pmap;
-  spinlock_t lock;
-  int npmap;
   /* node control dispatcher */
   struct nodectl *ctl;
   /* my node in the cluster */
@@ -41,10 +51,12 @@ extern struct localnode localnode;
 
 #define local_nodeid()    (localnode.nodeid)
 
-void localnode_preinit(int nvcpu, u64 nalloc, struct guest *guest_fdt);
+#define localvm           (localnode.vm)
+
+void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt);
 
 static inline struct vcpu *node_vcpu(int vcpuid) {
-  for(struct vcpu *v = localnode.vcpus; v < &localnode.vcpus[localnode.nvcpu]; v++) {
+  for(struct vcpu *v = localvm.vcpus; v < &localvm.vcpus[localvm.nvcpu]; v++) {
     if(v->vcpuid == vcpuid)
       return v;
   }
@@ -54,11 +66,11 @@ static inline struct vcpu *node_vcpu(int vcpuid) {
 }
 
 static inline int vcpu_localid(struct vcpu *v) {
-  return (int)(v - localnode.vcpus);
+  return (int)(v - localvm.vcpus);
 }
 
 static inline struct vcpu *node_vcpu_by_localid(int localcpuid) {
-  return &localnode.vcpus[localcpuid];
+  return &localvm.vcpus[localcpuid];
 }
 
 static inline bool node_macaddr_is_me(u8 *mac) {

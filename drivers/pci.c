@@ -3,7 +3,7 @@
  */
 
 #include "pci.h"
-#include "memmap.h"
+#include "param.h"
 #include "log.h"
 #include "panic.h"
 

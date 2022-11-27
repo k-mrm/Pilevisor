@@ -24,8 +24,6 @@ static void sub_init() {
 static void sub_start() {
   vmm_log("node%d@cpu%d: start\n", localnode.nodeid, cpuid());
 
-  vcpu_initstate_core();
-
   current->vmm_boot_clk = now_cycles();
 
   wait_for_current_vcpu_online();

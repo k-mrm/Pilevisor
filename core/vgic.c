@@ -96,7 +96,7 @@ static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
   else if(is_ppi(intid))
     return &vcpu->vgic.ppis[intid - 16];
   else if(is_spi(intid))
-    return &localnode.vgic->spis[intid - 32];
+    return &localvm.vgic->spis[intid - 32];
 
   panic("vgic_get_irq unknown %d", intid);
   return NULL;
@@ -173,7 +173,7 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
 static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid, status = 0;
   struct vgic_irq *irq;
-  struct vgic *vgic = localnode.vgic;
+  struct vgic *vgic = localvm.vgic;
   u64 offset = mmio->offset;
 
   /*
@@ -312,7 +312,7 @@ end:
 static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid, status = 0;
   struct vgic_irq *irq;
-  struct vgic *vgic = localnode.vgic;
+  struct vgic *vgic = localvm.vgic;
   u64 offset = mmio->offset;
   u64 val = mmio->val;
 
@@ -424,7 +424,7 @@ end:
 static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
-  struct vgic *vgic = localnode.vgic;
+  struct vgic *vgic = localvm.vgic;
   u64 offset = mmio->offset;
 
   /*
@@ -631,11 +631,11 @@ static void load_new_vgic(void) {
     vgic->spis[i].intid = 32 + i;
   }
 
-  mmio_reg_handler(GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
-  mmio_reg_handler(GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
-  mmio_reg_handler(GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
+  vmmio_reg_handler(GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
+  vmmio_reg_handler(GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
+  vmmio_reg_handler(GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
 
-  localnode.vgic = vgic;
+  localvm.vgic = vgic;
 }
 
 void vgic_cpu_init(struct vcpu *vcpu) {
