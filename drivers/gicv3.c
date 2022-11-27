@@ -17,6 +17,30 @@
 
 static struct gic_irqchip gicv3_irqchip;
 
+static inline u32 gicd_r(u32 offset) {
+  return *(volatile u32 *)(u64)(GICDBASE + offset);
+}
+
+static inline void gicd_w(u32 offset, u32 val) {
+  *(volatile u32 *)(u64)(GICDBASE + offset) = val;
+}
+
+static inline u32 gicr_r32(int cpuid, u32 offset) {
+  return *(volatile u32 *)(u64)(GICRBASEn(cpuid) + offset);
+}
+
+static inline void gicr_w32(int cpuid, u32 offset, u32 val) {
+  *(volatile u32 *)(u64)(GICRBASEn(cpuid) + offset) = val;
+}
+
+static inline u64 gicr_r64(int cpuid, u32 offset) {
+  return *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset);
+}
+
+static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
+  *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset) = val;
+}
+
 static u64 gicv3_read_lr(int n) {
   if(gicv3_irqchip.max_lr <= n)
     panic("lr");
@@ -123,10 +147,10 @@ static u64 gicv3_pending_lr(u32 pirq, u32 virq, int grp) {
   return lr;
 }
 
-static int gicv3_inject_guest_irq(u32 pirq, u32 virq, int grp) {
-  if(is_sgi(pirq)) {
-    if(pirq == 2)
-      panic("!? maybe kernel panicked");
+static int gicv3_inject_guest_irq(u32 intid, int grp) {
+  if(is_sgi(intid)) {
+    if(intid == 2)
+      panic("!? maybe Linux kernel panicked");
   }
 
   u64 elsr = read_sysreg(ich_elsr_el2);
@@ -141,14 +165,14 @@ static int gicv3_inject_guest_irq(u32 pirq, u32 virq, int grp) {
       continue;
     }
 
-    if((u32)gicv3_read_lr(i) == pirq)
+    if((u32)gicv3_read_lr(i) == intid)
       return -1;    // busy
   }
 
   if(freelr < 0)
     return -1;
 
-  lr = gicv3_pending_lr(pirq, virq, grp);
+  lr = gicv3_pending_lr(intid, intid, grp);
 
   gicv3_write_lr(freelr, lr);
 
@@ -260,8 +284,6 @@ static void gic_set_igroup(u32 irq, u32 igrp) {
 }
 
 static void gicv3_set_target(u32 irq, u8 target) {
-  vmm_log("settttttttttarget %d %d\n", irq, target);
-
   if(is_sgi_ppi(irq))
     panic("sgi_ppi set target?");
 
@@ -311,21 +333,34 @@ static void gicv3_c_init(void) {
   isb();
 }
 
+static void gicv3_d_wait_for_rwp() {
+  while(gicd_r(GICD_CTLR) & GICD_CTLR_RWP)
+    ;
+}
+
+static inline bool security_disabled() {
+  return !!(gicd_r(GICD_CTLR) & GICD_CTLR_DS);
+}
+
 static void gicv3_d_init(void) {
+  gicd_w(GICD_CTLR, 0);
+  gicv3_d_wait_for_rwp();
+
   u32 typer = gicd_r(GICD_TYPER);
   u32 lines = typer & 0x1f;
   u32 pidr2 = gicd_r(GICD_PIDR2);
   u32 archrev = GICD_PIDR2_ARCHREV(pidr2);
-
-  vmm_log("GICv%d found\n", archrev);
-
   if(archrev != 0x3)
     panic("gicv3?");
+
+  vmm_log("GICv3 found\n");
+  vmm_log("GICv3: security state: %s\n", security_disabled() ? "enabled" : "disabled");
 
   for(int i = 0; i < lines; i++)
     gicd_w(GICD_IGROUPR(i), ~0);
 
   gicd_w(GICD_CTLR, 3);
+  gicv3_d_wait_for_rwp();
 
   isb();
 }
@@ -384,23 +419,23 @@ static void gicv3_init(void);
 static struct gic_irqchip gicv3_irqchip = {
   .version = 3,
 
-  .init = gicv3_init,
-  .initcore = gicv3_init_cpu,
+  .init             = gicv3_init,
+  .initcore         = gicv3_init_cpu,
 
-  .read_lr = gicv3_read_lr,
-  .write_lr = gicv3_write_lr,
+  .read_lr          = gicv3_read_lr,
+  .write_lr         = gicv3_write_lr,
   .inject_guest_irq = gicv3_inject_guest_irq,
-  .irq_pending = gicv3_irq_pending,
-  .read_iar = gicv3_read_iar,
-  .host_eoi = gicv3_host_eoi,
-  .guest_eoi = gicv3_guest_eoi,
-  .deactive_irq = gicv3_deactive_irq,
-  .send_sgi = gicv3_send_sgi,
-  .irq_enabled = gicv3_irq_enabled,
-  .enable_irq = gicv3_enable_irq,
-  .disable_irq = gicv3_disable_irq,
-  .setup_irq = gicv3_setup_irq,
-  .set_target = gicv3_set_target,
+  .irq_pending      = gicv3_irq_pending,
+  .read_iar         = gicv3_read_iar,
+  .host_eoi         = gicv3_host_eoi,
+  .guest_eoi        = gicv3_guest_eoi,
+  .deactive_irq     = gicv3_deactive_irq,
+  .send_sgi         = gicv3_send_sgi,
+  .irq_enabled      = gicv3_irq_enabled,
+  .enable_irq       = gicv3_enable_irq,
+  .disable_irq      = gicv3_disable_irq,
+  .setup_irq        = gicv3_setup_irq,
+  .set_target       = gicv3_set_target,
 };
 
 static void gicv3_init(void) {

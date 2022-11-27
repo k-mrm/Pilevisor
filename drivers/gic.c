@@ -12,7 +12,7 @@ static void gic_inject_pending_irqs() {
 
   while(head != vcpu->pending.tail) {
     u32 irq = vcpu->pending.irqs[head];
-    localnode.irqchip->inject_guest_irq(irq, irq, 1);
+    localnode.irqchip->inject_guest_irq(irq, 1);
 
     head = (head + 1) % 4;
   }

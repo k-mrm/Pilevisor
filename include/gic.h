@@ -80,7 +80,6 @@
 #define lr_is_pendact(lr)   (((lr >> 62) & 0x3) == LR_PENDACT)
 
 #define GICD_CTLR           (0x0)
-#define GICD_CTLR_ENGRP(grp)    (1<<(grp))
 #define GICD_TYPER          (0x4)
 #define GICD_IIDR           (0x8)
 #define GICD_TYPER2         (0xc)
@@ -97,6 +96,25 @@
 #define GICD_IROUTER(n)     (0x6000 + (u64)(n) * 8)
 #define GICD_PIDR2          (0xffe8)
 #define GICD_PIDR2_ARCHREV(n)   (((n)>>4) & 0xf)
+
+#define GICD_CTLR_RWP       (1 << 31)
+
+/* Non-secure access in double security state */
+#define GICD_CTLR_NS_ENGRP1     (1 << 0)
+#define GICD_CTLR_NS_ENGRP1A    (1 << 1)
+#define GICD_CTLR_NS_ARE_NS     (1 << 4)
+
+/* only single security state */
+#define GICD_CTLR_SS_ENGRP0     (1 << 0)
+#define GICD_CTLR_SS_ENGRP1     (1 << 1)
+#define GICD_CTLR_SS_ARE        (1 << 4)
+#define GICD_CTLR_DS            (1 << 6)
+
+#define GICD_TYPER_CPUNum_SHIFT   5
+#define GICD_TYPER_IDbits_SHIFT   19
+
+#define GICD_IIDR_Revision_SHIFT    12
+#define GICD_IIDR_ProductID_SHIFT   24
 
 #define GITS_PIDR2          (0xffe8)
 
@@ -140,7 +158,7 @@ enum gic_sgi {
 };
 
 struct gic_irqchip {
-  int version;    // 2 or 3
+  int version;      // 2 or 3
   int max_spi;
   int max_lr;
 
@@ -149,7 +167,7 @@ struct gic_irqchip {
 
   u64 (*read_lr)(int n);
   void (*write_lr)(int n, u64 val);
-  int (*inject_guest_irq)(u32 pirq, u32 virq, int grp);
+  int (*inject_guest_irq)(u32 intid, int grp);
   bool (*irq_pending)(u32 irq);
   u32 (*read_iar)(void);
   void (*host_eoi)(u32 iar, int grp);

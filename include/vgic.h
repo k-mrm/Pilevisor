@@ -17,8 +17,9 @@ struct vgic_irq {
 
 struct vgic {
   int nspis;
-  u32 ctlr;     /* GICD_CTLR */
+  int archrev;
   struct vgic_irq *spis;
+  bool enabled: 1;
 
   spinlock_t lock;
 };
@@ -30,8 +31,7 @@ struct vgic_cpu {
 };
 
 void vgic_cpu_init(struct vcpu *vcpu);
-int vgic_inject_virq(struct vcpu *vcpu, u32 pirq, u32 virq, int grp);
-void vgic_restore_state(struct vgic_cpu *vgic);
+int vgic_inject_virq(struct vcpu *vcpu, u32 intid);
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr);
 
 void vgic_init(void);
