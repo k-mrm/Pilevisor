@@ -45,8 +45,6 @@ void irqchip_check(struct gic_irqchip *irqchip) {
 
   all_implemented &= !!(irqchip->init);
   all_implemented &= !!(irqchip->initcore);
-  all_implemented &= !!(irqchip->read_lr);
-  all_implemented &= !!(irqchip->write_lr);
   all_implemented &= !!(irqchip->inject_guest_irq);
   all_implemented &= !!(irqchip->irq_pending);
   all_implemented &= !!(irqchip->read_iar);

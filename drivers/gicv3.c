@@ -13,32 +13,33 @@
 #include "compiler.h"
 #include "panic.h"
 
-/* gicv3 controller */
-
 static struct gic_irqchip gicv3_irqchip;
 
+static u64 gicd_base;
+static u64 gicr_base;
+
 static inline u32 gicd_r(u32 offset) {
-  return *(volatile u32 *)(u64)(GICDBASE + offset);
+  return *(volatile u32 *)(u64)(gicd_base + offset);
 }
 
 static inline void gicd_w(u32 offset, u32 val) {
-  *(volatile u32 *)(u64)(GICDBASE + offset) = val;
+  *(volatile u32 *)(u64)(gicd_base + offset) = val;
 }
 
 static inline u32 gicr_r32(int cpuid, u32 offset) {
-  return *(volatile u32 *)(u64)(GICRBASEn(cpuid) + offset);
+  return *(volatile u32 *)(u64)(gicr_base + cpuid * 0x20000 + offset);
 }
 
 static inline void gicr_w32(int cpuid, u32 offset, u32 val) {
-  *(volatile u32 *)(u64)(GICRBASEn(cpuid) + offset) = val;
+  *(volatile u32 *)(u64)(gicr_base + cpuid * 0x20000 + offset) = val;
 }
 
 static inline u64 gicr_r64(int cpuid, u32 offset) {
-  return *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset);
+  return *(volatile u64 *)(u64)(gicr_base + cpuid * 0x20000 + offset);
 }
 
 static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
-  *(volatile u64 *)(u64)(GICRBASEn(cpuid) + offset) = val;
+  *(volatile u64 *)(u64)(gicr_base + cpuid * 0x20000 + offset) = val;
 }
 
 static u64 gicv3_read_lr(int n) {
@@ -183,26 +184,21 @@ static u32 gicv3_read_iar() {
   return read_sysreg(icc_iar1_el1);
 }
 
-static void gicv3_eoi(u32 iar, int grp) {
-  if(grp == 0)
-    write_sysreg(icc_eoir0_el1, iar);
-  else if(grp == 1)
-    write_sysreg(icc_eoir1_el1, iar);
-  else
-    panic("?");
+static void gicv3_eoi(u32 iar) {
+  write_sysreg(icc_eoir1_el1, iar);
 }
 
 static void gicv3_deactive_irq(u32 irq) {
   write_sysreg(icc_dir_el1, irq);
 }
 
-static void gicv3_host_eoi(u32 iar, int grp) {
-  gicv3_eoi(iar, grp);
-  gicv3_deactive_irq(iar);
+static void gicv3_host_eoi(u32 iar) {
+  gicv3_eoi(iar);
+  gicv3_deactive_irq(iar & 0x3ff);
 }
 
-static void gicv3_guest_eoi(u32 iar, int grp) {
-  gicv3_eoi(iar, grp);
+static void gicv3_guest_eoi(u32 iar) {
+  gicv3_eoi(iar);
 }
 
 static void gicv3_send_sgi(int cpuid, int sgi_id) {
@@ -279,17 +275,8 @@ static void gicv3_disable_irq(u32 irq) {
   }
 }
 
-static void gic_set_igroup(u32 irq, u32 igrp) {
-  panic("set igroup");
-}
-
 static void gicv3_set_target(u32 irq, u8 target) {
-  if(is_sgi_ppi(irq))
-    panic("sgi_ppi set target?");
-
-  u32 itargetsr = gicd_r(GICD_ITARGETSR(irq / 4));
-  itargetsr &= ~((u32)0xff << (irq % 4 * 8));
-  gicd_w(GICD_ITARGETSR(irq / 4), itargetsr | (target << (irq % 4 * 8)));
+  ;
 }
 
 /*
@@ -400,7 +387,7 @@ static void gicv3_init_cpu() {
   gicv3_h_init();
 }
 
-static int gic_max_spi() {
+static int gicv3_max_spi() {
   u32 typer = gicd_r(GICD_TYPER);
   u32 lines = typer & 0x1f;
   u32 max_spi = 32 * (lines + 1) - 1;
@@ -415,9 +402,12 @@ static int gicv3_max_listregs() {
 }
 
 static void gicv3_init(void) {
+  gicd_base = GICDBASE;
+  gicr_base = GICRBASE;
+
   gicv3_d_init();
 
-  gicv3_irqchip.max_spi = gic_max_spi();
+  gicv3_irqchip.max_spi = gicv3_max_spi();
   gicv3_irqchip.max_lr = gicv3_max_listregs();
 
   printf("max_spi: %d max_lr: %d\n", gicv3_irqchip.max_spi, gicv3_irqchip.max_lr);
@@ -429,8 +419,6 @@ static struct gic_irqchip gicv3_irqchip = {
   .init             = gicv3_init,
   .initcore         = gicv3_init_cpu,
 
-  .read_lr          = gicv3_read_lr,
-  .write_lr         = gicv3_write_lr,
   .inject_guest_irq = gicv3_inject_guest_irq,
   .irq_pending      = gicv3_irq_pending,
   .read_iar         = gicv3_read_iar,
