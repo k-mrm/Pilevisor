@@ -50,14 +50,20 @@ static void hcr_setup() {
 
 int vmm_init_secondary() {
   vmm_log("cpu%d activated...\n", cpuid());
+
   write_sysreg(vbar_el2, (u64)vectable);
+
   pcpu_init();
   vcpu_init_core();
+
   gic_init_cpu();
+
   s2mmu_init();
-  hcr_setup();
-  arch_timer_init_core();
   write_sysreg(vttbr_el2, localnode.vttbr);
+
+  arch_timer_init_core();
+
+  hcr_setup();
 
   localnode.ctl->startcore();
 
@@ -67,20 +73,28 @@ int vmm_init_secondary() {
 int vmm_init_cpu0() {
   uart_init();
   printf("vmm booting...\n");
+
   write_sysreg(vbar_el2, (u64)vectable);
+
   pcpu_init();
   vcpu_init_core();
+
   pageallocator_init();
   malloc_init();
-  virtio_mmio_init();
+
   gicv3_sysinit();
   gic_init();
   gic_init_cpu();
+
+  powerctl_init();
+
   arch_timer_init();
   arch_timer_init_core();
+
   vtimer_init();
   s2mmu_init();
-  powerctl_init();
+  virtio_mmio_init();
+
   hcr_setup();
 
   nodectl_init();
