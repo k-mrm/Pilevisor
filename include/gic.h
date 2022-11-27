@@ -75,7 +75,7 @@ struct gic_irqchip {
   void (*initcore)(void);
 
   int (*inject_guest_irq)(u32 intid);
-  bool (*irq_pending)(u32 irq, int grp);
+  bool (*irq_pending)(u32 irq);
   u32 (*read_iar)(void);
   void (*host_eoi)(u32 iar);
   void (*guest_eoi)(u32 iar);

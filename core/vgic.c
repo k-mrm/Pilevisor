@@ -69,7 +69,7 @@ int vgic_inject_virq(struct vcpu *target, u32 intid) {
     return -1;
 
   if(target == current) {
-    if(localnode.irqchip->inject_guest_irq(intid, 1) < 0)
+    if(localnode.irqchip->inject_guest_irq(intid) < 0)
       ;   /* TODO: do nothing? */
   } else {
     int tail = (target->pending.tail + 1) % 4;

@@ -42,7 +42,7 @@ int handle_irq(u32 pirq) {
   }
 
   /* inject irq to guest */
-  localnode.irqchip->guest_eoi(pirq, 1);
+  localnode.irqchip->guest_eoi(pirq);
 
   vgic_inject_virq(current, pirq);
 

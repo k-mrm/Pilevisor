@@ -13,7 +13,7 @@ static void gic_inject_pending_irqs() {
 
   while(head != vcpu->pending.tail) {
     u32 irq = vcpu->pending.irqs[head];
-    localnode.irqchip->inject_guest_irq(irq, 1);
+    localnode.irqchip->inject_guest_irq(irq);
 
     head = (head + 1) % 4;
   }
@@ -33,7 +33,7 @@ static void gic_sgi_handler(enum gic_sgi sgi_id) {
   }
 }
 
-void irqchip_check(struct gic_irqchip *irqchip) {
+static void gic_irqchip_check(struct gic_irqchip *irqchip) {
   int version = irqchip->version;
 
   if(version != 2 && version != 3)
@@ -74,11 +74,11 @@ void gic_irq_handler(int from_guest) {
       int handled = handle_irq(pirq);
 
       if(handled)
-        localnode.irqchip->host_eoi(pirq, 1);
+        localnode.irqchip->host_eoi(pirq);
     } else if(is_sgi(pirq)) {
       gic_sgi_handler(pirq);
 
-      localnode.irqchip->host_eoi(pirq, 1);
+      localnode.irqchip->host_eoi(pirq);
     } else {
       panic("???????");
     }
@@ -93,7 +93,7 @@ void gic_init() {
   if(!localnode.irqchip)
     panic("no irqchip");
 
-  irqchip_check(localnode.irqchip);
+  gic_irqchip_check(localnode.irqchip);
 
   localnode.irqchip->init();
 }

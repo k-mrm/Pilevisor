@@ -148,7 +148,7 @@ static u64 gicv3_pending_lr(u32 pirq, u32 virq, int grp) {
   return lr;
 }
 
-static int gicv3_inject_guest_irq(u32 intid, int grp) {
+static int gicv3_inject_guest_irq(u32 intid) {
   if(is_sgi(intid)) {
     if(intid == 2)
       panic("!? maybe Linux kernel panicked");
@@ -173,7 +173,7 @@ static int gicv3_inject_guest_irq(u32 intid, int grp) {
   if(freelr < 0)
     return -1;
 
-  lr = gicv3_pending_lr(intid, intid, grp);
+  lr = gicv3_pending_lr(intid, intid, 1);
 
   gicv3_write_lr(freelr, lr);
 
@@ -336,7 +336,7 @@ static void gicv3_d_init(void) {
   u32 typer = gicd_r(GICD_TYPER);
   u32 lines = typer & 0x1f;
   u32 pidr2 = gicd_r(GICD_PIDR2);
-  u32 archrev = GICD_PIDR2_ARCHREV(pidr2);
+  u32 archrev = GICD_PIDR2_ArchRev(pidr2);
   if(archrev != 0x3)
     panic("gicv3?");
 
