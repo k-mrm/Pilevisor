@@ -116,6 +116,8 @@
 #define GICD_IIDR_Revision_SHIFT    12
 #define GICD_IIDR_ProductID_SHIFT   24
 
+#define GICD_PIDR2_ArchRev_SHIFT    4
+
 #define GITS_PIDR2          (0xffe8)
 
 #define GICRBASEn(n)        (GICRBASE+(n)*0x20000)

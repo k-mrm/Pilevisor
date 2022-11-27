@@ -28,10 +28,6 @@ struct sgi_msg_hdr {
   int sgi_id;
 };
 
-static inline int vgic_irq_no(struct vgic_irq *irq) {
-  ;
-}
-
 static void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
   if(irq->enabled)
     return;
@@ -288,7 +284,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3:
       goto unimplemented;
     case GICD_PIDR2:
-      mmio->val = gicd_r(GICD_PIDR2);
+      mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
       goto end;
   }
 
@@ -428,6 +424,7 @@ end:
 static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
+  struct vgic *vgic = localnode.vgic;
   u64 offset = mmio->offset;
 
   /*
@@ -443,7 +440,9 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = 0;
       return 0;
     case GICR_IIDR:
-      mmio->val = gicr_r32(vcpu_localid(vcpu), GICR_IIDR);
+      mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id */
+                  vgic->archrev << GICD_IIDR_Revision_SHIFT |
+                  0x43b;   /* ARM implementer */
       return 0;
     case GICR_TYPER: {
       u64 typer;
@@ -463,7 +462,7 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
     }
     case GICR_PIDR2:
-      mmio->val = gicr_r32(vcpu_localid(vcpu), GICR_PIDR2);
+      mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
       return 0;
     case GICR_ISENABLER0:
     case GICR_ICENABLER0: {
