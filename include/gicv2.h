@@ -21,4 +21,10 @@
 #define GICH_ELSR1    (0x34)
 #define GICH_LR(n)    (0x100 + ((n) * 4))
 
+#define GICH_LR_PID_SHIFT         10
+#define GICH_LR_Priority_SHIFT    23
+#define GICH_LR_State_SHIFT       28
+#define GICH_LR_Grp1              (1 << 30)
+#define GICH_LR_HW                (1 << 31)
+
 #endif

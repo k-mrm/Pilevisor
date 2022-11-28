@@ -18,7 +18,7 @@ static struct gic_irqchip gicv2_irqchip;
 static u64 gicc_base;
 static u64 gicd_base;
 static u64 gich_base;
-static u64 gicv_base;
+static u64 gich_base;
 
 static inline u32 gicd_read(u32 offset) {
   return *(volatile u32 *)(gicd_base + offset);
@@ -45,11 +45,28 @@ static void gicv2_write_lr(int n, u32 val) {
 }
 
 static u32 gicv2_pending_lr(u32 pirq, u32 virq, int grp) {
-  ;
+  u32 lr = virq & 0x3ff;
+
+  lr |= LR_PENDING << GICH_LR_State_SHIFT;
+
+  if(grp)
+    lr |= GICH_LR_Grp1;
+
+  if(is_sgi(pirq)) {
+    ;
+  } else {
+    /* this is hw irq */
+    lr |= GICH_LR_HW;
+    lr |= (pirq & 0x3ff) << GICH_LR_PID_SHIFT;
+  }
+
+  return lr;
 }
 
 static int gicv2_inject_guest_irq(u32 intid, int grp) {
-  ;
+  if(intid == 2)
+    panic("!? maybe Linux kernel panicked");
+
 }
 
 static u32 gicv2_read_iar() {
@@ -73,8 +90,12 @@ static void gicv2_guest_eoi(u32 iar) {
   gicv2_eoi(iar);
 }
 
-static void gicv2_send_sgi(int cpuid, int sgi_id) {
-  ;
+static void gicv2_send_sgi(struct gic_sgi *sgi) {
+  u32 sgir = sgi->mode << 24 | (sgi->targets & 0xff << 16) | (sgi->sgi_id & 0xf);
+
+  dsb(ish);
+
+  gicd_write(GICD_SGIR, sgir);
 }
 
 static bool gicv2_irq_pending(u32 irq) {

@@ -149,10 +149,8 @@ static u64 gicv3_pending_lr(u32 pirq, u32 virq, int grp) {
 }
 
 static int gicv3_inject_guest_irq(u32 intid) {
-  if(is_sgi(intid)) {
-    if(intid == 2)
-      panic("!? maybe Linux kernel panicked");
-  }
+  if(intid == 2)
+    panic("!? maybe Linux kernel panicked");
 
   u64 elsr = read_sysreg(ich_elsr_el2);
   int freelr = -1;
@@ -201,10 +199,13 @@ static void gicv3_guest_eoi(u32 iar) {
   gicv3_eoi(iar);
 }
 
-static void gicv3_send_sgi(int cpuid, int sgi_id) {
-  u64 targets = 1 << cpuid;
-  u64 sgir = (sgi_id & 0xf) << ICC_SGI1R_INTID_SHIFT;
-  sgir |= targets & ICC_SGI1R_TARGETS_MASK;
+static void gicv3_send_sgi(struct gic_sgi *sgi) {
+  u64 sgir = (sgi->sgi_id & 0xf) << ICC_SGI1R_INTID_SHIFT;
+  sgir |= sgi->targets & 0xffff;
+
+  if(sgi->mode == ROUTE_BROADCAST) {
+    sgir |= 1 << 40;      // IRM
+  }
 
   dsb(ish);
 

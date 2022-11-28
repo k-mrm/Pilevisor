@@ -40,7 +40,7 @@
 #define ICC_CTLR_EOImode(m) ((m) << 1)
 
 #define ICC_SGI1R_INTID_SHIFT     24
-#define ICC_SGI1R_TARGETS_MASK    0xffff
+#define ICC_SGI1R_TARGETS(v)      ((v) & 0xffff)
 #define ICC_SGI1R_INTID(v)        (((v)>>24) & 0xf)
 #define ICC_SGI1R_IRM(v)          (((v)>>40) & 0x1)
 

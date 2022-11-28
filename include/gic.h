@@ -36,6 +36,7 @@
 #define GICD_IPRIORITYR(n)  (0x400 + (u64)(n) * 4)
 #define GICD_ITARGETSR(n)   (0x800 + (u64)(n) * 4)
 #define GICD_ICFGR(n)       (0xc00 + (u64)(n) * 4)
+#define GICD_SGIR           (0xf00)
 #define GICD_IROUTER(n)     (0x6000 + (u64)(n) * 8)
 #define GICD_PIDR2          (0xffe8)
 
@@ -61,9 +62,22 @@
 #define GICD_PIDR2_ArchRev(pidr2)   (((pidr2)>>4) & 0xf)
 #define GICD_PIDR2_ArchRev_SHIFT    4
 
-enum gic_sgi {
+enum gic_sgi_id {
   SGI_INJECT,
   SGI_STOP,
+};
+
+enum sgi_mode {
+  ROUTE_TARGETS = 0,
+  ROUTE_BROADCAST = 1,
+  ROUTE_SELF = 2,
+};
+
+struct gic_sgi {
+  enum gic_sgi_id sgi_id;
+  u16 targets;
+  /* TODO: Affinity? */
+  enum sgi_mode mode;
 };
 
 struct gic_irqchip {
@@ -80,7 +94,7 @@ struct gic_irqchip {
   void (*host_eoi)(u32 iar);
   void (*guest_eoi)(u32 iar);
   void (*deactive_irq)(u32 irq);
-  void (*send_sgi)(int cpuid, int sgi_id);
+  void (*send_sgi)(struct gic_sgi *sgi);
   bool (*irq_enabled)(u32 irq);
   void (*enable_irq)(u32 irq);
   void (*disable_irq)(u32 irq);

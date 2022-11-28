@@ -84,7 +84,13 @@ int vgic_inject_virq(struct vcpu *target, u32 intid) {
 
     dsb(ish);
 
-    localnode.irqchip->send_sgi(vcpu_localid(target), SGI_INJECT);
+    struct gic_sgi sgi = {
+      .sgi_id = SGI_INJECT,
+      .targets = 1 << vcpu_localid(target),
+      .mode = ROUTE_TARGETS,
+    };
+
+    localnode.irqchip->send_sgi(&sgi);
   }
 
   return 0;
@@ -103,7 +109,7 @@ static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
 }
 
 static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
-  u16 targets = sgir & ICC_SGI1R_TARGETS_MASK; 
+  u16 targets = ICC_SGI1R_TARGETS(sgir);
   u8 intid = ICC_SGI1R_INTID(sgir);
   int irm = ICC_SGI1R_IRM(sgir);
 
