@@ -43,7 +43,7 @@ static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
 }
 
 static u64 gicv3_read_lr(int n) {
-  if(gicv3_irqchip.max_lr <= n)
+  if(n > gicv3_irqchip.max_lr)
     panic("lr");
 
   switch(n) {
@@ -68,7 +68,7 @@ static u64 gicv3_read_lr(int n) {
 }
 
 static void gicv3_write_lr(int n, u64 val) {
-  if(gicv3_irqchip.max_lr <= n)
+  if(n > gicv3_irqchip.max_lr)
     panic("lr");
 
   switch(n) {
@@ -204,7 +204,7 @@ static void gicv3_send_sgi(struct gic_sgi *sgi) {
   sgir |= sgi->targets & 0xffff;
 
   if(sgi->mode == ROUTE_BROADCAST) {
-    sgir |= 1 << 40;      // IRM
+    sgir |= 1ul << 40;      // IRM
   }
 
   dsb(ish);
@@ -259,6 +259,8 @@ static void gicv3_enable_irq(u32 irq) {
     is = gicd_r(GICD_ISENABLER(irq / 32));
     is |= 1 << (irq % 32);
     gicd_w(GICD_ISENABLER(irq / 32), is);
+  } else {
+    panic("GICv3: unknown irq: %d", irq);
   }
 }
 
@@ -273,6 +275,8 @@ static void gicv3_disable_irq(u32 irq) {
   } else if(is_spi(irq)) {
     is = 1 << (irq % 32);
     gicd_w(GICD_ICENABLER(irq / 32), is);
+  } else {
+    panic("GICv3: unknown irq: %d", irq);
   }
 }
 
@@ -399,7 +403,8 @@ static int gicv3_max_spi() {
 
 static int gicv3_max_listregs() {
   u64 i = read_sysreg(ich_vtr_el2);
-  return (i & 0x1f) + 1;
+
+  return i & 0x1f;
 }
 
 static void gicv3_init(void) {

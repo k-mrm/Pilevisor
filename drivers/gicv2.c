@@ -18,7 +18,6 @@ static struct gic_irqchip gicv2_irqchip;
 static u64 gicc_base;
 static u64 gicd_base;
 static u64 gich_base;
-static u64 gich_base;
 
 static inline u32 gicd_read(u32 offset) {
   return *(volatile u32 *)(gicd_base + offset);
@@ -34,6 +33,14 @@ static inline u32 gicc_read(u32 offset) {
 
 static inline void gicc_write(u32 offset, u32 val) {
   *(volatile u32 *)(gicc_base + offset) = val;
+}
+
+static inline u32 gich_read(u32 offset) {
+  return *(volatile u32 *)(gich_base + offset);
+}
+
+static inline void gich_write(u32 offset, u32 val) {
+  *(volatile u32 *)(gich_base + offset) = val;
 }
 
 static u32 gicv2_read_lr(int n) {
@@ -63,7 +70,7 @@ static u32 gicv2_pending_lr(u32 pirq, u32 virq, int grp) {
   return lr;
 }
 
-static int gicv2_inject_guest_irq(u32 intid, int grp) {
+static int gicv2_inject_guest_irq(u32 intid) {
   if(intid == 2)
     panic("!? maybe Linux kernel panicked");
 
@@ -99,19 +106,24 @@ static void gicv2_send_sgi(struct gic_sgi *sgi) {
 }
 
 static bool gicv2_irq_pending(u32 irq) {
-  ;
+  u32 is = gicd_read(GICD_ISPENDR(irq / 32));
+  return !!(is & (1 << (irq % 32)));
 }
 
 static bool gicv2_irq_enabled(u32 irq) {
-  ;
+  u32 is = gicd_read(GICD_ISENABLER(irq / 32));
+  return !!(is & (1 << (irq % 32)));
 }
 
 static void gicv2_enable_irq(u32 irq) {
-  ;
+  u32 is = gicd_read(GICD_ISENABLER(irq / 32));
+  is |= 1 << (irq % 32);
+  gicd_write(GICD_ISENABLER(irq / 32), is);
 }
 
 static void gicv2_disable_irq(u32 irq) {
-  ;
+  u32 is = 1 << (irq % 32);
+  gicd_write(GICD_ICENABLER(irq / 32), is);
 }
 
 static void gicv2_set_target(u32 irq, u8 target) {
@@ -136,11 +148,23 @@ static void gicv2_c_init() {
 }
 
 static void gicv2_d_init() {
-  ;
+  gicd_write(GICD_CTLR, 0);
+
+  u32 lines = gicd_read(GICD_TYPER) & 0x1f;
+
+  for(int i = 0; i < lines; i++)
+    gicd_write(GICD_IGROUPR(i), ~0);
+
 }
 
 static void gicv2_init_cpu(void) {
   ;
+}
+
+static int gicv2_max_listregs() {
+  u32 vtr = gich_read(GICH_VTR);
+
+  return vtr & 0x3f;
 }
 
 static int gicv2_max_spi() {
@@ -153,15 +177,19 @@ static int gicv2_max_spi() {
 }
 
 static void gicv2_init(void) {
+  gicc_base = GICCBASE;
   gicd_base = GICDBASE;
+  gich_base = GICHBASE;
 
   gicv2_d_init();
 
   gicv2_irqchip.max_spi = gicv2_max_spi();
   gicv2_irqchip.max_lr = gicv2_max_listregs();
+
+  printf("max_spi: %d max_lr: %d\n", gicv2_irqchip.max_spi, gicv2_irqchip.max_lr);
 }
 
-static struct gic_irqchip gicv3_irqchip = {
+static struct gic_irqchip gicv2_irqchip = {
   .version = 2,
 
   .init             = gicv2_init,
