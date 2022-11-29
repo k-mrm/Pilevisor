@@ -144,7 +144,9 @@ static void gicv2_h_init() {
 }
 
 static void gicv2_c_init() {
-  ;
+  gicc_write(GICC_CTLR, 0);
+
+  gicc_write(GICC_CTLR, 1);
 }
 
 static void gicv2_d_init() {
@@ -155,6 +157,9 @@ static void gicv2_d_init() {
   for(int i = 0; i < lines; i++)
     gicd_write(GICD_IGROUPR(i), ~0);
 
+  gicd_write(GICD_CTLR, 1);
+
+  isb();
 }
 
 static void gicv2_init_cpu(void) {

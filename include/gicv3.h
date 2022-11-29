@@ -85,7 +85,7 @@
 #define GICR_TYPER_DPGS         (1 << 5)
 #define GICR_TYPER_PROC_NUM(p)  (((p) & 0xffff) << 8)
 
-#define GITS_PIDR2          (0xffe8)
+#define GITS_PIDR2              (0xffe8)
 
 static inline u64 gicr_typer_affinity(u64 mpidr) {
   return (u64)MPIDR_AFFINITY_LEVEL0(mpidr) << 32 |

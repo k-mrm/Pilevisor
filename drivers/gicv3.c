@@ -346,7 +346,7 @@ static void gicv3_d_init(void) {
     panic("gicv3?");
 
   vmm_log("GICv3 found\n");
-  vmm_log("GICv3: security state: %s\n", security_disabled() ? "enabled" : "disabled");
+  vmm_log("GICv3: security state: %s\n", security_disabled() ? "disabled" : "enabled");
 
   for(int i = 0; i < lines; i++)
     gicd_w(GICD_IGROUPR(i), ~0);
