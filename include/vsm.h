@@ -50,13 +50,12 @@ struct vsm_server_proc {
   int (*do_process)(struct vsm_server_proc *, bool locked);
 };
 
+#define NR_CACHE_PAGES        (MEM_PER_NODE >> PAGESHIFT)
+
 #define CACHE_PAGE_LOCK_BIT(p)  (((p)->flags >> 37) & 0x1)
 #define CACHE_PAGE_OWNER_SHIFT  32
 #define CACHE_PAGE_OWNER_MASK   0x1f
 #define CACHE_PAGE_OWNER(p)     (((p)->flags >> CACHE_PAGE_OWNER_SHIFT) & CACHE_PAGE_OWNER_MASK)
-
-/* 128 MiB per Node */
-#define NR_CACHE_PAGES          (128*1024*1024 / PAGESIZE)
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr);
 void *vsm_read_fetch_page(u64 page_ipa);
