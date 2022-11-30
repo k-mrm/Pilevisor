@@ -3,6 +3,19 @@
 
 #include "gic.h"
 
+#define GICD_CTLR_RWP       (1 << 31)
+
+/* Non-secure access in double security state */
+#define GICD_CTLR_NS_ENGRP1     (1 << 0)
+#define GICD_CTLR_NS_ENGRP1A    (1 << 1)
+#define GICD_CTLR_NS_ARE_NS     (1 << 4)
+
+/* only single security state */
+#define GICD_CTLR_SS_ENGRP0     (1 << 0)
+#define GICD_CTLR_SS_ENGRP1     (1 << 1)
+#define GICD_CTLR_SS_ARE        (1 << 4)
+#define GICD_CTLR_DS            (1 << 6)
+
 #define ich_hcr_el2   arm_sysreg(4, c12, c11, 0)
 #define ich_vtr_el2   arm_sysreg(4, c12, c11, 1)
 #define ich_elsr_el2  arm_sysreg(4, c12, c11, 5)

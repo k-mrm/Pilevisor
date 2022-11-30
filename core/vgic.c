@@ -230,10 +230,8 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u64 offset = mmio->offset;
 
-  /*
   if(!(mmio->accsize & ACC_WORD))
-    panic("%s: unimplemented %d", __func__, mmio->accsize*8);
-    */
+    panic("unimplemented %d", mmio->accsize*8);
 
   spin_lock(&vgic->lock);
 

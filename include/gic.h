@@ -40,19 +40,6 @@
 #define GICD_IROUTER(n)     (0x6000 + (u64)(n) * 8)
 #define GICD_PIDR2          (0xffe8)
 
-#define GICD_CTLR_RWP       (1 << 31)
-
-/* Non-secure access in double security state */
-#define GICD_CTLR_NS_ENGRP1     (1 << 0)
-#define GICD_CTLR_NS_ENGRP1A    (1 << 1)
-#define GICD_CTLR_NS_ARE_NS     (1 << 4)
-
-/* only single security state */
-#define GICD_CTLR_SS_ENGRP0     (1 << 0)
-#define GICD_CTLR_SS_ENGRP1     (1 << 1)
-#define GICD_CTLR_SS_ARE        (1 << 4)
-#define GICD_CTLR_DS            (1 << 6)
-
 #define GICD_TYPER_CPUNum_SHIFT   5
 #define GICD_TYPER_IDbits_SHIFT   19
 

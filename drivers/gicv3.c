@@ -346,6 +346,9 @@ static inline bool security_disabled() {
 }
 
 static void gicv3_d_init(void) {
+  u32 ctlr;
+
+  /* disabled gicd */
   gicd_w(GICD_CTLR, 0);
   gicv3_d_wait_for_rwp();
 
@@ -362,17 +365,20 @@ static void gicv3_d_init(void) {
 
   gicv3_irqchip.nirqs = nirqs < 1020 ? nirqs : 1020;
 
-  for(int i = 0; i < lines; i++)
-    gicd_w(GICD_IGROUPR(i), ~0);
+  for(int i = 0; i < nirqs; i += 4)
+    gicd_w(GICD_IGROUPR(i / 4), ~0);
 
-  gicd_w(GICD_CTLR, 3);
+  ctlr = GICD_CTLR_NS_ENGRP1 | GICD_CTLR_NS_ENGRP1A | GICD_CTLR_NS_ARE_NS;
+  gicd_w(GICD_CTLR, ctlr);
   gicv3_d_wait_for_rwp();
 
   isb();
 }
 
-static void gicv3_r_init(int cpuid) {
-  gicr_w32(cpuid, GICR_CTLR, 0);
+static void gicv3_r_init() {
+  int id = cpuid();
+
+  gicr_w32(id, GICR_CTLR, 0);
 
   u32 sre = read_sysreg(icc_sre_el2);
   write_sysreg(icc_sre_el2, sre | (1 << 3) | 1);
@@ -382,12 +388,12 @@ static void gicv3_r_init(int cpuid) {
   sre = read_sysreg(icc_sre_el1);
   write_sysreg(icc_sre_el1, sre | 1);
 
-  gicr_w32(cpuid, GICR_IGROUPR0, ~0);
-  gicr_w32(cpuid, GICR_IGRPMODR0, 0);
+  gicr_w32(id, GICR_IGROUPR0, ~0);
+  gicr_w32(id, GICR_IGRPMODR0, 0);
 
-  u32 waker = gicr_r32(cpuid, GICR_WAKER);
-  gicr_w32(cpuid, GICR_WAKER, waker & ~(1<<1));
-  while(gicr_r32(cpuid, GICR_WAKER) & (1<<2))
+  u32 waker = gicr_r32(id, GICR_WAKER);
+  gicr_w32(id, GICR_WAKER, waker & ~(1<<1));
+  while(gicr_r32(id, GICR_WAKER) & (1<<2))
     ;
 
   isb();
@@ -402,7 +408,7 @@ static void gicv3_h_init(void) {
 
 static void gicv3_init_cpu() {
   gicv3_c_init();
-  gicv3_r_init(cpuid());
+  gicv3_r_init();
   gicv3_h_init();
 }
 
@@ -420,7 +426,10 @@ static void gicv3_init(void) {
 
   gicv3_irqchip.max_lr = gicv3_max_listregs();
 
-  printf("nirqs: %d max_lr: %d\n", gicv3_irqchip.nirqs, gicv3_irqchip.max_lr);
+  printf("GICv3: nirqs: %d max_lr: %d\n", gicv3_irqchip.nirqs, gicv3_irqchip.max_lr);
+
+  printf("GICv3: dist base %p\n"
+         "       redist base %p\n", gicd_base, gicr_base);
 }
 
 static struct gic_irqchip gicv3_irqchip = {

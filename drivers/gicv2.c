@@ -70,7 +70,7 @@ static u32 gicv2_pending_lr(struct gic_pending_irq *irq) {
   if(irq->pirq) {
     /* this is hw irq */
     lr |= GICH_LR_HW;
-    lr |= (irq->pirq->irq & 0x3ff) << GICH_LR_PID_SHIFT;
+    lr |= (irq_no(irq->pirq) & 0x3ff) << GICH_LR_PID_SHIFT;
   } else if(is_sgi(irq->virq)) {
     lr |= (irq->req_cpu & 0x7) << GICH_LR_CPUID_SHIFT;
   }
@@ -172,7 +172,10 @@ static void gicv2_set_target(u32 irq, u8 target) {
 }
 
 static void gicv2_setup_irq(u32 irq) {
-  ;
+  if(is_spi(irq))
+    gicv2_set_target(irq, 1 << 0);    // route to 0
+
+  gicv2_enable_irq(irq);
 }
 
 static void gicv2_h_init() {
@@ -180,6 +183,7 @@ static void gicv2_h_init() {
 
   gicv2_irqchip.max_lr = vtr & 0x3f;
 
+  gich_write(GICH_VMCR, GICH_VMCR_VMG1En);
   gich_write(GICH_HCR, GICH_HCR_EN);
 }
 
@@ -214,6 +218,7 @@ static void gicv2_d_init() {
 
 static void gicv2_init_cpu(void) {
   gicv2_c_init();
+  gicv2_h_init();
 }
 
 static void gicv2_init(void) {
@@ -224,7 +229,11 @@ static void gicv2_init(void) {
   gicv2_d_init();
   gicv2_h_init();
 
-  printf("nirqs: %d max_lr: %d\n", gicv2_irqchip.nirqs, gicv2_irqchip.max_lr);
+  printf("GICv2: nirqs: %d max_lr: %d\n", gicv2_irqchip.nirqs, gicv2_irqchip.max_lr);
+
+  printf("GICv2: dist base %p\n"
+         "       cpu base %p\n"
+         "       hyp base %p\n", gicd_base, gicc_base, gich_base);
 }
 
 static struct gic_irqchip gicv2_irqchip = {
