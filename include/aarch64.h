@@ -2,6 +2,7 @@
 #define MVMM_AARCH64_H
 
 #include "types.h"
+#include "compiler.h"
 
 #define arm_sysreg(op1, crn, crm, op2)  \
   s3_ ## op1 ## _ ## crn ## _ ## crm ## _ ## op2
@@ -53,6 +54,8 @@
 #define PSR_EL1H      (5)
 
 #define SPSR_EL(spsr) (((spsr) & 0xf) >> 2)
+
+#define __cacheline_aligned   __aligned(64)
 
 static inline int cpuid() {
   int mpidr = read_sysreg(mpidr_el1);

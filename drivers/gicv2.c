@@ -134,7 +134,9 @@ static void gicv2_guest_eoi(u32 iar) {
 }
 
 static void gicv2_send_sgi(struct gic_sgi *sgi) {
-  u32 sgir = sgi->mode << 24 | (sgi->targets & 0xff << 16) | (sgi->sgi_id & 0xf);
+  u32 sgir = sgi->mode << GICD_SGIR_TargetListFilter_SHIFT |
+            (sgi->targets & 0xff << GICD_SGIR_TargetList_SHIFT) |
+            (sgi->sgi_id & 0xf);
 
   dsb(ish);
 

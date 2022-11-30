@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "aarch64.h"
+#include "arch-timer.h"
 #include "vsm.h"
 #include "mm.h"
 #include "allocpage.h"
@@ -102,13 +103,13 @@ struct invalidate_ack_hdr {
  *  success: return 0
  */
 static inline int page_trylock(u64 ipa) {
-  u64 flags = read_sysreg(daif);
+  u64 flags = 0;
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
 
   // vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
 
-  local_irq_disable();
+  irqsave(flags);
 
   asm volatile(
     "ldaxrb %w0, [%1]\n"
@@ -118,7 +119,7 @@ static inline int page_trylock(u64 ipa) {
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
 
-  write_sysreg(daif, flags);
+  irqrestore(flags);
 
   return r;
 }
@@ -242,6 +243,20 @@ static inline int page_manager(u64 ipa) {
   return -1;
 }
 
+static inline u64 *vsm_wait_for_recv_timeout(u64 *vttbr, u64 page_ipa) {
+  int timeout_us = 1000000;   // wait for 1s
+  u64 *pte;
+
+  while(!(pte = page_accessible_pte(vttbr, page_ipa)) && timeout_us--) {
+    usleep(1);
+  }
+
+  if(!pte)
+    panic("vsm timeout: failed @%p", page_ipa);
+
+  return pte;
+}
+
 /*
 static u64 vsm_fetch_page_dummy(u8 dst_node, u64 page_ipa, char *buf) {
   if(page_ipa % PAGESIZE)
@@ -283,10 +298,6 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
 
   // printf("vsm: cache @%p(%p) copyset: %p count%d\n", ipa_page, page, copyset, ++count);
 
-  /*
-   *  TODO: free old page
-   */
-
   /* set access permission later */
   pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_COPYSET(copyset));
 }
@@ -314,6 +325,7 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
 
       send_msg(&msg);
     }
+
     copyset >>= 1;
     node++;
   }
@@ -403,8 +415,7 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     send_fetch_request(local_nodeid(), manager, page_ipa, 0);
   }
 
-  while(!(pte = page_accessible_pte(vttbr, page_ipa)))
-    wfi();
+  pte = vsm_wait_for_recv_timeout(vttbr, page_ipa);
 
   page_pa = (void *)PTE_PA(*pte);
 
@@ -487,8 +498,7 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     send_fetch_request(local_nodeid(), manager, page_ipa, 1);
   }
 
-  while(!(pte = page_accessible_pte(vttbr, page_ipa)))
-    wfi();
+  pte = vsm_wait_for_recv_timeout(vttbr, page_ipa);
 
   vmm_log("wf: get remote page @%p\n", page_ipa);
 

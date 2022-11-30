@@ -50,7 +50,7 @@ struct vcpu {
   bool initialized;
   bool online;
   bool last;
-};
+} __cacheline_aligned;
 
 extern int nr_cluster_online_vcpus;
 

@@ -400,6 +400,10 @@ static void gicv3_r_init() {
 }
 
 static void gicv3_h_init(void) {
+  u64 i = read_sysreg(ich_vtr_el2);
+
+  gicv3_irqchip.max_lr = i & 0x1f;
+
   write_sysreg(ich_vmcr_el2, ICH_VMCR_VENG1);
   write_sysreg(ich_hcr_el2, ICH_HCR_EN);
 
@@ -412,19 +416,12 @@ static void gicv3_init_cpu() {
   gicv3_h_init();
 }
 
-static int gicv3_max_listregs() {
-  u64 i = read_sysreg(ich_vtr_el2);
-
-  return i & 0x1f;
-}
-
 static void gicv3_init(void) {
   gicd_base = GICDBASE;
   gicr_base = GICRBASE;
 
   gicv3_d_init();
-
-  gicv3_irqchip.max_lr = gicv3_max_listregs();
+  gicv3_h_init();
 
   printf("GICv3: nirqs: %d max_lr: %d\n", gicv3_irqchip.nirqs, gicv3_irqchip.max_lr);
 

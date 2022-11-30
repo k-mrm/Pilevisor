@@ -3,6 +3,9 @@
 
 #include "gic.h"
 
+#define GICD_SGIR_TargetList_SHIFT          16
+#define GICD_SGIR_TargetListFilter_SHIFT    24
+
 #define GICC_CTLR     (0x0)
 #define GICC_PMR      (0x4)
 #define GICC_BPR      (0x8)
