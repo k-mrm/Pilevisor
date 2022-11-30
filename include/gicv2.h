@@ -29,6 +29,7 @@
 #define GICH_VMCR_VMG1En  (1 << 1)
 
 #define GICH_LR_PID_SHIFT         10
+#define GICH_LR_CPUID_SHIFT       10
 #define GICH_LR_Priority_SHIFT    23
 #define GICH_LR_State_SHIFT       28
 #define GICH_LR_Grp1              (1 << 30)

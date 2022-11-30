@@ -80,15 +80,23 @@ struct gic_sgi {
   enum sgi_mode mode;
 };
 
+struct gic_pending_irq {
+  int virq;
+  struct irq *pirq;   // hw irq
+  int group;
+  int priority;
+  int req_cpu;        // only sgi
+};
+
 struct gic_irqchip {
   int version;      // 2 or 3
   int max_spi;
-  int max_lr;
+  int nspis;
 
   void (*init)(void);
   void (*initcore)(void);
 
-  int (*inject_guest_irq)(u32 intid);
+  int (*inject_guest_irq)(struct gic_pending_irq *irq);
   bool (*irq_pending)(u32 irq);
   u32 (*read_iar)(void);
   void (*host_eoi)(u32 iar);

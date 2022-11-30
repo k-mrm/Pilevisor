@@ -136,20 +136,29 @@ static void gicv3_save_lr(struct gic_state *gic) {
 }
 */
 
-static u64 gicv3_pending_lr(u32 pirq, u32 virq, int grp) {
-  u64 lr = ICH_LR_VINTID(virq) | ICH_LR_STATE(LR_PENDING) | ICH_LR_GROUP(grp);
+static u64 gicv3_pending_lr(struct gic_pending_irq *irq) {
+  u64 lr = irq->virq;
+
+  lr |= LR_PENDING << ICH_LR_STATE_SHIFT;
+
+  if(irq->group == 1)
+    lr |= ICH_LR_GROUP1;
+
+  lr |= irq->priority << ICH_LR_Priority_SHIFT;
   
-  if(!is_sgi(pirq)) {
+  if(irq->pirq) {
     /* this is hw irq */
     lr |= ICH_LR_HW;
-    lr |= ICH_LR_PINTID(pirq);
+    lr |= ((u64)irq->pirq->irq & 0x3ff) << ICH_LR_PINTID_SHIFT;
   }
 
   return lr;
 }
 
-static int gicv3_inject_guest_irq(u32 intid) {
-  if(intid == 2)
+static int gicv3_inject_guest_irq(struct gic_pending_irq *irq) {
+  u32 virq = irq->virq;
+
+  if(virq == 2)
     panic("!? maybe Linux kernel panicked");
 
   u64 elsr = read_sysreg(ich_elsr_el2);
@@ -164,14 +173,14 @@ static int gicv3_inject_guest_irq(u32 intid) {
       continue;
     }
 
-    if((u32)gicv3_read_lr(i) == intid)
+    if((u32)gicv3_read_lr(i) == virq)
       return -1;    // busy
   }
 
   if(freelr < 0)
     return -1;
 
-  lr = gicv3_pending_lr(intid, intid, 1);
+  lr = gicv3_pending_lr(irq);
 
   gicv3_write_lr(freelr, lr);
 

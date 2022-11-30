@@ -49,11 +49,11 @@
 #define ICH_VMCR_VENG0      (1<<0)
 #define ICH_VMCR_VENG1      (1<<1)
 
-#define ICH_LR_VINTID(n)    ((n) & 0xffffffffL)
-#define ICH_LR_PINTID(n)    (((n) & 0x3ffL) << 32)
-#define ICH_LR_GROUP(n)     (((n) & 0x1L) << 60)
-#define ICH_LR_HW           (1L << 61)
-#define ICH_LR_STATE(n)     (((n) & 0x3L) << 62)
+#define ICH_LR_PINTID_SHIFT     32
+#define ICH_LR_Priority_SHIFT   48
+#define ICH_LR_GROUP1           (1ul << 60)
+#define ICH_LR_HW               (1ul << 61)
+#define ICH_LR_STATE_SHIFT      62
 
 #define lr_is_inactive(lr)  (((lr >> 62) & 0x3) == LR_INACTIVE)
 #define lr_is_pending(lr)   (((lr >> 62) & 0x3) == LR_PENDING)

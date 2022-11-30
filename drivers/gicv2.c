@@ -57,27 +57,31 @@ static void gicv2_write_lr(int n, u32 val) {
   gich_write(GICH_LR(n), val);
 }
 
-static u32 gicv2_pending_lr(u32 pirq, u32 virq, int grp) {
-  u32 lr = virq & 0x3ff;
+static u32 gicv2_pending_lr(struct gic_pending_irq *irq) {
+  u32 lr = irq->virq & 0x3ff;
 
   lr |= LR_PENDING << GICH_LR_State_SHIFT;
 
-  if(grp)
+  if(irq->group == 1)
     lr |= GICH_LR_Grp1;
 
-  if(is_sgi(pirq)) {
-    ;
-  } else {
+  lr |= irq->priority << GICH_LR_Priority_SHIFT;
+
+  if(irq->pirq) {
     /* this is hw irq */
     lr |= GICH_LR_HW;
-    lr |= (pirq & 0x3ff) << GICH_LR_PID_SHIFT;
+    lr |= (irq->pirq->irq & 0x3ff) << GICH_LR_PID_SHIFT;
+  } else if(is_sgi(irq->virq)) {
+    lr |= (irq->req_cpu & 0x7) << GICH_LR_CPUID_SHIFT;
   }
 
   return lr;
 }
 
-static int gicv2_inject_guest_irq(u32 intid) {
-  if(intid == 2)
+static int gicv2_inject_guest_irq(struct gic_pending_irq *irq) {
+  u32 virq = irq->virq;
+
+  if(virq == 2)
     panic("!? maybe Linux kernel panicked");
 
   u32 elsr0 = gich_read(GICH_ELSR0);
@@ -92,14 +96,14 @@ static int gicv2_inject_guest_irq(u32 intid) {
       continue;
     }
 
-    if((gicv2_read_lr(i) >> GICH_LR_PID_SHIFT) & 0x3ff == intid)
+    if((gicv2_read_lr(i) >> GICH_LR_PID_SHIFT) & 0x3ff == virq)
       return -1;    // busy
   }
 
   if(freelr < 0)
     return -1;    // no entry
 
-  lr = gicv2_pending_lr(intid, intid, 1);
+  lr = gicv2_pending_lr(irq);
 
   gicv2_write_lr(freelr, lr);
 
@@ -195,6 +199,7 @@ static void gicv2_d_init() {
 
   u32 lines = gicd_read(GICD_TYPER) & 0x1f;
   u32 nspis = 32 * (lines + 1);
+
   gicv2_irqchip.nspis = nspis < 1020 ? nspis : 1020;
 
   for(int i = 0; i < lines; i++)
