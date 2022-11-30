@@ -156,7 +156,7 @@ static int gicv3_inject_guest_irq(u32 intid) {
   int freelr = -1;
   u64 lr;
 
-  for(int i = 0; i < localnode.irqchip->max_lr; i++) {
+  for(int i = 0; i < gicv3_irqchip.max_lr; i++) {
     if((elsr >> i) & 0x1) {   // free area in lr
       if(freelr < 0)
         freelr = i;
@@ -338,8 +338,6 @@ static void gicv3_d_init(void) {
   gicd_w(GICD_CTLR, 0);
   gicv3_d_wait_for_rwp();
 
-  u32 typer = gicd_r(GICD_TYPER);
-  u32 lines = typer & 0x1f;
   u32 pidr2 = gicd_r(GICD_PIDR2);
   u32 archrev = GICD_PIDR2_ArchRev(pidr2);
   if(archrev != 0x3)
@@ -347,6 +345,11 @@ static void gicv3_d_init(void) {
 
   vmm_log("GICv3 found\n");
   vmm_log("GICv3: security state: %s\n", security_disabled() ? "disabled" : "enabled");
+
+  u32 lines = gicd_r(GIC_TYPER) & 0x1f;
+  u32 nspis = 32 * (lines + 1);
+
+  gicv3_irqchip.nspis = nspis < 1020 ? nspis : 1020;
 
   for(int i = 0; i < lines; i++)
     gicd_w(GICD_IGROUPR(i), ~0);
@@ -392,15 +395,6 @@ static void gicv3_init_cpu() {
   gicv3_h_init();
 }
 
-static int gicv3_max_spi() {
-  u32 typer = gicd_r(GICD_TYPER);
-  u32 lines = typer & 0x1f;
-  u32 max_spi = 32 * (lines + 1) - 1;
-  vmm_log("typer %p\n", typer);
-
-  return max_spi < 1020 ? max_spi : 1019;
-}
-
 static int gicv3_max_listregs() {
   u64 i = read_sysreg(ich_vtr_el2);
 
@@ -413,7 +407,6 @@ static void gicv3_init(void) {
 
   gicv3_d_init();
 
-  gicv3_irqchip.max_spi = gicv3_max_spi();
   gicv3_irqchip.max_lr = gicv3_max_listregs();
 
   printf("max_spi: %d max_lr: %d\n", gicv3_irqchip.max_spi, gicv3_irqchip.max_lr);

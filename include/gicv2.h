@@ -13,6 +13,9 @@
 #define GICC_IIDR     (0xfc)
 #define GICC_DIR      (0x1000)
 
+#define GICC_CTLR_EN        (1 << 0) 
+#define GICC_CTLR_EOImode   (1 << 9)
+
 #define GICH_HCR      (0x0)
 #define GICH_VTR      (0x4)
 #define GICH_VMCR     (0x8)
@@ -20,6 +23,10 @@
 #define GICH_ELSR0    (0x30)
 #define GICH_ELSR1    (0x34)
 #define GICH_LR(n)    (0x100 + ((n) * 4))
+
+#define GICH_HCR_EN   (1 << 0)
+
+#define GICH_VMCR_VMG1En  (1 << 1)
 
 #define GICH_LR_PID_SHIFT         10
 #define GICH_LR_Priority_SHIFT    23

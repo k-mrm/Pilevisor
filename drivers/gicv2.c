@@ -44,11 +44,17 @@ static inline void gich_write(u32 offset, u32 val) {
 }
 
 static u32 gicv2_read_lr(int n) {
-  ;
+  if(n > gicv3_irqchip.max_lr)
+    panic("lr");
+
+  return gich_read(GICH_LR(n));
 }
 
 static void gicv2_write_lr(int n, u32 val) {
-  ;
+  if(n > gicv3_irqchip.max_lr)
+    panic("lr");
+
+  gich_write(GICH_LR(n), val);
 }
 
 static u32 gicv2_pending_lr(u32 pirq, u32 virq, int grp) {
@@ -74,6 +80,30 @@ static int gicv2_inject_guest_irq(u32 intid) {
   if(intid == 2)
     panic("!? maybe Linux kernel panicked");
 
+  u32 elsr0 = gich_read(GICH_ELSR0);
+  u32 elsr1 = gich_read(GICH_ELSR1);
+  u64 elsr = ((u64)elsr1 << 32) | elsr0;
+
+  for(int i = 0; i < gicv2_irqchip.max_lr; i++) {
+    if((elsr >> i) & 0x1) {
+      if(freelr < 0)
+        freelr = i;
+
+      continue;
+    }
+
+    if((gicv2_read_lr(i) >> GICH_LR_PID_SHIFT) & 0x3ff == intid)
+      return -1;    // busy
+  }
+
+  if(freelr < 0)
+    return -1;    // no entry
+
+  lr = gicv2_pending_lr(intid, intid, 1);
+
+  gicv2_write_lr(freelr, lr);
+
+  return 0;
 }
 
 static u32 gicv2_read_iar() {
@@ -140,19 +170,32 @@ static void gicv2_setup_irq(u32 irq) {
 }
 
 static void gicv2_h_init() {
-  ;
+  u32 vtr = gich_read(GICH_VTR);
+
+  gicv2_irqchip.max_lr = vtr & 0x3f;
+
+  gich_write(GICH_HCR, GICH_HCR_EN);
 }
 
 static void gicv2_c_init() {
-  gicc_write(GICC_CTLR, 0);
+  gicd_write(GICD_ICACTIVER, 0xffffffff);
+  /* disable PPI */
+  gicd_write(GICD_ICENABLER, 0xffff0000);
+  /* enable SGI */
+  gicd_write(GICD_ISENABLER, 0x0000ffff);
 
-  gicc_write(GICC_CTLR, 1);
+  gicc_write(GICC_PMR, 0xff);
+  gicc_write(GICC_BPR, 0x0);
+
+  gicc_write(GICC_CTLR, GICC_CTLR_EN | GICC_CTLR_EOImode);
 }
 
 static void gicv2_d_init() {
   gicd_write(GICD_CTLR, 0);
 
   u32 lines = gicd_read(GICD_TYPER) & 0x1f;
+  u32 nspis = 32 * (lines + 1);
+  gicv2_irqchip.nspis = nspis < 1020 ? nspis : 1020;
 
   for(int i = 0; i < lines; i++)
     gicd_write(GICD_IGROUPR(i), ~0);
@@ -163,22 +206,7 @@ static void gicv2_d_init() {
 }
 
 static void gicv2_init_cpu(void) {
-  ;
-}
-
-static int gicv2_max_listregs() {
-  u32 vtr = gich_read(GICH_VTR);
-
-  return vtr & 0x3f;
-}
-
-static int gicv2_max_spi() {
-  u32 typer = gicd_read(GICD_TYPER);
-  u32 lines = typer & 0x1f;
-  u32 max_spi = 32 * (lines + 1) - 1;
-  vmm_log("GICv2: typer %p\n", typer);
-
-  return max_spi < 1020 ? max_spi : 1019;
+  gicv2_c_init();
 }
 
 static void gicv2_init(void) {
@@ -187,9 +215,7 @@ static void gicv2_init(void) {
   gich_base = GICHBASE;
 
   gicv2_d_init();
-
-  gicv2_irqchip.max_spi = gicv2_max_spi();
-  gicv2_irqchip.max_lr = gicv2_max_listregs();
+  gicv2_h_init();
 
   printf("max_spi: %d max_lr: %d\n", gicv2_irqchip.max_spi, gicv2_irqchip.max_lr);
 }
