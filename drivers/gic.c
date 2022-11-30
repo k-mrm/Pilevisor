@@ -2,40 +2,16 @@
 #include "vcpu.h"
 #include "localnode.h"
 #include "gic.h"
+#include "vgic.h"
 #include "irq.h"
 #include "log.h"
 #include "spinlock.h"
 #include "panic.h"
 
-static void gic_inject_pending_irqs() {
-  struct vcpu *vcpu = current;
-  u64 flags;
-
-  spin_lock_irqsave(&vcpu->pending.lock, flags);
-
-  int head = vcpu->pending.head;
-
-  while(head != vcpu->pending.tail) {
-    struct gic_pending_irq *pendirq = vcpu->pending.irqs[head];
-    if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
-      panic("inject pending irqs");
-
-    head = (head + 1) % 4;
-
-    free(pendirq);
-  }
-
-  vcpu->pending.head = head;
-
-  spin_unlock_irqrestore(&vcpu->pending.lock, flags);
-
-  dsb(ish);
-}
-
-static void gic_sgi_handler(enum gic_sgi sgi_id) {
+static void gic_sgi_handler(enum gic_sgi_id sgi_id) {
   switch(sgi_id) {
     case SGI_INJECT:  /* inject guest pending interrupt */
-      gic_inject_pending_irqs();
+      vgic_inject_pending_irqs();
       break;
     default:
       panic("unknown sgi %d", sgi_id);

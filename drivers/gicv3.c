@@ -144,7 +144,7 @@ static u64 gicv3_pending_lr(struct gic_pending_irq *irq) {
   if(irq->group == 1)
     lr |= ICH_LR_GROUP1;
 
-  lr |= irq->priority << ICH_LR_Priority_SHIFT;
+  lr |= (u64)irq->priority << ICH_LR_Priority_SHIFT;
   
   if(irq->pirq) {
     /* this is hw irq */
@@ -355,10 +355,10 @@ static void gicv3_d_init(void) {
   vmm_log("GICv3 found\n");
   vmm_log("GICv3: security state: %s\n", security_disabled() ? "disabled" : "enabled");
 
-  u32 lines = gicd_r(GIC_TYPER) & 0x1f;
-  u32 nspis = 32 * (lines + 1);
+  u32 lines = gicd_r(GICD_TYPER) & 0x1f;
+  u32 nirqs = 32 * (lines + 1);
 
-  gicv3_irqchip.nspis = nspis < 1020 ? nspis : 1020;
+  gicv3_irqchip.nirqs = nirqs < 1020 ? nirqs : 1020;
 
   for(int i = 0; i < lines; i++)
     gicd_w(GICD_IGROUPR(i), ~0);
@@ -418,7 +418,7 @@ static void gicv3_init(void) {
 
   gicv3_irqchip.max_lr = gicv3_max_listregs();
 
-  printf("max_spi: %d max_lr: %d\n", gicv3_irqchip.max_spi, gicv3_irqchip.max_lr);
+  printf("nirqs: %d max_lr: %d\n", gicv3_irqchip.nirqs, gicv3_irqchip.max_lr);
 }
 
 static struct gic_irqchip gicv3_irqchip = {

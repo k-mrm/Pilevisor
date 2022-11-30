@@ -44,14 +44,14 @@ static inline void gich_write(u32 offset, u32 val) {
 }
 
 static u32 gicv2_read_lr(int n) {
-  if(n > gicv3_irqchip.max_lr)
+  if(n > gicv2_irqchip.max_lr)
     panic("lr");
 
   return gich_read(GICH_LR(n));
 }
 
 static void gicv2_write_lr(int n, u32 val) {
-  if(n > gicv3_irqchip.max_lr)
+  if(n > gicv2_irqchip.max_lr)
     panic("lr");
 
   gich_write(GICH_LR(n), val);
@@ -87,6 +87,8 @@ static int gicv2_inject_guest_irq(struct gic_pending_irq *irq) {
   u32 elsr0 = gich_read(GICH_ELSR0);
   u32 elsr1 = gich_read(GICH_ELSR1);
   u64 elsr = ((u64)elsr1 << 32) | elsr0;
+  int freelr = -1;
+  u64 lr;
 
   for(int i = 0; i < gicv2_irqchip.max_lr; i++) {
     if((elsr >> i) & 0x1) {
@@ -96,7 +98,7 @@ static int gicv2_inject_guest_irq(struct gic_pending_irq *irq) {
       continue;
     }
 
-    if((gicv2_read_lr(i) >> GICH_LR_PID_SHIFT) & 0x3ff == virq)
+    if(((gicv2_read_lr(i) >> GICH_LR_PID_SHIFT) & 0x3ff) == virq)
       return -1;    // busy
   }
 
@@ -182,11 +184,11 @@ static void gicv2_h_init() {
 }
 
 static void gicv2_c_init() {
-  gicd_write(GICD_ICACTIVER, 0xffffffff);
+  gicd_write(GICD_ICACTIVER(0), 0xffffffff);
   /* disable PPI */
-  gicd_write(GICD_ICENABLER, 0xffff0000);
+  gicd_write(GICD_ICENABLER(0), 0xffff0000);
   /* enable SGI */
-  gicd_write(GICD_ISENABLER, 0x0000ffff);
+  gicd_write(GICD_ISENABLER(0), 0x0000ffff);
 
   gicc_write(GICC_PMR, 0xff);
   gicc_write(GICC_BPR, 0x0);
@@ -198,12 +200,12 @@ static void gicv2_d_init() {
   gicd_write(GICD_CTLR, 0);
 
   u32 lines = gicd_read(GICD_TYPER) & 0x1f;
-  u32 nspis = 32 * (lines + 1);
+  u32 nirqs = 32 * (lines + 1);
 
-  gicv2_irqchip.nspis = nspis < 1020 ? nspis : 1020;
+  gicv2_irqchip.nirqs = nirqs < 1020 ? nirqs : 1020;
 
-  for(int i = 0; i < lines; i++)
-    gicd_write(GICD_IGROUPR(i), ~0);
+  for(int i = 0; i < nirqs; i += 4)
+    gicd_write(GICD_IGROUPR(i / 4), ~0);
 
   gicd_write(GICD_CTLR, 1);
 
@@ -222,7 +224,7 @@ static void gicv2_init(void) {
   gicv2_d_init();
   gicv2_h_init();
 
-  printf("max_spi: %d max_lr: %d\n", gicv2_irqchip.max_spi, gicv2_irqchip.max_lr);
+  printf("nirqs: %d max_lr: %d\n", gicv2_irqchip.nirqs, gicv2_irqchip.max_lr);
 }
 
 static struct gic_irqchip gicv2_irqchip = {

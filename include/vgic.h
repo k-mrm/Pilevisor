@@ -34,6 +34,8 @@ void vgic_cpu_init(struct vcpu *vcpu);
 int vgic_inject_virq(struct vcpu *vcpu, u32 intid);
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr);
 
+void vgic_inject_pending_irqs(void);
+
 void vgic_init(void);
 
 #endif

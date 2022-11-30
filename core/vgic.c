@@ -12,10 +12,12 @@
 #include "mmio.h"
 #include "vmmio.h"
 #include "allocpage.h"
+#include "malloc.h"
 #include "lib.h"
 #include "localnode.h"
 #include "node.h"
 #include "msg.h"
+#include "irq.h"
 #include "panic.h"
 
 static struct vgic vgic_dist;
@@ -63,6 +65,31 @@ static void vgic_set_target(struct vcpu *vcpu, int vintid, u8 target) {
     panic("?");
 }
 
+void vgic_inject_pending_irqs() {
+  struct vcpu *vcpu = current;
+  u64 flags;
+
+  spin_lock_irqsave(&vcpu->pending.lock, flags);
+
+  int head = vcpu->pending.head;
+
+  while(head != vcpu->pending.tail) {
+    struct gic_pending_irq *pendirq = vcpu->pending.irqs[head];
+    if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
+      panic("inject pending irqs");
+
+    head = (head + 1) % 4;
+
+    free(pendirq);
+  }
+
+  vcpu->pending.head = head;
+
+  spin_unlock_irqrestore(&vcpu->pending.lock, flags);
+
+  dsb(ish);
+}
+
 int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   struct vgic_irq *irq = vgic_get_irq(target, virqno);
   if(!irq->enabled)
@@ -78,7 +105,7 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
     pendirq->req_cpu = 0;   // TODO
   } else {
     /* virq == pirq */
-    pending->pirq = irq_get(virqno);
+    pendirq->pirq = irq_get(virqno);
   }
 
   if(target == current) {
@@ -642,8 +669,7 @@ static int vgits_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 static void load_new_vgic(void) {
   struct vgic *vgic = &vgic_dist;
 
-  u32 max_spi = localnode.irqchip->max_spi;
-  vgic->nspis = max_spi - 31;
+  vgic->nspis = localnode.irqchip->nirqs - 32;
   vgic->enabled = false;
   vgic->spis = (struct vgic_irq *)alloc_page();
   if(!vgic->spis)

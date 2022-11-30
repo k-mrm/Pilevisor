@@ -90,8 +90,8 @@ struct gic_pending_irq {
 
 struct gic_irqchip {
   int version;      // 2 or 3
-  int max_spi;
-  int nspis;
+  int nirqs;
+  int max_lr;
 
   void (*init)(void);
   void (*initcore)(void);
