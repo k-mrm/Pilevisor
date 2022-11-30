@@ -149,7 +149,7 @@ static u64 gicv3_pending_lr(struct gic_pending_irq *irq) {
   if(irq->pirq) {
     /* this is hw irq */
     lr |= ICH_LR_HW;
-    lr |= ((u64)irq->pirq->irq & 0x3ff) << ICH_LR_PINTID_SHIFT;
+    lr |= ((u64)irq_no(irq->pirq) & 0x3ff) << ICH_LR_PINTID_SHIFT;
   }
 
   return lr;
@@ -157,6 +157,8 @@ static u64 gicv3_pending_lr(struct gic_pending_irq *irq) {
 
 static int gicv3_inject_guest_irq(struct gic_pending_irq *irq) {
   u32 virq = irq->virq;
+
+  printf("GICv3: inject virq: %d\n", virq);
 
   if(virq == 2)
     panic("!? maybe Linux kernel panicked");
@@ -174,11 +176,13 @@ static int gicv3_inject_guest_irq(struct gic_pending_irq *irq) {
     }
 
     if((u32)gicv3_read_lr(i) == virq)
-      return -1;    // busy
+      panic("busy");
+      // return -1;    // busy
   }
 
   if(freelr < 0)
-    return -1;
+    panic("no entry");
+    // return -1;   // no entry
 
   lr = gicv3_pending_lr(irq);
 

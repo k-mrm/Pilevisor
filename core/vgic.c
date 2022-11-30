@@ -92,9 +92,12 @@ void vgic_inject_pending_irqs() {
 
 int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   struct vgic_irq *irq = vgic_get_irq(target, virqno);
+  printf("111VGIC inject: %d ", virqno);
+
   if(!irq->enabled)
     return -1;
 
+  printf("222VGIC inject: %d\n", virqno);
   struct gic_pending_irq *pendirq = malloc(sizeof(*pendirq));
 
   pendirq->virq = virqno;
@@ -102,6 +105,7 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   pendirq->priority = irq->priority;
 
   if(is_sgi(virqno)) {
+    pendirq->pirq = NULL;
     pendirq->req_cpu = 0;   // TODO
   } else {
     /* virq == pirq */
@@ -204,7 +208,7 @@ static void recv_sgi_msg_intr(struct pocv2_msg *msg) {
 
   int virq = h->sgi_id;
 
-  if(virq >= 16)
+  if(!is_sgi(virq))
     panic("invalid sgi");
 
   vmm_log("SGI: recv sgi(id=%d) request to vcpu%d\n", virq, target->vcpuid);

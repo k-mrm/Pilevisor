@@ -3,20 +3,10 @@
 #include "gic.h"
 #include "vgic.h"
 #include "vcpu.h"
-#include "pcpu.h"
 #include "localnode.h"
 #include "panic.h"
 
-static struct irq irqlist[NIRQ];
-
-struct irq *irq_get(u32 pirq) {
-  if(pirq < NLOCALIRQ)
-    return &mycpu->local_irq[pirq];
-  else if(pirq < NIRQ)
-    return &irqlist[pirq];
-
-  return NULL;
-}
+struct irq irqlist[NIRQ];
 
 void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
   if(pirq > NIRQ)

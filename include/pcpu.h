@@ -15,11 +15,14 @@ struct pcpu {
   int mpidr;
   bool wakeup;
 
-  struct {
-    void *base;
-  } gicr;
-
-  struct irq local_irq[32];
+  union {
+    struct {
+      void *gicr_base;
+    } v3;
+    struct {
+      ;
+    } v2;
+  };
 };
 
 extern struct pcpu pcpus[NCPU];

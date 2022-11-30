@@ -3,17 +3,24 @@
 
 #include "types.h"
 
-#define NLOCALIRQ   32
 #define NIRQ        256
 
 struct irq {
-  int irq;
   int count;
   void (*handler)(void *);
   void *arg;
 };
 
-struct irq *irq_get(u32 pirq);
+extern struct irq irqlist[NIRQ];
+
+static inline struct irq *irq_get(u32 pirq) {
+  return pirq < NIRQ ? &irqlist[pirq] : NULL;
+}
+
+static inline unsigned int irq_no(struct irq *irq) {
+  return irq - irqlist;
+}
+
 int handle_irq(u32 pirq);
 void irq_register(u32 pirq, void (*handler)(void *), void *arg);
 
