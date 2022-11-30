@@ -92,12 +92,9 @@ void vgic_inject_pending_irqs() {
 
 int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   struct vgic_irq *irq = vgic_get_irq(target, virqno);
-  printf("111VGIC inject: %d ", virqno);
-
   if(!irq->enabled)
     return -1;
 
-  printf("222VGIC inject: %d\n", virqno);
   struct gic_pending_irq *pendirq = malloc(sizeof(*pendirq));
 
   pendirq->virq = virqno;

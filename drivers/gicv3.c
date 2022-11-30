@@ -158,8 +158,6 @@ static u64 gicv3_pending_lr(struct gic_pending_irq *irq) {
 static int gicv3_inject_guest_irq(struct gic_pending_irq *irq) {
   u32 virq = irq->virq;
 
-  printf("GICv3: inject virq: %d\n", virq);
-
   if(virq == 2)
     panic("!? maybe Linux kernel panicked");
 
