@@ -13,11 +13,11 @@ struct cpu_features {
 };
 
 struct pending_queue {
-  u32 irqs[4];
+  struct gic_pending_irq *irqs[4];
   int head;
   int tail;  
 
-  spinlock_t lk;
+  spinlock_t lock;
 };
 
 struct vm;

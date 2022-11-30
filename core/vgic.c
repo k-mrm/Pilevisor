@@ -63,24 +63,44 @@ static void vgic_set_target(struct vcpu *vcpu, int vintid, u8 target) {
     panic("?");
 }
 
-int vgic_inject_virq(struct vcpu *target, u32 intid) {
-  struct vgic_irq *irq = vgic_get_irq(target, intid);
+int vgic_inject_virq(struct vcpu *target, u32 virqno) {
+  struct vgic_irq *irq = vgic_get_irq(target, virqno);
   if(!irq->enabled)
     return -1;
 
-  if(target == current) {
-    if(localnode.irqchip->inject_guest_irq(intid) < 0)
-      ;   /* TODO: do nothing? */
+  struct gic_pending_irq *pendirq = malloc(sizeof(*pendirq));
+
+  pendirq->virq = virqno;
+  pendirq->group = 1;
+  pendirq->priority = irq->priority;
+
+  if(is_sgi(virqno)) {
+    pendirq->req_cpu = 0;   // TODO
   } else {
+    /* virq == pirq */
+    pending->pirq = irq_get(virqno);
+  }
+
+  if(target == current) {
+    if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
+      ;   /* TODO: do nothing? */
+    free(pendirq);
+  } else {
+    u64 flags = 0;
+
+    spin_lock_irqsave(&target->pending.lock, flags);
+
     int tail = (target->pending.tail + 1) % 4;
 
     if(tail != target->pending.head) {
-      target->pending.irqs[target->pending.tail] = intid;
+      target->pending.irqs[target->pending.tail] = pendirq;
 
       target->pending.tail = tail;
     } else {
       panic("pending queue full");
     }
+
+    spin_unlock_irqrestore(&target->pending.lock, flags);
 
     dsb(ish);
 

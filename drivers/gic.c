@@ -4,21 +4,30 @@
 #include "gic.h"
 #include "irq.h"
 #include "log.h"
+#include "spinlock.h"
 #include "panic.h"
 
 static void gic_inject_pending_irqs() {
   struct vcpu *vcpu = current;
+  u64 flags;
+
+  spin_lock_irqsave(&vcpu->pending.lock, flags);
 
   int head = vcpu->pending.head;
 
   while(head != vcpu->pending.tail) {
-    u32 irq = vcpu->pending.irqs[head];
-    localnode.irqchip->inject_guest_irq(irq);
+    struct gic_pending_irq *pendirq = vcpu->pending.irqs[head];
+    if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
+      panic("inject pending irqs");
 
     head = (head + 1) % 4;
+
+    free(pendirq);
   }
 
   vcpu->pending.head = head;
+
+  spin_unlock_irqrestore(&vcpu->pending.lock, flags);
 
   dsb(ish);
 }
