@@ -49,6 +49,7 @@ static struct frame *malloc_frame(int order) {
   struct frame *f = alloc_page();
   if(!f)
     return NULL;
+
   f->next = NULL;
 
   struct mhdr *freelist = NULL;
@@ -66,12 +67,14 @@ static struct frame *malloc_frame(int order) {
 }
 
 static void *__malloc(struct chunk *chunk, u32 size) {
-  if(!chunk->framelist) {   /* first call of malloc */
-    chunk->framelist = malloc_frame(chunk_order(chunk));
+  struct frame *framelist = chunk->framelist;
+
+  if(!framelist) {   /* first call of malloc */
+    framelist = chunk->framelist = malloc_frame(chunk_order(chunk));
   }
 
 retry:
-  for(struct frame *f = chunk->framelist; f; f = f->next) {
+  for(struct frame *f = framelist; f; f = f->next) {
     struct mhdr *mem = f->freelist;
     if(mem) {
       f->freelist = mem->next;
@@ -85,8 +88,8 @@ retry:
   if(!newframe)
     return NULL;
 
-  newframe->next = chunk->framelist;
-  chunk->framelist = newframe;
+  newframe->next = framelist;
+  framelist = chunk->framelist = newframe;
 
   goto retry;
 }

@@ -24,7 +24,7 @@ static struct vm_desc vm_desc = {
   .initrd_img = &rootfs_img,
   /* TODO: determine parameters by fdt file */
   .nvcpu = 2,
-  .nallocate = 256 * MiB,
+  .nallocate = 512 * MiB,
   .ram_start = 0x40000000,
   .entrypoint = 0x40200000,
   .fdt_base = 0x48400000,

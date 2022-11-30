@@ -21,6 +21,8 @@
 #define PHYSIZE     (512*1024*1024)     /* 512 MB */
 #define PHYEND      (VMMBASE+PHYSIZE)
 
+#define GVM_MEMORY  (512*1024*1024)     /* global vm memory size = 512 MB */
+
 /* n physical cpu in this node */
 #define NCPU      1
 
