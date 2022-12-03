@@ -15,6 +15,8 @@
 #include "lib.h"
 #include "panic.h"
 
+#define USE_SCATTER_GATHER
+
 extern struct pocv2_msg_size_data __pocv2_msg_size_data_start[];
 extern struct pocv2_msg_size_data __pocv2_msg_size_data_end[];
 
@@ -52,12 +54,12 @@ static char *msmap[NUM_MSG] = {
 };
 
 /* msg ring queue */
-static struct mq {
-  char rq[16][64];
-  int rear;
-  int front;
+static struct msg_queue {
+  struct msg *rq[16];
+  int head;
+  int tail;
   int nelem;
-  spinlock_t lk;
+  spinlock_t lock;
 } recvq[NUM_MSG];
 
 static u32 msg_hdr_size(struct pocv2_msg *msg) {
@@ -74,26 +76,71 @@ static u32 msg_type_hdr_size(enum msgtype type) {
     panic("msg_hdr_size");
 }
 
+static void recv_waitqueue_enqueue(struct pocv2_msg *msg) {
+  u64 flags = 0;
+
+  spin_lock_irqsave(&mycpu->waitq_lock, flags); 
+
+  msg->next = mycpu->recv_waitq;
+  mycpu->recv_waitq = msg;
+
+  spin_lock_irqrestore(&mycpu->waitq_lock, flags); 
+}
+
+static void handle_recv_waitqueue() {
+  u64 flags;
+  struct pocv2_msg *m, *m_next;
+
+restart:
+  spin_lock_irqsave(&mycpu->waitq_lock, flags); 
+
+  struct pocv2_msg *waitq = mycpu->recv_waitq;
+  mycpu->recv_waitq = NULL;
+
+  spin_lock_irqrestore(&mycpu->waitq_lock, flags); 
+
+  for(m = waitq; m; m = m_next) {
+    m_next = m->next;
+    enum msgtype type = m->hdr->type;
+
+    if(type < NUM_MSG && msg_data[type].recv_handler)
+      msg_data[type].recv_handler(m);
+    else
+      panic("unknown msg received: %d\n", hdr->type);
+
+    free(m);
+  }
+
+  /*
+   *  handle enqueued msg during in this function
+   */
+  if(mycpu->recv_waitq)
+    goto restart;
+}
+
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
-  struct pocv2_msg msg;
+  struct pocv2_msg *msg = malloc(sizeof(*msg));
   int rc = 1;
 
   /* Packet 1 */
   struct pocv2_msg_header *hdr = buf->data;
-  msg.mac = src_mac;
-  msg.hdr = hdr;
+  msg->mac = src_mac;
+  msg->hdr = hdr;
 
   /* Packet 2 */
   if(buf->body_len != 0) {
-    msg.body = buf->body;
-    msg.body_len = buf->body_len;
+    msg->body_len = buf->body_len;
+
+#ifdef USE_SCATTER_GATHER
+    msg->body = buf->body;
     rc = 0;
+#else   /* !USE_SCATTER_GATHER */
+    msg->body = alloc_page();
+    memcpy(msg->body, buf->body, msg->body_len);
+#endif  /* USE_SCATTER_GATHER */
   }
 
-  if(hdr->type < NUM_MSG && msg_data[hdr->type].recv_handler)
-    msg_data[hdr->type].recv_handler(&msg);
-  else
-    panic("unknown msg received: %d\n", hdr->type);
+  recv_waitqueue_enqueue(msg);
 
   return rc;
 }
@@ -120,55 +167,61 @@ void send_msg(struct pocv2_msg *msg) {
   localnode.nic->ops->xmit(localnode.nic, buf);
 }
 
-static inline bool mq_is_empty(struct mq *mq) {
+static inline bool mq_is_empty(struct msg_queue *mq) {
   return mq->nelem == 0;
 }
 
-static inline bool mq_is_full(struct mq *mq) {
+static inline bool mq_is_full(struct msg_queue *mq) {
   return mq->nelem == 16;
 }
 
 void msgenqueue(struct pocv2_msg *msg) {
-  struct mq *mq = &recvq[msg->hdr->type];
+  struct msg_queue *mq = &recvq[msg->hdr->type];
+  u64 flags;
 
-  if(mq_is_full(mq)) {
+  spin_lock_irqsave(&mq->lock, flags);
+
+  if(mq_is_full(mq))
     panic("mq is full");
-  }
 
-  memcpy(mq->rq[mq->rear], msg->hdr, msg_hdr_size(msg));
-  mq->rear = (mq->rear + 1) % 16;
+  mq->rq[mq->tail] = msg;
+  mq->tail = (mq->tail + 1) % 16;
   mq->nelem++;
+
+  spin_unlock_irqrestore(&mq->lock, flags);
 }
 
-static int msgdequeue(enum msgtype type, struct pocv2_msg_header *buf, int size) {
-  struct mq *mq = &recvq[type];
+static int msgdequeue(enum msgtype type, struct pocv2_msg **reply) {
+  struct msg_queue *mq = &recvq[type];
+
+  spin_lock_irqsave(&mq->lock, flags);
 
   while(mq_is_empty(mq))
     return -1;
 
-  struct pocv2_msg_header *h = (struct pocv2_msg_header *)mq->rq[mq->front];
+  struct pocv2_msg *rep = mq->rq[mq->head];
 
-  memcpy(buf, h, size);
-
-  mq->front = (mq->front + 1) % 16;
+  if(reply)
+    *reply = rep;
+  mq->head = (mq->head + 1) % 16;
   mq->nelem--;
+
+  spin_unlock_irqrestore(&mq->lock, flags);
 
   return 0;
 }
 
-int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg_header *buf) {
+int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg **reply_msg) {
   enum msgtype reptype = reqrep[msg->hdr->type];
   if(reptype == 0)
     return -1;
 
-  int cpsize = msg_type_hdr_size(reptype);
-
   printf("waiting recv %s........... (%p)\n", msmap[reptype], read_sysreg(daif));
-  while(msgdequeue(reptype, buf, cpsize) < 0)
+  while(msgdequeue(reptype, reply_msg) < 0)
     wfi();
   printf("recv %s(%p)!!!!!!!!!!!!!!!!!\n", msmap[reptype], read_sysreg(daif));
 
-  return cpsize;
+  return 0;
 }
 
 void _pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,

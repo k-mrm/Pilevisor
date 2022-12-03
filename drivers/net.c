@@ -38,7 +38,7 @@ struct iobuf *alloc_iobuf(u32 size) {
 }
 
 void free_iobuf(struct iobuf *buf) {
-  free(buf->head);
+  // live buf->head, buf->body
   free(buf);
 }
 

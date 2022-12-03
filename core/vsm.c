@@ -188,6 +188,7 @@ static void vsm_process_waitqueue(u64 ipa) {
 
   struct page_desc *page = ipa_to_desc(ipa);
 
+restart:
   /* waitqueue is empty */
   if(!page->wq || !page->wq->head) {
     page_unlock(ipa);
@@ -217,7 +218,7 @@ static void vsm_process_waitqueue(u64 ipa) {
   /*
    *  process enqueued processes during in this function
    */
-  vsm_process_waitqueue(ipa);
+  goto restart;
 }
 
 static inline struct cache_page *ipa_cache_page(u64 ipa) {

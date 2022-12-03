@@ -1,3 +1,7 @@
+/*
+ *  cluster node
+ */
+
 #include "types.h"
 #include "aarch64.h"
 #include "vcpu.h"
@@ -12,6 +16,7 @@
 #include "node.h"
 #include "vsm.h"
 #include "spinlock.h"
+#include "msg.h"
 #include "panic.h"
 
 static void __node0 broadcast_init_request();
@@ -270,6 +275,14 @@ void node_cluster_dump() {
            "\t\tnum of vcpus: %d\n",
            id, node->mac, online, active, memstart, memend, node->nvcpu);
   }
+}
+
+void node_send_msg(int dst_id, struct pocv2_msg *msg) {
+  ;
+}
+
+void node_broadcast_msg(struct pocv2_msg *msg) {
+  ;
 }
 
 static void __node0 broadcast_init_request() {

@@ -45,7 +45,8 @@ struct pocv2_msg_header {
 #define ETH_POCV2_MSG_HDR_SIZE    64
 
 struct pocv2_msg {
-  u8 *mac;      /* dst or src */
+  struct pocv2_msg *next; /* recv_waitqueue */
+  u8 *mac;                /* dst or src */
   struct pocv2_msg_header *hdr;
   void *body;
   u32 body_len;

@@ -9,4 +9,5 @@ void pcpu_init() {
   mycpu->stackbase = _stack + PAGESIZE*(cpuid() + 1);
   mycpu->mpidr = cpuid();    /* affinity? */
   mycpu->wakeup = true;
+  mycpu->recv_waitq = NULL;
 }
