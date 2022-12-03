@@ -318,8 +318,8 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
   hdr.from_nodeid = local_nodeid();
 
   int node = 0;
-  while(copyset != 0) {
-    if(copyset & 1 && node != local_nodeid()) {
+  do {
+    if((copyset & 1) && (node != local_nodeid())) {
       vmm_log("send invalidate msg to Node %d\n", node);
 
       pocv2_msg_init2(&msg, node, MSG_INVALIDATE, &hdr, NULL, 0);
@@ -329,7 +329,7 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
 
     copyset >>= 1;
     node++;
-  }
+  } while(copyset);
 }
 
 static void send_invalidate_ack(int from_nodeid, u64 ipa) {

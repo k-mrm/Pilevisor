@@ -108,6 +108,7 @@ restart:
     else
       panic("unknown msg received: %d\n", hdr->type);
 
+    free(m->data);
     free(m);
   }
 
@@ -139,6 +140,8 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
     memcpy(msg->body, buf->body, msg->body_len);
 #endif  /* USE_SCATTER_GATHER */
   }
+
+  msg->data = buf->head;
 
   recv_waitqueue_enqueue(msg);
 
