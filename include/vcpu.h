@@ -47,6 +47,8 @@ struct vcpu {
   /* when dabort occurs on vCPU, informations will save here */
   struct dabort_info dabt;
 
+  spinlock_t lock;
+
   bool initialized;
   bool online;
   bool last;
@@ -58,7 +60,6 @@ void vcpu_entry(void);
 
 void vcpuid_init(u32 *vcpuids, int nvcpu);
 
-void vcpu_initstate_core(void);
 void vcpu_init_core(void);
 void wait_for_current_vcpu_online(void);
 

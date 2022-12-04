@@ -11,6 +11,7 @@
 #include "msg.h"
 #include "pcpu.h"
 #include "power.h"
+#include "spinlock.h"
 #include "panic.h"
 
 void _start(void);
@@ -56,10 +57,14 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 }
 
 static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
+  u64 flags;
+
   if(!vcpu) {
     panic("no vcpu to wakeup in this node\n");
     return PSCI_DENIED;
   }
+
+  spin_lock_irqsave(&vcpu->lock, flags);
 
   int localid = vcpu_localid(vcpu);
   int status;
@@ -83,6 +88,8 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
 
     vcpu->online = true;
   }
+
+  spin_unlock_irqrestore(&vcpu->lock, flags);
 
   return status;
 }

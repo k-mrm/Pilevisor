@@ -8,7 +8,7 @@ struct pcpu pcpus[NCPU];
 char _stack[PAGESIZE*NCPU] __aligned(PAGESIZE);
 
 void pcpu_init() {
-  mycpu->stackbase = _stack + PAGESIZE*(cpuid() + 1);
+  mycpu->stackbase = _stack + PAGESIZE * (cpuid() + 1);
   mycpu->mpidr = cpuid();    /* affinity? */
   mycpu->wakeup = true;
   pocv2_msg_queue_init(&mycpu->recv_waitq);

@@ -79,6 +79,8 @@ void vcpu_init_core() {
 
   /* current = vcpu */
 
+  spinlock_init(&vcpu->lock);
+
   vgic_cpu_init(vcpu);
 
   vcpu->reg.spsr = PSR_EL1H;     /* EL1h */
@@ -100,17 +102,22 @@ void wait_for_current_vcpu_online() {
 
 void vcpu_dump(struct vcpu *vcpu) {
   if(!vcpu) {
-    vmm_log("null vcpu\n");
+    printf("null vcpu\n");
     return;
   }
 
-  vmm_log("vcpu register dump %p id: %d\n", vcpu, vcpu->vmpidr);
+  printf("vcpu dump %p id: %d\n", vcpu, vcpu->vmpidr);
+  printf("vcpu status: %s %s\n", vcpu->initialized ? "initialized" : "uninitialized", 
+                                 vcpu->online ? "online" : "offline");
+
   for(int i = 0; i < 31; i++) {
     printf("x%-2d %18p  ", i, vcpu->reg.x[i]);
     if((i+1) % 4 == 0)
       printf("\n");
   }
+
   printf("\n");
+
   printf("spsr_el2  %18p  elr_el2   %18p\n", vcpu->reg.spsr, vcpu->reg.elr);
   printf("spsr_el1  %18p  elr_el1   %18p  mpdir_el1    %18p\n",
          read_sysreg(spsr_el1), read_sysreg(elr_el1), vcpu->vmpidr);
