@@ -16,8 +16,10 @@ struct pcpu {
   int mpidr;
   bool wakeup;
   
-  struct pocv2_msg *recv_waitq;
-  spinlock_t waitq_lock;
+  struct pocv2_msg_queue recv_waitq;
+
+  int irq_depth;
+  bool lazyirq_enabled;
 
   union {
     struct {
@@ -35,5 +37,9 @@ void pcpu_init(void);
 
 #define mycpu         (&pcpus[cpuid()])
 #define localcpu(id)  (&pcpus[id]) 
+
+#define local_lazyirq_enable()      (mycpu->lazyirq_enabled = true)
+#define local_lazyirq_disable()     (mycpu->lazyirq_enabled = false)
+#define local_lazyirq_enabled()     (mycpu->lazyirq_enabled)
 
 #endif

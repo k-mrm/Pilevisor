@@ -4,6 +4,7 @@
 #include "types.h"
 #include "net.h"
 #include "ethernet.h"
+#include "spinlock.h"
 #include "compiler.h"
 
 enum msgtype {
@@ -51,7 +52,7 @@ struct pocv2_msg {
   void *body;
   u32 body_len;
   /* private */
-  struct pocv2_msg *next; /* recv waitqueue */
+  struct pocv2_msg *next; /* pocv2_msg_queue */
   void *data;             /* iobuf->head */
 };
 
@@ -62,6 +63,21 @@ struct pocv2_msg {
 #define pocv2_msg_type(msg)       ((msg)->hdr->type)
 
 #define POCV2_MSG_ETH_PROTO       0x0019
+
+struct pocv2_msg_queue {
+  struct pocv2_msg *head;
+  struct pocv2_msg *tail;
+  spinlock_t lock;
+};
+
+void pocv2_msg_queue_init(struct pocv2_msg_queue *q);
+
+void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg);
+struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q);
+
+static inline bool pocv2_msg_queue_empty(struct pocv2_msg_queue *q) {
+  return q->head == NULL;
+}
 
 struct pocv2_msg_size_data {
   enum msgtype type;

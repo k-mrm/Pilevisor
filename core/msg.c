@@ -55,15 +55,9 @@ static char *msmap[NUM_MSG] = {
 };
 
 /* msg ring queue */
-static struct msg_queue {
-  struct pocv2_msg *rq[16];
-  int head;
-  int tail;
-  int nelem;
-  spinlock_t lock;
-} recvq[NUM_MSG];
+static struct pocv2_msg_queue replyq[NUM_MSG];
 
-static void msgenqueue(struct pocv2_msg *msg);
+static void replyq_enqueue(struct pocv2_msg *msg);
 
 static u32 msg_hdr_size(struct pocv2_msg *msg) {
   if(msg->hdr->type < NUM_MSG)
@@ -72,15 +66,42 @@ static u32 msg_hdr_size(struct pocv2_msg *msg) {
     panic("msg_hdr_size");
 }
 
-static void recv_waitqueue_enqueue(struct pocv2_msg *msg) {
-  u64 flags = 0;
+void pocv2_msg_queue_init(struct pocv2_msg_queue *q) {
+  q->head = NULL;
+  q->tail = NULL;
+  spinlock_init(&q->lock);
+}
 
-  spin_lock_irqsave(&mycpu->waitq_lock, flags); 
+void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg) {
+  u64 flags;
 
-  msg->next = mycpu->recv_waitq;
-  mycpu->recv_waitq = msg;
+  spin_lock_irqsave(&q->lock, flags); 
 
-  spin_unlock_irqrestore(&mycpu->waitq_lock, flags); 
+  if(q->head == NULL)
+    q->head = msg;
+
+  if(q->tail)
+    q->tail->next = msg;
+
+  q->tail = msg;
+
+  spin_unlock_irqrestore(&q->lock, flags); 
+}
+
+struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
+  u64 flags;
+
+  while(pocv2_msg_queue_empty(q))
+    wfi();
+
+  spin_lock_irqsave(&q->lock, flags); 
+
+  struct pocv2_msg *msg = q->head;
+  q->head = q->head->next;
+
+  spin_unlock_irqrestore(&q->lock, flags); 
+
+  return msg;
 }
 
 void free_recv_msg(struct pocv2_msg *msg) {
@@ -92,17 +113,24 @@ void handle_recv_waitqueue() {
   u64 flags;
   struct pocv2_msg *m, *m_next;
 
+  /* prevent nest handle_recv_waitqueue() */
+  local_lazyirq_disable();
+
+  local_irq_enable();
+
 restart:
-  spin_lock_irqsave(&mycpu->waitq_lock, flags); 
+  spin_lock_irqsave(&mycpu->recv_waitq.lock, flags); 
 
-  struct pocv2_msg *waitq = mycpu->recv_waitq;
-  mycpu->recv_waitq = NULL;
+  struct pocv2_msg *waitq = mycpu->recv_waitq.head;
 
-  spin_unlock_irqrestore(&mycpu->waitq_lock, flags); 
+  mycpu->recv_waitq.head = NULL;
+  mycpu->recv_waitq.tail = NULL;
+
+  spin_unlock_irqrestore(&mycpu->recv_waitq.lock, flags); 
 
   for(m = waitq; m; m = m_next) {
-    m_next = m->next;
     enum msgtype type = m->hdr->type;
+    m_next = m->next;
 
     if(type >= NUM_MSG)
       panic("msg %d", type);
@@ -112,17 +140,20 @@ restart:
 
       free_recv_msg(m);
     } else {
-      /* enqueue msg ringqueue */
-      printf("enqueueueee m type %d\n", type);
-      msgenqueue(m);
+      /* enqueue msg to replyq */
+      replyq_enqueue(m);
     }
   }
 
   /*
    *  handle enqueued msg during in this function
    */
-  if(mycpu->recv_waitq)
+  if(!pocv2_msg_queue_empty(&mycpu->recv_waitq))
     goto restart;
+
+  local_irq_disable();
+
+  local_lazyirq_enable();
 }
 
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
@@ -149,7 +180,7 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
 
   msg->data = buf->head;
 
-  recv_waitqueue_enqueue(msg);
+  pocv2_msg_enqueue(&mycpu->recv_waitq, msg);
 
   return rc;
 }
@@ -176,47 +207,16 @@ void send_msg(struct pocv2_msg *msg) {
   localnode.nic->ops->xmit(localnode.nic, buf);
 }
 
-static inline bool mq_is_empty(struct msg_queue *mq) {
-  return mq->nelem == 0;
+static void replyq_enqueue(struct pocv2_msg *msg) {
+  struct pocv2_msg_queue *q = &replyq[msg->hdr->type];
+
+  pocv2_msg_enqueue(q, msg);
 }
 
-static inline bool mq_is_full(struct msg_queue *mq) {
-  return mq->nelem == 16;
-}
+static struct pocv2_msg *replyq_dequeue(enum msgtype type) {
+  struct pocv2_msg_queue *q = &replyq[type];
 
-static void msgenqueue(struct pocv2_msg *msg) {
-  struct msg_queue *mq = &recvq[msg->hdr->type];
-  u64 flags;
-
-  if(mq_is_full(mq))
-    panic("mq is full");
-
-  spin_lock_irqsave(&mq->lock, flags);
-
-  mq->rq[mq->tail] = msg;
-  mq->tail = (mq->tail + 1) % 16;
-  mq->nelem++;
-
-  spin_unlock_irqrestore(&mq->lock, flags);
-}
-
-static struct pocv2_msg *msgdequeue(enum msgtype type) {
-  struct msg_queue *mq = &recvq[type];
-  u64 flags = 0;
-
-  while(mq_is_empty(mq))
-    wfi();
-
-  spin_lock_irqsave(&mq->lock, flags);
-
-  struct pocv2_msg *rep = mq->rq[mq->head];
-
-  mq->head = (mq->head + 1) % 16;
-  mq->nelem--;
-
-  spin_unlock_irqrestore(&mq->lock, flags);
-
-  return rep;
+  return pocv2_msg_dequeue(q);
 }
 
 struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
@@ -226,7 +226,9 @@ struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
     return NULL;
 
   printf("waiting recv %s........... (%p)\n", msmap[reptype], read_sysreg(daif));
-  reply = msgdequeue(reptype);
+
+  reply = replyq_dequeue(reptype);
+
   printf("recv %s(%p)!!!!!!!!!!!!!!!!!\n", msmap[reptype], read_sysreg(daif));
 
   return reply;

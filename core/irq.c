@@ -23,14 +23,31 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
   localnode.irqchip->setup_irq(pirq);
 }
 
+static inline void irq_enter() {
+  mycpu->irq_depth++;
+}
+
+static inline void irq_exit() {
+  mycpu->irq_depth--;
+}
+
+static inline bool in_interrupt() {
+  return !!mycpu->irq_depth;
+}
+
 void irq_entry(int from_guest) {
   if(local_irq_enabled())  
     panic("local irq enabled?");
 
+  irq_enter();
+
   localnode.irqchip->irq_handler(from_guest);
 
-  if(mycpu->recv_waitq)
+  irq_exit();
+
+  if(!pocv2_msg_queue_empty(&mycpu->recv_waitq) && !in_interrupt() && local_lazyirq_enabled()) {
     handle_recv_waitqueue();
+  }
 }
 
 int handle_irq(u32 irqno) {

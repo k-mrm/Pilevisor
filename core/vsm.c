@@ -101,13 +101,12 @@ struct invalidate_ack_hdr {
 
 /*
  *  success: return 0
+ *  else:    return 1 
  */
 static inline int page_trylock(u64 ipa) {
   u64 flags = 0;
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
-
-  // vmm_log("trylock %p (%p) %p\n", ipa, ipa_to_pfn(ipa), read_sysreg(elr_el2));
 
   irqsave(flags);
 
@@ -207,7 +206,7 @@ restart:
   if(!page_trylock(ipa))
     panic("bug: not held lock");
 
-  for(p = head; p != NULL; p = p_next) {
+  for(p = head; p; p = p_next) {
     vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
     if(invoke_vsm_process(p, true) < 0)
       panic("bug");
