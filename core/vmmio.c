@@ -102,6 +102,8 @@ static void vmmio_reply(u8 *dst_mac, enum vmmio_status status, u64 addr, u64 val
   hdr.val = val;
   hdr.status = status;
 
+  vmm_log("vmmio reply\n");
+
   pocv2_msg_init(&msg, dst_mac, MSG_MMIO_REPLY, &hdr, NULL, 0);
 
   send_msg(&msg);

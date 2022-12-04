@@ -72,13 +72,6 @@ static u32 msg_hdr_size(struct pocv2_msg *msg) {
     panic("msg_hdr_size");
 }
 
-static u32 msg_type_hdr_size(enum msgtype type) {
-  if(type < NUM_MSG)
-    return msg_data[type].msg_hdr_size;
-  else
-    panic("msg_hdr_size");
-}
-
 static void recv_waitqueue_enqueue(struct pocv2_msg *msg) {
   u64 flags = 0;
 
@@ -111,7 +104,7 @@ restart:
     m_next = m->next;
     enum msgtype type = m->hdr->type;
 
-    if(type < NUM_MSG)
+    if(type >= NUM_MSG)
       panic("msg %d", type);
 
     if(msg_data[type].recv_handler) {
@@ -120,6 +113,7 @@ restart:
       free_recv_msg(m);
     } else {
       /* enqueue msg ringqueue */
+      printf("enqueueueee m type %d\n", type);
       msgenqueue(m);
     }
   }
@@ -194,10 +188,10 @@ static void msgenqueue(struct pocv2_msg *msg) {
   struct msg_queue *mq = &recvq[msg->hdr->type];
   u64 flags;
 
-  spin_lock_irqsave(&mq->lock, flags);
-
   if(mq_is_full(mq))
     panic("mq is full");
+
+  spin_lock_irqsave(&mq->lock, flags);
 
   mq->rq[mq->tail] = msg;
   mq->tail = (mq->tail + 1) % 16;
@@ -210,10 +204,10 @@ static struct pocv2_msg *msgdequeue(enum msgtype type) {
   struct msg_queue *mq = &recvq[type];
   u64 flags = 0;
 
-  spin_lock_irqsave(&mq->lock, flags);
-
   while(mq_is_empty(mq))
-    return NULL;
+    wfi();
+
+  spin_lock_irqsave(&mq->lock, flags);
 
   struct pocv2_msg *rep = mq->rq[mq->head];
 
@@ -232,8 +226,7 @@ struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
     return NULL;
 
   printf("waiting recv %s........... (%p)\n", msmap[reptype], read_sysreg(daif));
-  while((reply = msgdequeue(reptype)) == NULL)
-    wfi();
+  reply = msgdequeue(reptype);
   printf("recv %s(%p)!!!!!!!!!!!!!!!!!\n", msmap[reptype], read_sysreg(daif));
 
   return reply;
