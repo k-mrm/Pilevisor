@@ -2,6 +2,7 @@
 #include "printf.h"
 #include "panic.h"
 #include "pcpu.h"
+#include "vcpu.h"
 
 static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
   if(sp >= (u64)mycpu->stackbase || bsp > sp)

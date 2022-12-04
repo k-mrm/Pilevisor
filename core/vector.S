@@ -197,7 +197,7 @@ el2_irq:
   hyp_save_reg
 
   mov x0, 0
-  bl gic_irq_handler
+  bl irq_entry
 
   INTR_DISABLE
 
@@ -235,7 +235,7 @@ guest_irq:
   vm_save_reg
 
   mov x0, 1
-  bl gic_irq_handler
+  bl irq_entry
 
   INTR_DISABLE
 

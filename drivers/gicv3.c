@@ -324,6 +324,34 @@ static void gicv3_setup_irq(u32 irq) {
   gicv3_enable_irq(irq);
 }
 
+static void gicv3_irq_handler(int from_guest) {
+  do {
+    u32 irq = gicv3_read_iar();
+
+    if(irq == 1023)    /* spurious interrupt */
+      break;
+
+    if(is_ppi_spi(irq)) {
+      isb();
+
+      local_irq_enable();
+
+      int handled = handle_irq(irq);
+
+      local_irq_disable();
+
+      if(handled)
+        gicv3_host_eoi(irq);
+    } else if(is_sgi(irq)) {
+      gic_sgi_handler(irq);
+
+      gicv3_host_eoi(irq);
+    } else {
+      panic("???????");
+    }
+  } while(1);
+}
+
 static void gicv3_c_init(void) {
   write_sysreg(icc_igrpen0_el1, 0);
   write_sysreg(icc_igrpen1_el1, 0);
@@ -437,7 +465,6 @@ static struct gic_irqchip gicv3_irqchip = {
 
   .inject_guest_irq = gicv3_inject_guest_irq,
   .irq_pending      = gicv3_irq_pending,
-  .read_iar         = gicv3_read_iar,
   .host_eoi         = gicv3_host_eoi,
   .guest_eoi        = gicv3_guest_eoi,
   .deactive_irq     = gicv3_deactive_irq,
@@ -447,6 +474,7 @@ static struct gic_irqchip gicv3_irqchip = {
   .disable_irq      = gicv3_disable_irq,
   .setup_irq        = gicv3_setup_irq,
   .set_target       = gicv3_set_target,
+  .irq_handler      = gicv3_irq_handler,
 };
 
 void gicv3_sysinit() {

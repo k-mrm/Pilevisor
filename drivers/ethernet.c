@@ -3,6 +3,7 @@
 #include "mm.h"
 #include "lib.h"
 #include "allocpage.h"
+#include "malloc.h"
 #include "log.h"
 #include "msg.h"
 
@@ -21,7 +22,7 @@ void ethernet_recv_intr(struct nic *nic, struct iobuf *iobuf) {
       if(need_free_body)
         goto free_body;
       else
-        return;
+        return;   /* no need to free iobuf */
     }
   }
 

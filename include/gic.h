@@ -85,7 +85,6 @@ struct gic_irqchip {
 
   int (*inject_guest_irq)(struct gic_pending_irq *irq);
   bool (*irq_pending)(u32 irq);
-  u32 (*read_iar)(void);
   void (*host_eoi)(u32 iar);
   void (*guest_eoi)(u32 iar);
   void (*deactive_irq)(u32 irq);
@@ -95,6 +94,7 @@ struct gic_irqchip {
   void (*disable_irq)(u32 irq);
   void (*setup_irq)(u32 irq);
   void (*set_target)(u32 irq, u8 target);
+  void (*irq_handler)(int from_guest);
 };
 
 extern struct gic_irqchip irqchip;
@@ -107,5 +107,6 @@ struct gic_state {
 
 void gic_init(void);
 void gic_init_cpu(void);
+void gic_sgi_handler(enum gic_sgi_id sgi_id);
 
 #endif

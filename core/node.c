@@ -36,6 +36,7 @@ int nr_cluster_vcpus = 0;
 
 u64 node_online_map = 0;
 u64 node_active_map = 0;
+u64 node_running_vcpu_map = 0;
 
 static int __node0 alloc_nodeid() {
   u64 flags = 0;
@@ -77,44 +78,6 @@ static void setup_vsm_memrange(struct memrange *m, u64 alloc) {
   ram_start += alloc;
 
   irqrestore(flags);
-}
-
-static inline void node_set_online(int nodeid, bool online) {
-  u64 mask = 1ul << nodeid;
-
-  if(online)
-    node_online_map |= mask;
-  else
-    node_online_map &= ~mask;
-}
-
-static inline void node_set_active(int nodeid, bool active) {
-  u64 mask = 1ul << nodeid;
-
-  if(active) 
-    node_active_map |= mask;
-  else
-    node_active_map &= ~mask;
-}
-
-static inline bool node_online(int nodeid) {
-  return !!(node_online_map & (1ul << nodeid));
-}
-
-static inline bool node_active(int nodeid) {
-  return !!(node_active_map & (1ul << nodeid));
-}
-
-static inline bool all_node_is_online() {
-  u64 nodemask = (1 << NR_NODE) - 1;
-
-  return (node_online_map & nodemask) == nodemask;
-}
-
-static inline bool all_node_is_active() {
-  u64 nodemask = (1 << nr_cluster_nodes) - 1;
-
-  return (node_active_map & nodemask) == nodemask;
 }
 
 static inline void wait_for_all_node_online() {

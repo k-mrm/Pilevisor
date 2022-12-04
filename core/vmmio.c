@@ -65,8 +65,8 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
   int target_nodeid = vcpuid_to_nodeid(target_vcpuid);
 
   struct pocv2_msg msg;
+  struct pocv2_msg *reply;
   struct mmio_req_hdr hdr;
-  struct mmio_reply_hdr rep;
 
   hdr.vcpuid = target_vcpuid;
   memcpy(&hdr.mmio, mmio, sizeof(*mmio));
@@ -77,13 +77,21 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
 
   send_msg(&msg);
 
-  pocv2_recv_reply(&msg, (struct pocv2_msg_header *)&rep);
+  reply = pocv2_recv_reply(&msg);
+  struct mmio_reply_hdr *rep = (struct mmio_reply_hdr *)reply->hdr;
 
-  vmm_log("rep!!!!!!!!!!!!!! %p %p %d\n", rep.addr, rep.val, rep.status);
+  vmm_log("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
 
-  mmio->val = rep.val;
+  if(mmio->ipa != rep->addr)
+    panic("vmmio? %p %p", mmio->ipa, rep->addr);
 
-  return rep.status;
+  mmio->val = rep->val;
+
+  int status = rep->status;
+
+  free_recv_msg(reply);
+
+  return status;
 }
 
 static void vmmio_reply(u8 *dst_mac, enum vmmio_status status, u64 addr, u64 val) {
@@ -115,13 +123,9 @@ static void vmmio_req_recv_intr(struct pocv2_msg *msg) {
   vmmio_reply(pocv2_msg_src_mac(msg), status, hdr->mmio.ipa, hdr->mmio.val);
 }
 
-static void vmmio_reply_recv_intr(struct pocv2_msg *msg) {
-  msgenqueue(msg);
-}
-
 void vmmio_init() {
   spinlock_init(&localvm.lock);
 }
 
 DEFINE_POCV2_MSG(MSG_MMIO_REQUEST, struct mmio_req_hdr, vmmio_req_recv_intr);
-DEFINE_POCV2_MSG(MSG_MMIO_REPLY, struct mmio_reply_hdr, vmmio_reply_recv_intr);
+DEFINE_POCV2_MSG(MSG_MMIO_REPLY, struct mmio_reply_hdr, NULL);

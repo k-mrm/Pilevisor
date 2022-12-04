@@ -36,8 +36,9 @@ enum msgtype {
  */
 
 struct pocv2_msg_header {
-  u32 src_nodeid;     /* me */
-  u32 type;           /* enum msgtype */
+  u16 src_nodeid;     /* me */
+  u16 type;           /* enum msgtype */
+  u32 connectionid;
 } __aligned(8);
 
 #define POCV2_MSG_HDR_STRUCT      struct pocv2_msg_header hdr
@@ -46,7 +47,7 @@ struct pocv2_msg_header {
 
 struct pocv2_msg {
   u8 *mac;                /* dst or src */
-  struct pocv2_msg_header *hdr;
+  struct pocv2_msg_header *hdr;   /* must be 8 byte alignment */
   void *body;
   u32 body_len;
   /* private */
@@ -130,8 +131,9 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
 
 void msg_sysinit(void);
 
-void msgenqueue(struct pocv2_msg *msg);
+struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg);
+void free_recv_msg(struct pocv2_msg *msg);
 
-int pocv2_recv_reply(struct pocv2_msg *msg, struct pocv2_msg_header *buf);
+void handle_recv_waitqueue(void);
 
 #endif

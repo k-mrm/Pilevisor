@@ -3,6 +3,7 @@
 #include "gic.h"
 #include "vgic.h"
 #include "vcpu.h"
+#include "pcpu.h"
 #include "localnode.h"
 #include "panic.h"
 
@@ -22,19 +23,33 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
   localnode.irqchip->setup_irq(pirq);
 }
 
-int handle_irq(u32 pirq) {
+void irq_entry(int from_guest) {
+  if(local_irq_enabled())  
+    panic("local irq enabled?");
+
+  localnode.irqchip->irq_handler(from_guest);
+
+  if(mycpu->recv_waitq)
+    handle_recv_waitqueue();
+}
+
+int handle_irq(u32 irqno) {
   /* interrupt to vmm */
-  struct irq *irq = irq_get(pirq);
+  struct irq *irq = irq_get(irqno);
+  int irqret = 0;
 
   if(irq->handler) {
     irq->handler(irq->arg);
-    return 1;
+    irqret = 1;
+
+    goto end;
   }
 
   /* inject irq to guest */
-  localnode.irqchip->guest_eoi(pirq);
+  localnode.irqchip->guest_eoi(irqno);
 
-  vgic_inject_virq(current, pirq);
+  vgic_inject_virq(current, irqno);
 
-  return 0;
+end:
+  return irqret;
 }

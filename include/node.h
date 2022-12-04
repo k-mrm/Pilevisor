@@ -114,6 +114,43 @@ static inline u8 *node_macaddr(int nodeid) {
   return cluster_node(nodeid)->mac;
 }
 
+static inline void node_set_online(int nodeid, bool online) {
+  u64 mask = 1ul << nodeid;
+
+  if(online)
+    node_online_map |= mask;
+  else
+    node_online_map &= ~mask;
+}
+
+static inline void node_set_active(int nodeid, bool active) {
+  u64 mask = 1ul << nodeid;
+
+  if(active) 
+    node_active_map |= mask;
+  else
+    node_active_map &= ~mask;
+}
+
+static inline bool node_online(int nodeid) {
+  return !!(node_online_map & (1ul << nodeid));
+}
+
+static inline bool node_active(int nodeid) {
+  return !!(node_active_map & (1ul << nodeid));
+}
+
+static inline bool all_node_is_online() {
+  u64 nodemask = (1 << NR_NODE) - 1;
+
+  return (node_online_map & nodemask) == nodemask;
+}
+
+static inline bool all_node_is_active() {
+  u64 nodemask = (1 << nr_cluster_nodes) - 1;
+
+  return (node_active_map & nodemask) == nodemask;
+}
 
 /*
  *  Node initialize message

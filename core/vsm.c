@@ -722,12 +722,6 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   vsm_process_waitqueue(h->ipa);
 }
 
-static void recv_invalidate_ack_intr(struct pocv2_msg *msg) {
-  vmm_log("recv invalidate_ack!!!!!!!!!\n");
-
-  msgenqueue(msg);
-}
-
 void vsm_node_init(struct memrange *mem) {
   u64 *vttbr = localvm.vttbr;
   u64 start = mem->start, size = mem->size;
@@ -753,4 +747,4 @@ void vsm_node_init(struct memrange *mem) {
 DEFINE_POCV2_MSG(MSG_FETCH, struct fetch_req_hdr, recv_fetch_request_intr);
 DEFINE_POCV2_MSG(MSG_FETCH_REPLY, struct fetch_reply_hdr, recv_fetch_reply_intr);
 DEFINE_POCV2_MSG(MSG_INVALIDATE, struct invalidate_hdr, recv_invalidate_intr);
-DEFINE_POCV2_MSG(MSG_INVALIDATE_ACK, struct invalidate_ack_hdr, recv_invalidate_ack_intr);
+DEFINE_POCV2_MSG(MSG_INVALIDATE_ACK, struct invalidate_ack_hdr, NULL);
