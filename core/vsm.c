@@ -355,8 +355,10 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool lock
     return -1;
   }
 
-  if(!page_accessible(vttbr, ipa))
-    panic("invalidate already: %p", ipa);
+  if(!page_accessible(vttbr, ipa)) {
+    // panic("invalidate already: %p", ipa);
+    return 0;
+  }
 
   if((pte = page_rwable_pte(vttbr, ipa)) != NULL ||
       (((pte = page_ro_pte(vttbr, ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
