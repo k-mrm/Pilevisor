@@ -180,27 +180,28 @@ void __subnode subnode_cluster_init() {
 static void __subnode update_cluster_info(int nnodes, int nvcpus, struct cluster_node *c) {
   printf("receive cluster info from Node0\n");
 
-  node_set_online(0, true);
-  node_set_active(0, true);
-
   nr_cluster_nodes = nnodes;
   nr_cluster_vcpus = nvcpus;
   memcpy(cluster, c, sizeof(cluster));
-  node_cluster_dump();
-
-  /* recognize me */
   for(int i = 0; i < nr_cluster_nodes; i++) {
     printf("cluster[%d] %m\n", i, cluster[i].mac);
+
+    node_set_online(i, true);
+    node_set_active(i, true);
+
     if(node_macaddr_is_me(cluster[i].mac)) {
+      /* recognize me */
       vmm_log("cluster info: I am Node %d\n", i);
       localnode.nodeid = i;
       localnode.node = &cluster[i];
       localnode.acked = true;
-      return;
     }
   }
 
-  panic("whoami??????");
+  node_cluster_dump();
+
+  if(!localnode.acked)
+    panic("whoami????");
 }
 
 static int cluster_node_me_setup() {

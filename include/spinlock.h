@@ -4,8 +4,9 @@
 #include "aarch64.h"
 #include "types.h"
 #include "log.h"
+#include "panic.h"
 
-// #define SPINLOCK_DEBUG
+#define SPINLOCK_DEBUG
 
 #ifdef SPINLOCK_DEBUG
 
@@ -13,6 +14,7 @@ struct spinlock {
   int cpuid;
   u8 lock;
   char *name;
+  bool init;
 };
 
 typedef struct spinlock spinlock_t;
@@ -28,6 +30,7 @@ static inline void __spinlock_init_dbg(spinlock_t *lk, char *name) {
   lk->cpuid = -1;
   lk->lock = 0;
   lk->name = name;
+  lk->init = true;
 }
 
 #define spinlock_init(lk) __spinlock_init_dbg(lk, #lk)
@@ -58,6 +61,9 @@ static inline void spin_lock(spinlock_t *lk) {
   u8 tmp, l = 1;
 
 #ifdef SPINLOCK_DEBUG
+  if(!lk->init)
+    panic("uninit lk");
+
   if(holdinglk(lk))
     panic("acquire@%s: already held", lk->name);
 

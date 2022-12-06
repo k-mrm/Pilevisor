@@ -80,6 +80,7 @@ void vcpu_init_core() {
   /* current = vcpu */
 
   spinlock_init(&vcpu->lock);
+  spinlock_init(&vcpu->pending.lock);
 
   vgic_cpu_init(vcpu);
 

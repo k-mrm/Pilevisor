@@ -160,6 +160,8 @@ static void pageallocator_test() {
 }
 
 void pageallocator_init() {
+  spinlock_init(&mem.lock);
+
   /* align to PAGESIZE << (MAX_ORDER-1) */
   u64 s = ((u64)vmm_end + (PAGESIZE << (MAX_ORDER - 1)) - 1) &
               ~((PAGESIZE << (MAX_ORDER - 1)) - 1);

@@ -273,4 +273,8 @@ void msg_sysinit() {
   for(hd = __pocv2_msg_handler_data_start; hd < __pocv2_msg_handler_data_end; hd++) {
     msg_data[hd->type].recv_handler = hd->recv_handler;
   }
+
+  for(struct pocv2_msg_queue *q = replyq; q < &replyq[NUM_MSG]; q++) {
+    pocv2_msg_queue_init(q);
+  }
 }

@@ -10,7 +10,6 @@
 #include "mm.h"
 #include "log.h"
 #include "vgic.h"
-#include "vtimer.h"
 #include "pci.h"
 #include "log.h"
 #include "psci.h"

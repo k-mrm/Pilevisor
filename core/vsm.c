@@ -162,8 +162,10 @@ static void vsm_enqueue_proc(u64 ipa, struct vsm_server_proc *p) {
 
   struct page_desc *page = ipa_to_desc(ipa);
 
-  if(!page->wq)
+  if(!page->wq) {
     page->wq = malloc(sizeof(*page->wq));
+    spinlock_init(&page->wq->lock);
+  }
 
   spin_lock_irqsave(&page->wq->lock, flags);
 

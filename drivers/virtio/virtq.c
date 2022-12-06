@@ -112,5 +112,7 @@ struct virtq *virtq_create(struct virtio_mmio_dev *dev, int qsel,
   vq->last_used_idx = 0;
   vq->intr_handler = intr_handler;
 
+  spinlock_init(&vq->lock);
+
   return vq;
 }

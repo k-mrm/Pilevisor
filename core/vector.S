@@ -75,7 +75,7 @@
   b.eq 4f
   cmp \el, 1
   b.eq 5f
-  b .
+  b .     // panic
 4:
   msr sp_el0, \reg
   b 6f
