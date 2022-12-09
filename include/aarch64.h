@@ -51,17 +51,17 @@
 #define sev()     asm volatile("sev");
 #define sevl()    asm volatile("sevl");
 
-#define HCR_VM    (1<<0)
-#define HCR_SWIO  (1<<1)
-#define HCR_FMO   (1<<3)
-#define HCR_IMO   (1<<4)
-#define HCR_TWI   (1<<13)
-#define HCR_TWE   (1<<14)
-#define HCR_TID3  (1<<18)
-#define HCR_TSC   (1<<19)
-#define HCR_TGE   (1<<27)
-#define HCR_TDZ   (1<<28)
-#define HCR_RW    (1<<31)
+#define HCR_VM    (1 << 0)
+#define HCR_SWIO  (1 << 1)
+#define HCR_FMO   (1 << 3)
+#define HCR_IMO   (1 << 4)
+#define HCR_TWI   (1 << 13)
+#define HCR_TWE   (1 << 14)
+#define HCR_TID3  (1 << 18)
+#define HCR_TSC   (1 << 19)
+#define HCR_TGE   (1 << 27)
+#define HCR_TDZ   (1 << 28)
+#define HCR_RW    (1u << 31)
 
 #define HPFAR_FIPA_MASK   0xfffffffffff
 

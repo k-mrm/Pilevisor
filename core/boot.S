@@ -30,6 +30,7 @@ switch_el2:
 startup:
   bl bss_clear
   bl initcpu
+  bl setup_boot_pagetable
   // bl enable_boot_mmu
 
   b startcore
@@ -49,6 +50,11 @@ startcore:
 
   /* spin */
   bl hang
+
+setup_boot_pagetable:
+  
+
+  ret
 
 enable_boot_mmu:
   tlbi alle2

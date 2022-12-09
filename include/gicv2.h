@@ -36,6 +36,6 @@
 #define GICH_LR_Priority_SHIFT    23
 #define GICH_LR_State_SHIFT       28
 #define GICH_LR_Grp1              (1 << 30)
-#define GICH_LR_HW                (1 << 31)
+#define GICH_LR_HW                (1u << 31)
 
 #endif

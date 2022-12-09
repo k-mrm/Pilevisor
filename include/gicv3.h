@@ -3,7 +3,7 @@
 
 #include "gic.h"
 
-#define GICD_CTLR_RWP       (1 << 31)
+#define GICD_CTLR_RWP       (1u << 31)
 
 /* Non-secure access in double security state */
 #define GICD_CTLR_NS_ENGRP1     (1 << 0)
