@@ -29,7 +29,7 @@
 #define VTCR_NSW      (1 << 29)
 #define VTCR_NSA      (1 << 30)
 
-#define VTCR_RES1     (1 << 31)
+#define VTCR_RES1     (1ul << 31)
 
 #define VTCR_TG_4K    VTCR_TG0(0)
 #define VTCR_TG_64K   VTCR_TG0(1)
@@ -74,8 +74,11 @@
 #define PTE_SH(sh)    (((sh) & 3) << 8)
 #define PTE_AF        (1 << 10)
 /* upper attribute */
+/*
 #define PTE_PXN       (1UL << 53)
 #define PTE_UXN       (1UL << 54)
+*/
+#define PTE_XN        (1ul << 54)
 
 /* attr */
 #define ATTR_DEVICE_nGnRnE      0x0ul
@@ -103,20 +106,18 @@
 
 /* stage 2 attribute */
 #define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
-#define S2PTE_S2AP_MASK   (3ul << 6)
-#define S2PTE_RO          S2PTE_S2AP(1)
-#define S2PTE_WO          S2PTE_S2AP(2)
-#define S2PTE_RW          S2PTE_S2AP(3)
-#define S2PTE_ATTR(attr)  (((attr) & 7) << 2)
-#define S2PTE_NORMAL      S2PTE_ATTR(AI_NORMAL_NC_IDX)
-#define S2PTE_DEVICE      S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
 
-#define S2PTE_DBM           (1ul << 51)
-/* use bit[57:55] to keep page's copyset  */
+#define S2PTE_S2AP_MASK   (3ul << 6)
+#define S2PTE_RO          S2PTE_S2AP(1ul)
+#define S2PTE_WO          S2PTE_S2AP(2ul)
+#define S2PTE_RW          S2PTE_S2AP(3ul)
+
+#define S2PTE_DBM         (1ul << 51)
+
+/* use bit[58:55] to keep page's copyset  */
 #define S2PTE_COPYSET_SHIFT 55
-#define S2PTE_COPYSET(c)    (((u64)(c) & 0x7) << S2PTE_COPYSET_SHIFT)
-#define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0x7)
-#define S2PTE_LOCK_BIT      ((u64)1 << 58)
+#define S2PTE_COPYSET(c)    (((u64)(c) & 0xf) << S2PTE_COPYSET_SHIFT)
+#define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0xf)
 
 #define PTE_PA(pte)         ((u64)(pte) & 0xfffffffff000)
 
@@ -168,6 +169,8 @@ void map_guest_peripherals(u64 *pgt);
 void dump_par_el1(void);
 
 u64 faulting_ipa_page(void);
+
+void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size);
 
 static inline int s2pte_perm(u64 *pte) {
   return (*pte & S2PTE_S2AP_MASK) >> 6;

@@ -156,7 +156,7 @@ int virtio_net_probe(struct virtio_mmio_dev *dev) {
 
   vmm_log("virtio-net ready! irq: %d\n", dev->intid);
 
-  u8 mac[6] = {0};
+  u8 mac[6];
   virtio_net_get_mac(&vtnet_dev, mac);
 
   net_init("virtio-net", mac, vtnet_dev.mtu, &vtnet_dev, &virtio_net_ops);

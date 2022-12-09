@@ -48,17 +48,6 @@ static const char *dabort_dfsc_enc[64] = {
   [0x21]  "Alignment fault",
 };
 
-void hyp_dabort_dump(u64 iss) {
-  int dfsc = iss & 0x3f;
-
-  const char *reason = dabort_dfsc_enc[dfsc];
-  if(!reason)
-    reason = "(nil)";
-
-  printf("dabort:\n"
-         "\tDFSC: %p (%s)\n", dfsc, reason);
-}
-
 void hyp_sync_handler(struct hyp_context *ctx) {
   u64 esr = read_sysreg(esr_el2);
   u64 elr = read_sysreg(elr_el2);
@@ -70,8 +59,12 @@ void hyp_sync_handler(struct hyp_context *ctx) {
   printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
 
   switch(ec) {
+    case 0x21:
+      iabort_iss_dump(iss);
+      break;
     case 0x25:
-      hyp_dabort_dump(iss);
+      dabort_iss_dump(iss);
+      break;
     default:
       break;
   }
@@ -234,27 +227,35 @@ static int hvc_handler(struct vcpu *vcpu, int imm) {
 }
 
 static void dabort_iss_dump(u64 iss) {
-  printf("ISV  : %d\n", (iss >> 24) & 0x1);
-  printf("SAS  : %d\n", (iss >> 22) & 0x3);
-  printf("SSE  : %d\n", (iss >> 21) & 0x1);
-  printf("SRT  : %d\n", (iss >> 16) & 0x1f);
-  printf("SF   : %d\n", (iss >> 15) & 0x1);
-  printf("AR   : %d\n", (iss >> 14) & 0x1);
-  printf("VNCR : %d\n", (iss >> 13) & 0x1);
-  printf("FnV  : %d\n", (iss >> 10) & 0x1);
-  printf("EA   : %d\n", (iss >> 9) & 0x1);
-  printf("CM   : %d\n", (iss >> 8) & 0x1);
-  printf("S1PTW: %d\n", (iss >> 7) & 0x1);
-  printf("WnR  : %d\n", (iss >> 6) & 0x1);
-  printf("DFSC : %x\n", iss & 0x3f);
+  int dfsc = iss & 0x3f;
+
+  const char *status = dabort_dfsc_enc[dfsc];
+  if(!status)
+    status = "(nil)";
+
+  printf("dabort:\n");
+  printf("\tISV  : %d\n", (iss >> 24) & 0x1);
+  printf("\tSAS  : %d\n", (iss >> 22) & 0x3);
+  printf("\tSSE  : %d\n", (iss >> 21) & 0x1);
+  printf("\tSRT  : %d\n", (iss >> 16) & 0x1f);
+  printf("\tSF   : %d\n", (iss >> 15) & 0x1);
+  printf("\tAR   : %d\n", (iss >> 14) & 0x1);
+  printf("\tVNCR : %d\n", (iss >> 13) & 0x1);
+  printf("\tFnV  : %d\n", (iss >> 10) & 0x1);
+  printf("\tEA   : %d\n", (iss >> 9) & 0x1);
+  printf("\tCM   : %d\n", (iss >> 8) & 0x1);
+  printf("\tS1PTW: %d\n", (iss >> 7) & 0x1);
+  printf("\tWnR  : %d\n", (iss >> 6) & 0x1);
+  printf("\tDFSC : %p (%s)\n", dfsc, status);
 }
 
 static void iabort_iss_dump(u64 iss) {
-  printf("SET  : %d\n", (iss >> 11) & 0x3);
-  printf("FnV  : %d\n", (iss >> 10) & 0x1);
-  printf("EA   : %d\n", (iss >> 9) & 0x1);
-  printf("S1PTW: %d\n", (iss >> 7) & 0x1);
-  printf("IFSC : %x\n", iss & 0x3f);
+  printf("iabort:\n");
+  printf("\tSET  : %d\n", (iss >> 11) & 0x3);
+  printf("\tFnV  : %d\n", (iss >> 10) & 0x1);
+  printf("\tEA   : %d\n", (iss >> 9) & 0x1);
+  printf("\tS1PTW: %d\n", (iss >> 7) & 0x1);
+  printf("\tIFSC : %p\n", iss & 0x3f);
 }
 
 void vm_sync_handler() {

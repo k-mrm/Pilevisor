@@ -284,7 +284,7 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
 
   vsm_fetch_page_dummy(1, page_ipa, page);
 
-  pagemap(node->vttbr, page_ipa, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+  pagemap(node->vttbr, page_ipa, (u64)page, PAGESIZE, PTE_NORMAL|S2PTE_RW);
   
   vmm_log("dummy cache %p elr %p va %p\n", page_ipa, vcpu->reg.elr, vcpu->dabt.fault_va);
 
@@ -301,7 +301,7 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
   // printf("vsm: cache @%p(%p) copyset: %p count%d\n", ipa_page, page, copyset, ++count);
 
   /* set access permission later */
-  pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_COPYSET(copyset));
+  pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, PTE_NORMAL|S2PTE_COPYSET(copyset));
 }
 
 /*
@@ -735,7 +735,7 @@ void vsm_node_init(struct memrange *mem) {
     if(!page)
       panic("ram");
 
-    pagemap(vttbr, start+p, (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+    pagemap(vttbr, start+p, (u64)page, PAGESIZE, PTE_NORMAL|S2PTE_RW);
   }
 
   vmm_log("Node %d mapped: [%p - %p]\n", local_nodeid(), start, start+p);

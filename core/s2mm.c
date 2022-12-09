@@ -55,6 +55,26 @@ void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
   }
 }
 
+void vmmemmap(u64 *s2pgt, u64 va, u64 pa, u64 size, u64 attr) {
+  ;
+}
+
+/* make identity map */
+void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size) {
+  u64 va = pa;
+
+  if(pa % PAGESIZE != 0 || size % PAGESIZE != 0)
+    panic("vmiomap");
+
+  for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
+    u64 *pte = pagewalk(s2pgt, va, 1);
+    if(*pte & PTE_AF)
+      panic("this entry has been used: va %p", va);
+
+    *pte = PTE_PA(pa) | PTE_AF | S2PTE_RW | PTE_DEVICE_nGnRE | PTE_XN | PTE_V;
+  }
+}
+
 void pageunmap(u64 *pgt, u64 va, u64 size) {
   if(va % PAGESIZE != 0 || size % PAGESIZE != 0)
     panic("invalid pageunmap");
@@ -79,7 +99,7 @@ void alloc_guestmem(u64 *pgt, u64 ipa, u64 size) {
     if(!p)
       panic("p");
 
-    pagemap(pgt, ipa+i, (u64)p, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+    pagemap(pgt, ipa+i, (u64)p, PAGESIZE, PTE_NORMAL|S2PTE_RW);
   }
 }
 
@@ -89,16 +109,16 @@ void map_guest_image(u64 *pgt, struct guest *img, u64 ipa) {
   copy_to_guest(pgt, ipa, (char *)img->start, img->size);
 }
 
-void map_guest_peripherals(u64 *pgt) {
-  pagemap(pgt, UARTBASE, UARTBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(pgt, GPIOBASE, GPIOBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(pgt, RTCBASE, RTCBASE, PAGESIZE, S2PTE_DEVICE|S2PTE_RW);
-  // pagemap(pgt, VIRTIO0, VIRTIO0, 0x4000, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(pgt, PCIE_ECAM_BASE, PCIE_ECAM_BASE, 256*1024*1024,
-          S2PTE_DEVICE|S2PTE_RW);
-  pagemap(pgt, PCIE_MMIO_BASE, PCIE_MMIO_BASE, 0x2eff0000, S2PTE_DEVICE|S2PTE_RW);
-  pagemap(pgt, PCIE_HIGH_MMIO_BASE, PCIE_HIGH_MMIO_BASE, 0x100000/*XXX*/,
-          S2PTE_DEVICE|S2PTE_RW);
+void map_guest_peripherals(u64 *s2pgt) {
+  vmiomap_passthrough(s2pgt, UARTBASE, PAGESIZE);
+  vmiomap_passthrough(s2pgt, GPIOBASE, PAGESIZE);
+  vmiomap_passthrough(s2pgt, RTCBASE, PAGESIZE);
+  /*
+  vmiomap_passthrough(s2pgt, VIRTIO0, 0x4000);
+  vmiomap_passthrough(s2pgt, PCIE_ECAM_BASE, 256*1024*1024);
+  vmiomap_passthrough(s2pgt, PCIE_MMIO_BASE, 0x2eff0000);
+  vmiomap_passthrough(s2pgt, PCIE_HIGH_MMIO_BASE, 0x100000);
+  */
 }
 
 void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
@@ -192,7 +212,7 @@ void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
     u64 pa = ipa2pa(pgt, to_ipa);
     if(pa == 0) {
       char *page = alloc_page();
-      pagemap(pgt, PAGE_ADDRESS(to_ipa), (u64)page, PAGESIZE, S2PTE_NORMAL|S2PTE_RW);
+      pagemap(pgt, PAGE_ADDRESS(to_ipa), (u64)page, PAGESIZE, PTE_NORMAL|S2PTE_RW);
       pa = ipa2pa(pgt, to_ipa);
       if(pa == 0)
         panic("copy_to_guest_alloc");
@@ -309,25 +329,29 @@ u64 faulting_ipa_page() {
 void s2mmu_init_core() {
   write_sysreg(vtcr_el2, vtcr);
 
+  printf("vtcr_el2: %p\n", read_sysreg(vtcr_el2));
+  printf("mair_el2: %p\n", read_sysreg(mair_el2));
+
   isb();
 }
 
 void s2mmu_init() {
-  u64 parange = read_sysreg(id_aa64mmfr0_el1) & 0xf;
+  u64 mmf_parange = read_sysreg(id_aa64mmfr0_el1) & 0xf;
+  int parange = parange_map[mmf_parange];
 
-  printf("id_aa64mmfr0_el1.parange = %p bit\n", parange_map[parange]);
+  printf("id_aa64mmfr0_el1.parange = %d bit\n", parange);
 
   int min_t0sz = 64 - parange;
 
   vtcr = VTCR_INNERSH | VTCR_HA | VTCR_HD | VTCR_TG_4K |
          VTCR_NSW | VTCR_NSA | VTCR_RES1;
 
-  /* PS = 1TB (40 bit) */
-  int t0sz = 64 - 40;
+  /* PS = 16TB (44 bit) */
+  int t0sz = 64 - 44;
   if(t0sz < min_t0sz)
     panic("t0sz %d < min t0sz %pd", t0sz, min_t0sz);
 
-  vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_1T | VTCR_SL0(1);
+  vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_16T | VTCR_SL0(2);
 
   u64 *vttbr = alloc_page();
   if(!vttbr)
