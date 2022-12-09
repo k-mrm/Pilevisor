@@ -1,4 +1,4 @@
-#define INTR_DISABLE    msr daifset, #0xf
+#include "aarch64.h"
 
 .section ".text"
 

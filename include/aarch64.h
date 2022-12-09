@@ -1,6 +1,22 @@
 #ifndef MVMM_AARCH64_H
 #define MVMM_AARCH64_H
 
+#define SCTLR_M   (1 << 0)
+
+#define SCR_NS    (1 << 0)
+#define SCR_SMD   (1 << 7)
+#define SCR_HCE   (1 << 8)
+#define SCR_RW    (1 << 10)
+
+#define SCR_RES1  ((1 << 4) | (1 << 5))
+
+#ifdef __ASSEMBLER__
+
+#define INTR_DISABLE    msr daifset, #0xf
+#define IRQ_ENABLE      msr daifclr, #0x2
+
+#else /* !__ASSEMBLER__ */
+
 #include "types.h"
 #include "compiler.h"
 
@@ -91,5 +107,7 @@ static inline void __irqrestore(u64 flags) {
 
 #define irqsave(flags)      do { flags = __irqsave(); } while(0)
 #define irqrestore(flags)   __irqrestore(flags)
+
+#endif    /* __ASSEMBLER__ */
 
 #endif

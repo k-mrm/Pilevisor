@@ -38,6 +38,10 @@ void vectable();
 
 volatile static int cpu0_ready = 0;
 
+static void system_pagetable() {
+  ;
+}
+
 static void hcr_setup() {
   u64 hcr = HCR_VM | HCR_SWIO | HCR_FMO | HCR_IMO |
             HCR_RW | HCR_TSC | HCR_TDZ;
