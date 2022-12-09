@@ -2,6 +2,9 @@
 #define MVMM_AARCH64_H
 
 #define SCTLR_M   (1 << 0)
+#define SCTLR_A   (1 << 1)
+#define SCTLR_C   (1 << 2)
+#define SCTLR_I   (1 << 12)
 
 #define SCR_NS    (1 << 0)
 #define SCR_SMD   (1 << 7)

@@ -6,6 +6,7 @@
 #include "aarch64.h"
 #include "param.h"
 #include "printf.h"
+#include "pcpu.h"
 #include "vcpu.h"
 #include "log.h"
 #include "mm.h"
@@ -45,7 +46,7 @@ void hyp_sync_handler(struct hyp_context *ctx) {
   printf("x20 %18p x21 %18p x22 %18p x23 %18p\n", ctx->x[20], ctx->x[21], ctx->x[22], ctx->x[23]);
   printf("x24 %18p x25 %18p x26 %18p x27 %18p\n", ctx->x[24], ctx->x[25], ctx->x[26], ctx->x[27]);
   printf("x28 %18p x29 %18p x30 %18p\n", ctx->x[28], ctx->x[29], ctx->x[30]);
-  printf("spsr  %18p  elr  %18p\n", ctx->spsr, ctx->elr);
+  printf("spsr  %18p  elr  %18p  stackbase  %18p\n", ctx->spsr, ctx->elr, mycpu->stackbase);
 
   panic("sync el2");
 }

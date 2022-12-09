@@ -15,6 +15,12 @@
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len);
 
+static u64 vtcr;
+
+static int parange_map[] = {
+  32, 36, 40, 42, 44, 48, 52,
+};
+
 u64 *pagewalk(u64 *pgt, u64 va, int create) {
   for(int level = 0; level < 3; level++) {
     u64 *pte = &pgt[PIDX(level, va)];
@@ -301,19 +307,27 @@ u64 faulting_ipa_page() {
 }
 
 void s2mmu_init_core() {
-  u64 vtcr = VTCR_T0SZ(20) | VTCR_SH0(0) | VTCR_SL0(2) | VTCR_HA | VTCR_HD |
-             VTCR_TG0(0) | VTCR_NSW | VTCR_NSA | VTCR_PS(4);
   write_sysreg(vtcr_el2, vtcr);
-
-  u64 mair = (AI_DEVICE_nGnRnE << (8 * AI_DEVICE_nGnRnE_IDX)) | (AI_NORMAL_NC << (8 * AI_NORMAL_NC_IDX));
-  write_sysreg(mair_el2, mair);
 
   isb();
 }
 
 void s2mmu_init() {
-  u64 mmf = read_sysreg(id_aa64mmfr0_el1);
-  printf("id_aa64mmfr0_el1.parange = %p\n", mmf & 0xf);
+  u64 parange = read_sysreg(id_aa64mmfr0_el1) & 0xf;
+
+  printf("id_aa64mmfr0_el1.parange = %p bit\n", parange_map[parange]);
+
+  int min_t0sz = 64 - parange;
+
+  vtcr = VTCR_INNERSH | VTCR_HA | VTCR_HD | VTCR_TG_4K |
+         VTCR_NSW | VTCR_NSA | VTCR_RES1;
+
+  /* PS = 1TB (40 bit) */
+  int t0sz = 64 - 40;
+  if(t0sz < min_t0sz)
+    panic("t0sz %d < min t0sz %pd", t0sz, min_t0sz);
+
+  vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_1T | VTCR_SL0(1);
 
   u64 *vttbr = alloc_page();
   if(!vttbr)

@@ -1,26 +1,23 @@
 #ifndef CORE_MM_H
 #define CORE_MM_H
 
+#ifndef __ASSEMBLER__
+
 #include "types.h"
 #include "guest.h"
 #include "allocpage.h"
+
+#endif  /* __ASSEMBLER__ */
 
 #define TCR_T0SZ(n)   ((n) & 0x3f)
 #define TCR_IRGN0(n)  (((n) & 0x3) << 8)
 #define TCR_ORGN0(n)  (((n) & 0x3) << 10)
 #define TCR_SH0(n)    (((n) & 0x3) << 12)
 #define TCR_TG0(n)    (((n) & 0x3) << 14)
-#define TCR_T1SZ(n)   (((n) & 0x3f) << 16)
-#define TCR_A1(n)     (((n) & 0x1) << 22)
-#define TCR_EPD1(n)   (((n) & 0x1) << 23)
-#define TCR_IRGN1(n)  (((n) & 0x3) << 24)
-#define TCR_ORGN1(n)  (((n) & 0x3) << 26)
-#define TCR_SH1(n)    (((n) & 0x3) << 28)
-#define TCR_TG1(n)    (((n) & 0x3) << 30)
+#define TCR_A1        (1 << 22)
 #define TCR_IPS(n)    (((n) & 0x7) << 32)
-#define TCR_AS(n)     (((n) & 0x1) << 36)
-#define TCR_TBI0(n)   (((n) & 0x1) << 37)
-#define TCR_TBI1(n)   (((n) & 0x1) << 38)
+#define TCR_AS        (1ul << 36)
+#define TCR_TBI0      (1ul << 37)
 
 #define VTCR_T0SZ(n)  ((n) & 0x3f)
 #define VTCR_SL0(n)   (((n) & 0x3) << 6)
@@ -31,6 +28,24 @@
 #define VTCR_HD       (1 << 22)
 #define VTCR_NSW      (1 << 29)
 #define VTCR_NSA      (1 << 30)
+
+#define VTCR_RES1     (1 << 31)
+
+#define VTCR_TG_4K    VTCR_TG0(0)
+#define VTCR_TG_64K   VTCR_TG0(1)
+#define VTCR_TG_16K   VTCR_TG0(2)
+
+#define VTCR_NOSH     VTCR_SH0(0)
+#define VTCR_OUTERSH  VTCR_SH0(2)
+#define VTCR_INNERSH  VTCR_SH0(3)
+
+#define VTCR_PS_4G    VTCR_PS(0)
+#define VTCR_PS_64G   VTCR_PS(1)
+#define VTCR_PS_1T    VTCR_PS(2)
+#define VTCR_PS_4T    VTCR_PS(3)
+#define VTCR_PS_16T   VTCR_PS(4)
+#define VTCR_PS_256T  VTCR_PS(5)
+#define VTCR_PS_4P    VTCR_PS(6)
 
 /*
  *  48bit Virtual Address
@@ -46,15 +61,11 @@
 #define PIDX(level, va) (((va) >> (39 - (level) * 9)) & 0x1ff)
 #define OFFSET(va)      ((va) & 0xfff)
 
-#define PTE_PA(pte)     ((u64)(pte) & 0xfffffffff000)
-
 /* lower attribute */
 #define PTE_VALID     1   /* level 0,1,2 descriptor */
 #define PTE_TABLE     2   /* level 0,1,2 descriptor */
 #define PTE_V         3   /* level 3 descriptor */
 #define PTE_INDX(idx) (((idx) & 7) << 2)
-#define PTE_NORMAL    PTE_INDX(AI_NORMAL_NC_IDX)
-#define PTE_DEVICE    PTE_INDX(AI_DEVICE_nGnRnE_IDX)
 #define PTE_NS        (1 << 5)
 #define PTE_AP(ap)    (((ap) & 3) << 6)
 #define PTE_U         PTE_AP(1)
@@ -66,9 +77,33 @@
 #define PTE_PXN       (1UL << 53)
 #define PTE_UXN       (1UL << 54)
 
+/* attr */
+#define ATTR_DEVICE_nGnRnE      0x0ul
+#define ATTR_DEVICE_nGnRE       0x4ul
+#define ATTR_NORMAL_NC          0x44ul
+#define ATTR_NORMAL             0xfful
+
+/* attr index */
+#define AI_DEVICE_nGnRnE_IDX    0
+#define AI_DEVICE_nGnRE_IDX     1
+#define AI_NORMAL_NC_IDX        2
+#define AI_NORMAL_IDX           3
+
+#define AI(attr, idx)           ((attr) << ((idx) * 8))
+
+#define MAIR_VALUE        (AI(ATTR_DEVICE_nGnRnE, AI_DEVICE_nGnRnE_IDX) | \
+                          AI(ATTR_DEVICE_nGnRE, AI_DEVICE_nGnRE_IDX) |    \
+                          AI(ATTR_NORMAL_NC, AI_NORMAL_NC_IDX) |          \
+                          AI(ATTR_NORMAL, AI_NORMAL_IDX))
+
+#define PTE_DEVICE_nGnRnE   PTE_INDX(AI_DEVICE_nGnRnE_IDX)
+#define PTE_DEVICE_nGnRE    PTE_INDX(AI_DEVICE_nGnRE_IDX)
+#define PTE_NORMAL_NC       PTE_INDX(AI_NORMAL_NC_IDX)
+#define PTE_NORMAL          PTE_INDX(AI_NORMAL_IDX)
+
 /* stage 2 attribute */
 #define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
-#define S2PTE_S2AP_MASK   (u64)(3 << 6)
+#define S2PTE_S2AP_MASK   (3ul << 6)
 #define S2PTE_RO          S2PTE_S2AP(1)
 #define S2PTE_WO          S2PTE_S2AP(2)
 #define S2PTE_RW          S2PTE_S2AP(3)
@@ -76,12 +111,14 @@
 #define S2PTE_NORMAL      S2PTE_ATTR(AI_NORMAL_NC_IDX)
 #define S2PTE_DEVICE      S2PTE_ATTR(AI_DEVICE_nGnRnE_IDX)
 
-#define S2PTE_DBM           (1UL << 51)
+#define S2PTE_DBM           (1ul << 51)
 /* use bit[57:55] to keep page's copyset  */
 #define S2PTE_COPYSET_SHIFT 55
 #define S2PTE_COPYSET(c)    (((u64)(c) & 0x7) << S2PTE_COPYSET_SHIFT)
 #define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0x7)
 #define S2PTE_LOCK_BIT      ((u64)1 << 58)
+
+#define PTE_PA(pte)         ((u64)(pte) & 0xfffffffff000)
 
 #define PAGESIZE          4096  /* 4KB */
 #define PAGESHIFT         12    /* 1 << 12 */
@@ -91,13 +128,7 @@
 #define PAGE_ALIGN(p)     (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
 #define PAGE_OFFSET(p)    ((u64)(p) & (PAGESIZE-1))
 
-/* attr index */
-#define AI_DEVICE_nGnRnE_IDX  0x0
-#define AI_NORMAL_NC_IDX      0x1
-
-/* attr */
-#define AI_DEVICE_nGnRnE  0x0
-#define AI_NORMAL_NC      0x44
+#ifndef __ASSEMBLER__
 
 struct dabort_info {
   u64 fault_ipa;
@@ -167,4 +198,6 @@ static inline void s2pte_clear_copyset(u64 *pte) {
   *pte &= ~S2PTE_COPYSET_MASK;
 }
 
-#endif
+#endif  /* __ASSEMBLER__ */
+
+#endif  /* CORE_MM_H */
