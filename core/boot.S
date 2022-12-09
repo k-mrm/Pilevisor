@@ -78,7 +78,7 @@ initcpu:
   msr mair_el2, x1
 
   /* setup tcr_el2 */
-  mov x1, #0
+  ldr x1, =TCR_EL2_VALUE
   msr tcr_el2, x1
 
   /* setup sctlr_el2 */

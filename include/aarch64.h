@@ -1,5 +1,5 @@
-#ifndef MVMM_AARCH64_H
-#define MVMM_AARCH64_H
+#ifndef CORE_AARCH64_H
+#define CORE_AARCH64_H
 
 #define SCTLR_M   (1 << 0)
 #define SCTLR_A   (1 << 1)
