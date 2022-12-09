@@ -16,13 +16,14 @@
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len);
 
 static u64 vtcr;
+static int root_level;
 
 static int parange_map[] = {
   32, 36, 40, 42, 44, 48, 52,
 };
 
 u64 *pagewalk(u64 *pgt, u64 va, int create) {
-  for(int level = 0; level < 3; level++) {
+  for(int level = root_level; level < 3; level++) {
     u64 *pte = &pgt[PIDX(level, va)];
 
     if((*pte & PTE_VALID) && (*pte & PTE_TABLE)) {
@@ -352,6 +353,8 @@ void s2mmu_init() {
     panic("t0sz %d < min t0sz %pd", t0sz, min_t0sz);
 
   vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_16T | VTCR_SL0(2);
+
+  root_level = 0;
 
   u64 *vttbr = alloc_page();
   if(!vttbr)

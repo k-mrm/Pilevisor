@@ -29,11 +29,17 @@ switch_el2:
 
 startup:
   bl bss_clear
-  bl initcpu
-  bl setup_boot_pagetable
-  // bl enable_boot_mmu
 
-  b startcore
+  ldr x1, =vmm_start
+  ldr x2, =vmm_end
+  bl setup_boot_pagetable
+
+  /* fall through */
+startupcore:
+  bl initcpu
+
+  ldr x30, =startcore
+  b enable_boot_mmu   // return to x30: startcore
 
 startcore:
   /* in EL2 */
@@ -51,19 +57,63 @@ startcore:
   /* spin */
   bl hang
 
+.macro set_block, pgt, idx, addr, level
+  adrp x8, \pgt
+  add x8, x8, \idx, lsl #3
+  bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
+  mov x10, #(PTE_AF | PTE_NORMAL | PTE_VALID)
+  orr x9, x9, x10
+  str x9, [x8]
+.endm 
+
+.macro set_table, pgt, idx, table
+  adrp x8, \pgt
+  add x8, x8, \idx, lsl #3
+  adrp x9, \table
+  orr x9, x9, #(PTE_TABLE | PTE_VALID)
+  str x9, [x8]
+.endm
+
+.macro pgt_index, idx, va, level
+  ubfx  \idx, \va, #(39 - \level * 9), 9 
+.endm 
+
+/*
+ *  make identity mapping
+ *  x1: vmm binary start address
+ *  x2: vmm binary end address
+ */
 setup_boot_pagetable:
-  
+  pgt_index x3, x1, 1     // x3 = PIDX(x1, 1)
+
+  set_table __boot_pgt_l1, x3, __boot_pgt_l2 
+
+  pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
+  pgt_index x5, x2, 2     // x5 = PIDX(x2, 2)
+
+1:
+  set_block __boot_pgt_l2, x4, x1, 2
+
+  add x4, x4, #1
+  add x1, x1, #0x200000   // next block
+  cmp x4, x5
+  b.ls 1b
 
   ret
 
 enable_boot_mmu:
+  adrp x1, __boot_pgt_l1
+  msr ttbr0_el2, x1
+
   tlbi alle2
   dsb sy
-
+  
   /* enable MMU */
   mrs x1, sctlr_el2
   orr x1, x1, #(SCTLR_M)
   msr sctlr_el2, x1
+
+  isb
 
   ret
 
@@ -92,6 +142,8 @@ initcpu:
   mov x2, #(SCTLR_A | SCTLR_I | SCTLR_C)
   orr x1, x1, x2
   msr sctlr_el2, x1
+
+  isb
 
   ret
 

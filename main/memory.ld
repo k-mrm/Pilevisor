@@ -3,12 +3,13 @@ ENTRY(_start)
 
 SECTIONS {
     . = 0x40000000;
+    PROVIDE(vmm_start = .);
 
     .text.boot : {
       KEEP(*(.text.boot))
     }
 
-    . = ALIGN(4096);
+    . = ALIGN(16);
 
     /*
     /DISCARD/ : {
@@ -35,6 +36,14 @@ SECTIONS {
 
     .data : {
       *(.data) *(.data.*)
+    }
+
+    . = ALIGN(4096);
+    .boot_pagetable : {
+      __boot_pgt_l1 = .;
+      . += 4096;
+      __boot_pgt_l2 = .;
+      . += 4096;
     }
 
     . = ALIGN(4096);

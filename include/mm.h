@@ -44,9 +44,10 @@
 
 #define TCR_RES1      ((1 << 21) | (1ul << 31))
 
+/* 39 bit space */
 #define TCR_EL2_VALUE \
-  (TCR_T0SZ(20) | TCR_IRGN0_WBWA | TCR_ORGN0_WBWA | TCR_TG0_4K | \
-   TCR_INNERSH | TCR_RES1 | TCR_PS_16T)
+  (TCR_T0SZ(25) | TCR_IRGN0_WBWA | TCR_ORGN0_WBWA | TCR_TG0_4K | \
+   TCR_INNERSH | TCR_RES1 | TCR_PS_1T)
 
 #define VTCR_T0SZ(n)  ((n) & 0x3f)
 #define VTCR_SL0(n)   (((n) & 0x3) << 6)
