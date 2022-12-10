@@ -9,10 +9,11 @@
 #include "lib.h"
 #include "param.h"
 #include "allocpage.h"
+#include "memory.h"
 #include "compiler.h"
 #include "panic.h"
 
-extern char vmm_end[];
+u64 early_alloc_end;
 
 #define MAX_ORDER   10
 
@@ -159,9 +160,20 @@ static void pageallocator_test() {
   buddydump();
 }
 
-void pageallocator_init() {
+void pagealloc_init_early() {
   spinlock_init(&mem.lock);
 
+  u64 s = PAGE_ALIGN(vmm_end);
+  u64 end = ((u64)vmm_end + (0x200000 - 1)) & ~(0x200000 - 1);
+
+  early_alloc_end = end;
+
+  for(; s < end; s += PAGESIZE) {
+    free_page((void *)s);
+  }
+}
+
+void pageallocator_init() {
   /* align to PAGESIZE << (MAX_ORDER-1) */
   u64 s = ((u64)vmm_end + (PAGESIZE << (MAX_ORDER - 1)) - 1) &
               ~((PAGESIZE << (MAX_ORDER - 1)) - 1);

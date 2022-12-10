@@ -37,6 +37,7 @@ static void __memmap(u64 pa, u64 va, u64 size, u64 memflags) {
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
     u64 *pte = pagewalk(vmm_pagetable, va, root_level, 1);
+
     if(*pte & PTE_AF)
       panic("this entry has been used: %p", va);
 
@@ -44,8 +45,12 @@ static void __memmap(u64 pa, u64 va, u64 size, u64 memflags) {
   }
 }
 
-void memmap(u64 pa, u64 va, u64 size) {
-  ;
+static void __pagemap(u64 pa, u64 va, u64 memflags) {
+  u64 *pte = pagewalk(vmm_pagetable, va, root_level, 1);
+  if(*pte & PTE_AF)
+      panic("this entry has been used: %p", va);
+
+  *pte = PTE_PA(pa) | PTE_AF | PTE_V | memflags;
 }
 
 /*
@@ -63,7 +68,24 @@ void *iomap(u64 pa, u64 size) {
 void setup_pagetable(void) {
   root_level = 1;
 
-  u64 start = (u64)vmm_start;
+  vmm_pagetable = alloc_page();
 
+  u64 start = PAGE_ADDRESS(vmm_start);
+  u64 end = early_alloc_end;
+  u64 memflags;
+
+  for(u64 p = start; p < end; p += PAGESIZE) {
+    memflags = PTE_NORMAL | PTE_SH_INNER;
+
+    if(!is_vmm_text(p))
+      memflags |= PTE_XN;
+
+    if(is_vmm_text(p) || is_vmm_rodata(p))
+      memflags |= PTE_RO;
+
+    /* make 1:1 map */
+    __pagemap(p, p, memflags);
+  }
+  
   set_ttbr0_el2(vmm_pagetable);
 }

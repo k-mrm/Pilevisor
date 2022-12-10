@@ -39,6 +39,7 @@ static void *uartbase;
 static u32 pl011_read(unsigned int reg) {
   return *(volatile u32 *)((u64)uartbase + reg);
 }
+
 static void pl011_write(unsigned int reg, u32 val) {
   *(volatile u32 *)((u64)uartbase + reg) = val;
 }

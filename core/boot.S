@@ -112,7 +112,8 @@ enable_boot_mmu:
   ret
 
 enable_mmu_secondary:
-  adrp x1, vmm_pagetable
+  ldr x1, =vmm_pagetable
+  ldr x1, [x1]
   msr ttbr0_el2, x1
 
   tlbi alle2

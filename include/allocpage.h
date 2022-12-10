@@ -2,6 +2,7 @@
 #define ALLOCPAGE_H
 
 void pageallocator_init(void);
+void pagealloc_init_early(void);
 
 void *alloc_pages(int order);
 

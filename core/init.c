@@ -65,6 +65,10 @@ int vmm_init_secondary() {
 }
 
 int vmm_init_cpu0(void *fdt) {
+  pagealloc_init_early();
+
+  setup_pagetable();
+
   uart_init();
   printf("vmm booting...\n");
 
