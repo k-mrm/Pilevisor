@@ -76,8 +76,6 @@ int vmm_init_cpu0() {
   uart_init();
   printf("vmm booting...\n");
 
-  write_sysreg(vbar_el2, (u64)vectable);
-
   pcpu_init();
   vcpu_init_core();
 

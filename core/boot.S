@@ -12,7 +12,7 @@ _start:
 
   mrs x1, CurrentEL
   cmp x1, #0x8    // EL2
-  b.eq startup
+  b.eq prestartup
   cmp x1, #0xc    // EL3
   b.eq switch_el2
   bl hang         // panic
@@ -20,12 +20,18 @@ _start:
 switch_el2:
   mov x1, #(SCR_NS | SCR_SMD | SCR_HCE | SCR_RW | SCR_RES1) 
   msr scr_el3, x1
-  adr x2, startup
+  adr x2, prestartup
   msr elr_el3, x2
   mov x3, #0x3c9    // DAIF, EL2H
   msr spsr_el3, x3
 
   eret
+
+prestartup:
+  mrs x1, mpidr_el1
+  and x1, x1, #0xf
+  cbz x1, startup   /* cpu0 */
+  b startupcore
 
 startup:
   bl bss_clear
@@ -43,6 +49,9 @@ startupcore:
 
 startcore:
   /* in EL2 */
+  ldr x1, =vectable 
+  msr vbar_el2, x1
+
   adrp x1, _stack
   mov x2, #4096
   mrs x3, mpidr_el1
@@ -51,6 +60,9 @@ startcore:
   mul x2, x2, x4
   add x1, x1, x2
   mov sp, x1
+
+  isb
+
   cbz x3, vmm_init_cpu0
   bl vmm_init_secondary
 
