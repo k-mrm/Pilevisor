@@ -30,44 +30,26 @@ switch_el2:
 prestartup:
   mrs x1, mpidr_el1
   and x1, x1, #0xf
-  cbz x1, startup   /* cpu0 */
-  b startupcore
+  cbz x1, startup0    /* cpu0 */
+  b startupothers     /* others */
 
-startup:
+startup0:
   bl bss_clear
 
   ldr x1, =vmm_start
   ldr x2, =vmm_end
   bl setup_boot_pagetable
 
-  /* fall through */
-startupcore:
   bl initcpu
 
-  ldr x30, =startcore
-  b enable_boot_mmu   // return to x30: startcore
+  ldr x30, =vmm_init_cpu0
+  b enable_boot_mmu   // return to x30: vmm_init_cpu0 (init.c)
 
-startcore:
-  /* in EL2 */
-  ldr x1, =vectable 
-  msr vbar_el2, x1
+startupothers:
+  bl initcpu
 
-  adrp x1, _stack
-  mov x2, #4096
-  mrs x3, mpidr_el1
-  and x3, x3, #0xf
-  add x4, x3, #1
-  mul x2, x2, x4
-  add x1, x1, x2
-  mov sp, x1
-
-  isb
-
-  cbz x3, vmm_init_cpu0
-  bl vmm_init_secondary
-
-  /* spin */
-  bl hang
+  ldr x30, =vmm_init_secondary
+  b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
 
 .macro set_block, pgt, idx, addr, level
   adrp x8, \pgt
@@ -129,6 +111,22 @@ enable_boot_mmu:
 
   ret
 
+enable_mmu_secondary:
+  adrp x1, vmm_pagetable
+  msr ttbr0_el2, x1
+
+  tlbi alle2
+  dsb sy
+  
+  /* enable MMU */
+  mrs x1, sctlr_el2
+  orr x1, x1, #(SCTLR_M)
+  msr sctlr_el2, x1
+
+  isb
+
+  ret
+
 bss_clear:
   adrp x1, __bss_start
   ldr w2, =__bss_size
@@ -141,6 +139,10 @@ bss_clear:
   ret
 
 initcpu:
+  /* setup vector table */
+  ldr x1, =vectable 
+  msr vbar_el2, x1
+
   /* setup mair_el2 */
   ldr x1, =MAIR_VALUE
   msr mair_el2, x1
@@ -154,6 +156,18 @@ initcpu:
   mov x2, #(SCTLR_A | SCTLR_I | SCTLR_C)
   orr x1, x1, x2
   msr sctlr_el2, x1
+
+  b initsp    /* return to caller of initcpu */
+
+initsp:
+  adrp x1, _stack
+  mov x2, #4096
+  mrs x3, mpidr_el1
+  and x3, x3, #0xf
+  add x4, x3, #1
+  mul x2, x2, x4
+  add x1, x1, x2
+  mov sp, x1
 
   isb
 

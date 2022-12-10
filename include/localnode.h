@@ -18,6 +18,7 @@ struct vm {
   u64 nalloc;
   /* stage 2 pagetable */
   u64 *vttbr;
+  u64 vtcr;
   /* virtual interrupt controller */
   struct vgic *vgic;
   /* guest mmio */

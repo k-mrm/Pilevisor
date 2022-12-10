@@ -5,7 +5,7 @@
 #include "param.h"
 #include "panic.h"
 
-static u64 *vmm_pagetable;
+u64 *vmm_pagetable;
 static int root_level;
 
 void set_ttbr0_el2(u64 *ttbr0_el2);

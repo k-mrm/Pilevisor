@@ -10,6 +10,7 @@
 #include "localnode.h"
 #include "node.h"
 #include "panic.h"
+#include "tlb.h"
 #include "arch-timer.h"
 
 /*
@@ -60,13 +61,17 @@ void vcpu_entry() {
   printf("vmm_boot_clk: %d\n", current->vmm_boot_clk);
   write_sysreg(cntvoff_el2, current->vmm_boot_clk);
 
+  write_sysreg(vtcr_el2, localvm.vtcr);
+
   write_sysreg(vttbr_el2, localvm.vttbr);
+  tlb_s2_flush_all();
+  dsb(sy);
 
   write_sysreg(sctlr_el1, current->sctlr_el1);
 
-  vcpu_dump(current);
-
   isb();
+
+  vcpu_dump(current);
 
   /* vmentry */
   trapret();

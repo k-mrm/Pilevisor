@@ -25,7 +25,6 @@ void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
   (void)guest_fdt;
 
   s2mmu_init();
-  s2mmu_init_core();
 
   map_guest_peripherals(localvm.vttbr);
 

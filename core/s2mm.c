@@ -307,15 +307,6 @@ u64 faulting_ipa_page() {
   return ipa_page & ~(PAGESIZE-1);
 }
 
-void s2mmu_init_core() {
-  write_sysreg(vtcr_el2, vtcr);
-
-  printf("vtcr_el2: %p\n", read_sysreg(vtcr_el2));
-  printf("mair_el2: %p\n", read_sysreg(mair_el2));
-
-  isb();
-}
-
 void s2mmu_init() {
   u64 mmf_parange = read_sysreg(id_aa64mmfr0_el1) & 0xf;
   int parange = parange_map[mmf_parange];
@@ -341,4 +332,8 @@ void s2mmu_init() {
     panic("vttbr failed");
 
   localvm.vttbr = vttbr;
+  localvm.vtcr = vtcr;
+
+  printf("vtcr_el2: %p\n", vtcr);
+  printf("mair_el2: %p\n", read_sysreg(mair_el2));
 }

@@ -50,14 +50,10 @@ static void hcr_setup() {
 int vmm_init_secondary() {
   vmm_log("cpu%d activated...\n", cpuid());
 
-  write_sysreg(vbar_el2, (u64)vectable);
-
   pcpu_init();
   vcpu_init_core();
 
   gic_init_cpu();
-
-  s2mmu_init_core();
 
   arch_timer_init_core();
 
