@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "node.h"
+#include "s2mm.h"
 #include "param.h"
 
 struct localnode localnode;    /* me */

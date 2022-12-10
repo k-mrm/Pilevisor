@@ -194,11 +194,13 @@ void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
 void map_guest_image(u64 *pgt, struct guest *img, u64 ipa);
 void alloc_guestmem(u64 *pgt, u64 ipa, u64 size);
 
-void map_guest_peripherals(u64 *pgt);
-
 void dump_par_el1(void);
 
 u64 faulting_ipa_page(void);
+
+void *iomap(u64 pa, u64 size);
+
+void setup_pagetable(void);
 
 #endif  /* __ASSEMBLER__ */
 

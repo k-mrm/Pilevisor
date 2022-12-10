@@ -1,7 +1,14 @@
-#ifndef VARM_POC_MEMORY_H
-#define VARM_POC_MEMORY_H
+#ifndef CORE_MEMORY_H
+#define CORE_MEMORY_H
 
 #include "types.h"
+
+extern char vmm_start[], vmm_end[];
+extern char __text_start[], __text_end[];
+extern char __rodata_start[], __rodata_end[];
+
+#define is_vmm_text(addr)     ((u64)__text_start <= (addr) && (addr) < (u64)__text_end)
+#define is_vmm_rodata(addr)   ((u64)__rodata_start <= (addr) && (addr) < (u64)__rodata_end)
 
 enum maccsize {
   ACC_BYTE = 1 << 0,

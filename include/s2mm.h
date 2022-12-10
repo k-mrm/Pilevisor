@@ -4,6 +4,7 @@
 #include "types.h"
 #include "mm.h"
 
+void map_guest_peripherals(u64 *pgt);
 void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size);
 
 void s2mmu_init_core(void);

@@ -1,10 +1,12 @@
 #include "aarch64.h"
 #include "tlb.h"
 #include "mm.h"
+#include "memory.h"
+#include "param.h"
 #include "panic.h"
 
 static u64 *vmm_pagetable;
-static int root_level = 1;
+static int root_level;
 
 void set_ttbr0_el2(u64 *ttbr0_el2);
 
@@ -56,4 +58,12 @@ void *iomap(u64 pa, u64 size) {
   __memmap(pa, va, size, memflags);
 
   return (void *)va;
+}
+
+void setup_pagetable(void) {
+  root_level = 1;
+
+  u64 start = (u64)vmm_start;
+
+  set_ttbr0_el2(vmm_pagetable);
 }

@@ -5,6 +5,7 @@ SECTIONS {
     . = 0x40000000;
     PROVIDE(vmm_start = .);
 
+    __text_start = .;
     .text.boot : {
       KEEP(*(.text.boot))
     }
@@ -18,9 +19,12 @@ SECTIONS {
     .text : {
       *(.text) *(.text.*)
     }
+    __text_end = .;
 
     . = ALIGN(4096);
     .rodata : {
+      __rodata_start = .;
+
       *(.rodata) 
 
       . = ALIGN(16);
@@ -32,6 +36,8 @@ SECTIONS {
       *(.rodata.pocv2_msg.common)
       *(.rodata.pocv2_msg.subnode)
       __pocv2_msg_handler_data_end = .;
+
+      __rodata_end = .;
     }
 
     . = ALIGN(4096);

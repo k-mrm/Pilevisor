@@ -5,6 +5,7 @@
 #include "vcpu.h"
 #include "net.h"
 #include "vgic.h"
+#include "uart.h"
 #include "lib.h"
 #include "power.h"
 #include "compiler.h"
@@ -41,6 +42,8 @@ struct localnode {
   struct powerctl *powerctl;
   /* irqchip */
   struct gic_irqchip *irqchip;
+  /* uartchip */
+  struct uartchip *uart;
   /* node control dispatcher */
   struct nodectl *ctl;
   /* my node in the cluster */
