@@ -9,8 +9,6 @@ SECTIONS {
       KEEP(*(.text.boot))
     }
 
-    . = ALIGN(16);
-
     /*
     /DISCARD/ : {
       *(.text.subnode)
@@ -20,6 +18,7 @@ SECTIONS {
       *(.text) *(.text.*)
     }
 
+    . = ALIGN(4096);
     .rodata : {
       *(.rodata) 
 
@@ -34,6 +33,7 @@ SECTIONS {
       __pocv2_msg_handler_data_end = .;
     }
 
+    . = ALIGN(4096);
     .data : {
       *(.data) *(.data.*)
     }

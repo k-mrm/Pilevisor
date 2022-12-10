@@ -110,6 +110,9 @@
 #define PTE_RW        PTE_AP(0)
 #define PTE_RO        PTE_AP(2)
 
+#define PTE_SH_OUTER  PTE_SH(2)   // outer sharable
+#define PTE_SH_INNER  PTE_SH(3)   // inner sharable
+
 /* attr */
 #define ATTR_DEVICE_nGnRnE      0x0ul
 #define ATTR_DEVICE_nGnRE       0x4ul
