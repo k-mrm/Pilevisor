@@ -7,6 +7,7 @@
 #include "uart.h"
 #include "vcpu.h"
 #include "irq.h"
+#include "mm.h"
 #include "compiler.h"
 
 #define R(reg)  (volatile u32 *)(UARTBASE+reg)

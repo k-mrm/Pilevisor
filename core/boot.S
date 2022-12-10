@@ -161,6 +161,26 @@ initcpu:
 
 .section ".text"
 
+/*
+ *  x0: ttbr0_el2
+ */
+.global set_ttbr0_el2
+set_ttbr0_el2:
+  dsb sy
+  isb
+
+  tlbi  alle2 
+
+  msr ttbr0_el2, x0 
+
+  tlbi  alle2 
+  ic  iallu 
+  dsb sy
+
+  isb
+
+  ret
+
 .global psci_call
 psci_call:
   smc #0

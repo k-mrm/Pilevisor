@@ -5,6 +5,7 @@
 #include "aarch64.h"
 #include "lib.h"
 #include "mm.h"
+#include "s2mm.h"
 #include "param.h"
 #include "localnode.h"
 #include "allocpage.h"
@@ -22,33 +23,12 @@ static int parange_map[] = {
   32, 36, 40, 42, 44, 48, 52,
 };
 
-u64 *pagewalk(u64 *pgt, u64 va, int create) {
-  for(int level = root_level; level < 3; level++) {
-    u64 *pte = &pgt[PIDX(level, va)];
-
-    if((*pte & PTE_VALID) && (*pte & PTE_TABLE)) {
-      pgt = (u64 *)PTE_PA(*pte);
-    } else if(create) {
-      pgt = alloc_page();
-      if(!pgt)
-        panic("nomem");
-
-      *pte = PTE_PA(pgt) | PTE_TABLE | PTE_VALID;
-    } else {
-      /* unmapped */
-      return NULL;
-    }
-  }
-
-  return &pgt[PIDX(3, va)];
-}
-
 void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
   if(va % PAGESIZE != 0 || pa % PAGESIZE != 0 || size % PAGESIZE != 0)
     panic("invalid pagemap");
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
-    u64 *pte = pagewalk(pgt, va, 1);
+    u64 *pte = pagewalk(pgt, va, root_level, 1);
     if(*pte & PTE_AF)
       panic("this entry has been used: va %p", va);
 
@@ -68,7 +48,7 @@ void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size) {
     panic("vmiomap");
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
-    u64 *pte = pagewalk(s2pgt, va, 1);
+    u64 *pte = pagewalk(s2pgt, va, root_level, 1);
     if(*pte & PTE_AF)
       panic("this entry has been used: va %p", va);
 
@@ -81,7 +61,7 @@ void pageunmap(u64 *pgt, u64 va, u64 size) {
     panic("invalid pageunmap");
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE) {
-    u64 *pte = pagewalk(pgt, va, 0);
+    u64 *pte = pagewalk(pgt, va, root_level, 0);
     if(*pte == 0)
       panic("unmapped");
 
@@ -136,7 +116,7 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page_invalidate");
 
-  u64 *pte = pagewalk(pgt, va, 0);
+  u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
     return NULL;
 
@@ -150,7 +130,7 @@ u64 *page_rwable_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page_invalidate");
 
-  u64 *pte = pagewalk(pgt, va, 0);
+  u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
     return NULL;
 
@@ -164,7 +144,7 @@ u64 *page_ro_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page_invalidate");
 
-  u64 *pte = pagewalk(pgt, va, 0);
+  u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
     return NULL;
 
@@ -182,7 +162,7 @@ void page_access_invalidate(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page_access_invalidate");
 
-  u64 *pte = pagewalk(pgt, va, 0);
+  u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
     panic("no entry");
 
@@ -199,7 +179,7 @@ void page_access_ro(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page_access_ro");
 
-  u64 *pte = pagewalk(pgt, va, 0);
+  u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
     panic("no entry");
 
@@ -269,7 +249,7 @@ void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len) {
 }
 
 u64 ipa2pa(u64 *pgt, u64 ipa) {
-  u64 *pte = pagewalk(pgt, ipa, 0);
+  u64 *pte = pagewalk(pgt, ipa, root_level, 0);
   if(!pte)
     return 0;
   u32 off = PAGE_OFFSET(ipa);

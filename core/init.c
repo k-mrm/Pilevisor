@@ -72,7 +72,10 @@ int vmm_init_secondary() {
   panic("unreachable");
 }
 
-int vmm_init_cpu0() {
+int vmm_init_cpu0(void *fdt) {
+  for(;;)
+    ;
+
   uart_init();
   printf("vmm booting...\n");
 

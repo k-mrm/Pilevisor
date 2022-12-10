@@ -7,6 +7,7 @@
 #include "arch-timer.h"
 #include "vsm.h"
 #include "mm.h"
+#include "s2mm.h"
 #include "allocpage.h"
 #include "malloc.h"
 #include "log.h"
