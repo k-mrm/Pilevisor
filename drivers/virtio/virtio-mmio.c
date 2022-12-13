@@ -7,6 +7,7 @@
 #include "virtio-mmio.h"
 #include "irq.h"
 #include "malloc.h"
+#include "mm.h"
 #include "panic.h"
 
 #define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
@@ -28,7 +29,7 @@ static inline void vtmmio_write(struct virtio_mmio_dev *dev, u32 off, u32 val) {
 static int vtmmio_probe(void *base, int intid) {
   struct virtio_mmio_dev *dev = malloc(sizeof(*dev));
 
-  dev->base = base;
+  dev->base = iomap((u64)base, 0x200);
   dev->intid = intid;
   dev->vqs = NULL;
 
@@ -38,7 +39,7 @@ static int vtmmio_probe(void *base, int intid) {
   }
 
   if(vtmmio_read(dev, VIRTIO_MMIO_VERSION) != 2) {
-    vmm_warn("support v2 only\n");
+    vmm_warn("virtio_mmio: support v2 only\n");
     goto err;
   }
 

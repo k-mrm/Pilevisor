@@ -186,7 +186,7 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
 }
 
 void send_msg(struct pocv2_msg *msg) {
-  if(memcmp(pocv2_msg_dst_mac(msg), cluster_me()->mac, 6) == 0)
+  if(memcmp(pocv2_msg_dst_mac(msg), localnode.nic->mac, 6) == 0)
     panic("send msg to me %m %m", pocv2_msg_dst_mac(msg), cluster_me()->mac);
 
   struct iobuf *buf = alloc_iobuf(64);

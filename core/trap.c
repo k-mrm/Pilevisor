@@ -64,6 +64,10 @@ void hyp_sync_handler(struct hyp_context *ctx) {
       break;
     case 0x25:
       dabort_iss_dump(iss);
+
+      if(PAGE_ADDRESS(far) == 0)
+        printf("NULL pointer derefernce?\n"); 
+
       break;
     default:
       break;

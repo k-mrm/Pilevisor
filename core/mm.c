@@ -60,7 +60,21 @@ void *iomap(u64 pa, u64 size) {
   u64 va = pa;
   u64 memflags = PTE_DEVICE_nGnRE | PTE_RW | PTE_XN;
 
-  __memmap(pa, va, size, memflags);
+  size = PAGE_ALIGN(size);
+
+  for(u64 p = 0; p < size; p += PAGESIZE) {
+    u64 *pte = pagewalk(vmm_pagetable, va + p, root_level, 1);
+
+    if(*pte & PTE_AF) {
+      if((*pte & PTE_DEVICE_nGnRE) == PTE_DEVICE_nGnRE) {
+        continue;
+      } else {
+        panic("bad iomap");
+      }
+    } else {
+      *pte = PTE_PA(pa + p) | PTE_AF | PTE_V | memflags;
+    }
+  }
 
   return (void *)va;
 }
