@@ -50,7 +50,7 @@ static void hcr_setup() {
 int vmm_init_secondary() {
   vmm_log("cpu%d activated...\n", cpuid());
 
-  pcpu_init();
+  pcpu_init_core();
   vcpu_init_core();
 
   gic_init_cpu();
@@ -79,6 +79,7 @@ int vmm_init_cpu0(void *fdt) {
   pageallocator_init();
 
   pcpu_init();
+  pcpu_init_core();
   vcpu_init_core();
 
   gicv3_sysinit();

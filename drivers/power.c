@@ -33,8 +33,12 @@ void powerctl_init() {
   if(pwc) {
     localnode.powerctl = &pscichip;
   } else {
+    pwc = dt_find_node_path(localnode.device_tree, "/spin-table");
     /* TODO: try to find spin-table */
-    panic("psci");
+    if(pwc)
+      panic("spin-table");
+    else
+      panic("enable method");
   }
 
   // localnode.powerctl = &rpi4power;

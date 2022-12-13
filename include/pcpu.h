@@ -9,7 +9,7 @@
 #include "spinlock.h"
 #include "compiler.h"
 
-extern char _stack[PAGESIZE] __aligned(PAGESIZE);
+extern char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 
 struct pcpu {
   void *stackbase;
@@ -31,8 +31,9 @@ struct pcpu {
   };
 };
 
-extern struct pcpu pcpus[NCPU];
+extern struct pcpu pcpus[NCPU_MAX];
 
+void pcpu_init_core(void);
 void pcpu_init(void);
 
 #define mycpu         (&pcpus[cpuid()])

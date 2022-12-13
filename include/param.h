@@ -22,13 +22,13 @@
 #define PHYEND      (VMMBASE+PHYSIZE)
 
 /* global vm memory size = 768 MB */
-#define GVM_MEMORY  (512*1024*1024)
+#define GVM_MEMORY            (512*1024*1024)
 
 /* 256 MiB per Node */
 #define MEM_PER_NODE          (256*1024*1024)
 
-/* n physical cpu in this node */
-#define NCPU      1
+/* max physical cpu in this node */
+#define NCPU_MAX            4
 
 /* max vcpu per node */
 #define VCPU_PER_NODE_MAX   4
