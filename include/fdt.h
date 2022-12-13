@@ -7,8 +7,16 @@ typedef u16 fdt16;
 typedef u32 fdt32;
 typedef u64 fdt64;
 
-struct device_tree {
+struct fdt {
+  union {
+    struct fdthdr *hdr;
+    void *data;
+  };
 
+  u32 off_dt_struct;
+  u32 size_dt_struct;
+  u32 off_dt_strings;
+  u32 size_dt_strings;
 };
 
 struct fdthdr {
@@ -24,9 +32,19 @@ struct fdthdr {
   fdt32 size_dt_struct;
 };
 
-#define FDT_MAGIC     0xd00dfeed
+struct fdt_node_header {
+  fdt32 tag;      // be(FDT_BEGIN_NODE)
+  char name[0];
+};
 
-void device_tree_init(void *fdt);
+struct fdt_property {
+  fdt32 tag;      // be(FDT_PROP)
+  fdt32 len;
+  fdt32 nameoff;
+  char data[0];
+};
+
+#define FDT_MAGIC     0xd00dfeed
 
 #define fdt_magic(fdt)            fdt32_to_u32(((struct fdthdr *)fdt)->magic)
 #define fdt_totalsize(fdt)        fdt32_to_u32(((struct fdthdr *)fdt)->totalsize)
@@ -48,5 +66,9 @@ static inline u32 fdt32_to_u32(fdt32 x) {
 #define FDT_BEGIN_NODE    0x1
 #define FDT_END_NODE      0x2
 #define FDT_PROP          0x3
+#define FDT_NOP           0x4
+#define FDT_END           0x9
+
+void fdt_probe(struct fdt *fdt, void *base);
 
 #endif
