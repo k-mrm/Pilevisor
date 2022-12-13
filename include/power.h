@@ -3,10 +3,12 @@
 
 #include "types.h"
 #include "localnode.h"
+#include "device.h"
 
 struct powerctl {
   char *name;
 
+  void (*init)(struct device_node *);
   int (*wakeup)(int, u64);
   void (*suspend)(int);
   void (*system_shutdown)(void);

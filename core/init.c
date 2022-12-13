@@ -71,15 +71,15 @@ int vmm_init_cpu0(void *fdt) {
 
   malloc_init();
 
+  device_tree_init(fdt);
+
   uart_init();
   printf("vmm booting...\n");
 
-  device_tree_init(fdt);
+  pageallocator_init();
 
   pcpu_init();
   vcpu_init_core();
-
-  pageallocator_init();
 
   gicv3_sysinit();
   gic_init();

@@ -2,11 +2,12 @@
 #define CORE_UART_H
 
 #include "types.h"
+#include "device.h"
 
 struct uartchip {
   char *name;
   int intid;
-  void (*init)(void);
+  void (*init)(struct device_node *);
   void (*putc)(char c);
   void (*puts)(char *s);
 };

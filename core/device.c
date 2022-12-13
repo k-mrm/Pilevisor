@@ -34,7 +34,7 @@ struct property *dt_prop_alloc(struct device_node *node) {
   return p;
 }
 
-int dt_node_propa(struct device_node *node, char *name, u32 *buf) {
+int dt_node_propa(struct device_node *node, const char *name, u32 *buf) {
   if(!buf)
     return -1;
 
@@ -55,7 +55,7 @@ int dt_node_propa(struct device_node *node, char *name, u32 *buf) {
   return -1;
 }
 
-const char *dt_node_props(struct device_node *node, char *name) {
+const char *dt_node_props(struct device_node *node, const char *name) {
   struct property *p = node->prop;
 
   for(; p; p = p->next) {
@@ -66,7 +66,7 @@ const char *dt_node_props(struct device_node *node, char *name) {
   return NULL;
 }
 
-struct device_node *dt_find_node_type(struct device_node *node, char *type) {
+struct device_node *dt_find_node_type(struct device_node *node, const char *type) {
   if(!node || !type)
     return NULL;
 
@@ -78,7 +78,7 @@ struct device_node *dt_find_node_type(struct device_node *node, char *type) {
   return NULL;
 }
 
-struct device_node *dt_find_node_path(struct device_node *node, char *path) {
+struct device_node *dt_find_node_path(struct device_node *node, const char *path) {
   while(*path == '/')
     path++;
 
@@ -97,9 +97,11 @@ void device_tree_init(void *fdt_base) {
 
   struct device_node *root = fdt_parse(&fdt);
 
+  /*
   const char *mach = dt_node_props(root, "compatible");
   if(mach)
     printf("vmm boot on %s\n", mach);
+  */
 
   localnode.device_tree = root;
 }

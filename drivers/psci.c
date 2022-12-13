@@ -2,10 +2,24 @@
 #include "psci.h"
 #include "power.h"
 #include "log.h"
+#include "device.h"
 
 extern u64 psci_call(u32 func, u64 cpuid, u64 entry, u64 ctxid);
 
-char *psci_status_map(int status) {
+enum psci_method {
+  PSCI_HVC,
+  PSCI_SMC,
+};
+
+struct psci_info {
+  u32 migrate;
+  u32 cpu_on;
+  u32 cpu_off;
+  u32 cpu_suspend;
+  enum psci_method method;
+} psci;
+
+static char *psci_status_map(int status) {
   switch(status) {
     case PSCI_SUCCESS:
       return "SUCCESS";
@@ -33,7 +47,7 @@ char *psci_status_map(int status) {
 }
 
 static int psci_cpu_wakeup(int cpuid, u64 entrypoint) {
-  i64 status = psci_call(PSCI_SYSTEM_CPUON, cpuid, entrypoint, 0);
+  i64 status = psci_call(psci.cpu_on, cpuid, entrypoint, 0);
 
   if(status == PSCI_SUCCESS) {
     return 0;
@@ -43,8 +57,33 @@ static int psci_cpu_wakeup(int cpuid, u64 entrypoint) {
   }
 }
 
-struct powerctl psci = {
+static void psci_init(struct device_node *dev) {
+  const char *meth = dt_node_props(dev, "method");
+
+  if(strcmp(meth, "hvc") != 0)
+    psci.method = PSCI_HVC;
+  else if(strcmp(meth, "smc") != 0)
+    psci.method = PSCI_SMC;
+  else
+    panic("psci method");
+
+  int rc;
+
+  dt_node_propa(dev, "migrate", &psci.migrate);
+  dt_node_propa(dev, "cpu_suspend", &psci.cpu_suspend);
+
+  rc = dt_node_propa(dev, "cpu_on", &psci.cpu_on);
+  if(rc < 0)
+    panic("cpu on");
+
+  rc = dt_node_propa(dev, "cpu_off", &psci.cpu_off);
+  if(rc < 0)
+    panic("cpu off");
+}
+
+struct powerctl pscichip = {
   .name = "psci",
+  .init = psci_init,
   .wakeup = psci_cpu_wakeup,
   .suspend = NULL,
   .system_shutdown = NULL,

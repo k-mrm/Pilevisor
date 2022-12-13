@@ -24,8 +24,6 @@
 #define PSCI_DISABLED           -8
 #define PSCI_INVALID_ADDRESS    -9
 
-extern struct powerctl psci;
-
-char *psci_status_map(int status);
+extern struct powerctl pscichip;
 
 #endif

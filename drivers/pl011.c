@@ -91,7 +91,7 @@ static void pl011_intr(__unused void *arg) {
   pl011_write(ICR, INT_RX_ENABLE);
 }
 
-static void pl011_init() {
+static void pl011_init(struct device_node *dev) {
   uartbase = iomap(UARTBASE, PAGESIZE);
 
   /* disable uart */

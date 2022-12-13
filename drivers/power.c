@@ -3,6 +3,7 @@
 #include "localnode.h"
 #include "log.h"
 #include "panic.h"
+#include "device.h"
 #include "compiler.h"
 
 int cpu_power_wakeup(int cpuid, u64 entrypoint) {
@@ -27,6 +28,15 @@ void system_reboot() {
 }
 
 void powerctl_init() {
-  localnode.powerctl = &psci;
+  struct device_node *pwc = dt_find_node_path(localnode.device_tree, "/psci");
+
+  if(pwc) {
+    localnode.powerctl = &pscichip;
+  } else {
+    /* TODO: try to find spin-table */
+    panic("psci");
+  }
+
   // localnode.powerctl = &rpi4power;
+  localnode.powerctl->init(pwc);
 }
