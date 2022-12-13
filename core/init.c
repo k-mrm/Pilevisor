@@ -69,6 +69,8 @@ int vmm_init_cpu0(void *fdt) {
 
   setup_pagetable((u64)fdt);
 
+  malloc_init();
+
   uart_init();
   printf("vmm booting...\n");
 
@@ -78,7 +80,6 @@ int vmm_init_cpu0(void *fdt) {
   vcpu_init_core();
 
   pageallocator_init();
-  malloc_init();
 
   gicv3_sysinit();
   gic_init();

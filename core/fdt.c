@@ -15,19 +15,33 @@ static const char *fdt_string(struct fdt *fdt, u32 nameoff) {
   return &dt_strings[nameoff];
 }
 
-void fdt_parse(struct fdt *fdt) {
+struct device_node *fdt_parse(struct fdt *fdt) {
   char *dt_struct = (char *)fdt->data + fdt->off_dt_struct;
   char *dt_strings = (char *)fdt->data + fdt->off_dt_strings;
 
   fdt32 *cur = (fdt32 *)dt_struct;
+  int depth = 0;
   u32 token;
+
+  struct device_node *node = NULL;
+  struct device_node *root = NULL;
 
   while((token = fdt32_to_u32(*cur)) != FDT_END) {
     switch(token) {
       case FDT_BEGIN_NODE: {
         struct fdt_node_header *hdr = (struct fdt_node_header *)cur;
 
+        node = device_node_alloc(node);
+        if(!root)
+          root = node;
+
+        for(int i = 0; i < depth; i++)
+          printf("\t");
         printf("begin-node: %s\n", hdr->name);
+
+        depth++;
+
+        node->name = hdr->name;
 
         u32 nlen = strlen(hdr->name) + 1;
         int next = ((nlen + 4 - 1) & ~(4 - 1)) >> 2;
@@ -38,16 +52,30 @@ void fdt_parse(struct fdt *fdt) {
       }
 
       case FDT_END_NODE: {
+        if(depth-- == 0)
+          panic("depth");
+
+        node = node->parent;
+
         cur += 1;
+
         break;
       }
 
       case FDT_PROP: {
         struct fdt_property *prop = (struct fdt_property *)cur;
 
+        struct property *p = device_property_alloc(node);
+
         const char *name = fdt_string(fdt, fdt32_to_u32(prop->nameoff));
 
-        printf("name: %s data: %s %d\n", name, prop->data, fdt32_to_u32(prop->len));
+        p->name = name;
+        p->data = prop->data;
+        p->data_len = fdt32_to_u32(prop->len);
+
+        for(int i = 0; i < depth; i++)
+          printf("\t");
+        printf("prop: %s %d\n", name, fdt32_to_u32(prop->len));
 
         cur += 3 + (((fdt32_to_u32(prop->len) + 4 - 1) & ~(4 - 1)) >> 2);
 
@@ -62,6 +90,11 @@ void fdt_parse(struct fdt *fdt) {
         panic("fdt parser error %d", token);
     }
   }
+
+  if(node != NULL)
+    panic("?");
+
+  return root;
 }
 
 void fdt_probe(struct fdt *fdt, void *base) {
@@ -77,6 +110,4 @@ void fdt_probe(struct fdt *fdt, void *base) {
   fdt->off_dt_strings = fdt_off_dt_strings(base);
   fdt->size_dt_struct = fdt_size_dt_struct(base);
   fdt->size_dt_strings = fdt_size_dt_strings(base);
-
-  bin_dump((char *)fdt->data + fdt->off_dt_struct, 128);
 }
