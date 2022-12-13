@@ -71,7 +71,7 @@ void setup_pagetable(void) {
   vmm_pagetable = alloc_page();
 
   u64 start = PAGE_ADDRESS(vmm_start);
-  u64 end = early_alloc_end;
+  u64 end = (u64)PHYEND;
   u64 memflags;
 
   for(u64 p = start; p < end; p += PAGESIZE) {

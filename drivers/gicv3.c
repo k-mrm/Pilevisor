@@ -10,36 +10,37 @@
 #include "irq.h"
 #include "vcpu.h"
 #include "localnode.h"
+#include "mm.h"
 #include "compiler.h"
 #include "panic.h"
 
 static struct gic_irqchip gicv3_irqchip;
 
-static u64 gicd_base;
-static u64 gicr_base;
+static void *gicd_base;
+static void *gicr_base;
 
 static inline u32 gicd_r(u32 offset) {
-  return *(volatile u32 *)(u64)(gicd_base + offset);
+  return *(volatile u32 *)((u64)gicd_base + offset);
 }
 
 static inline void gicd_w(u32 offset, u32 val) {
-  *(volatile u32 *)(u64)(gicd_base + offset) = val;
+  *(volatile u32 *)((u64)gicd_base + offset) = val;
 }
 
 static inline u32 gicr_r32(int cpuid, u32 offset) {
-  return *(volatile u32 *)(u64)(gicr_base + cpuid * 0x20000 + offset);
+  return *(volatile u32 *)((u64)gicr_base + cpuid * 0x20000 + offset);
 }
 
 static inline void gicr_w32(int cpuid, u32 offset, u32 val) {
-  *(volatile u32 *)(u64)(gicr_base + cpuid * 0x20000 + offset) = val;
+  *(volatile u32 *)((u64)gicr_base + cpuid * 0x20000 + offset) = val;
 }
 
 static inline u64 gicr_r64(int cpuid, u32 offset) {
-  return *(volatile u64 *)(u64)(gicr_base + cpuid * 0x20000 + offset);
+  return *(volatile u64 *)((u64)gicr_base + cpuid * 0x20000 + offset);
 }
 
 static inline void gicr_w64(int cpuid, u32 offset, u32 val) {
-  *(volatile u64 *)(u64)(gicr_base + cpuid * 0x20000 + offset) = val;
+  *(volatile u64 *)((u64)gicr_base + cpuid * 0x20000 + offset) = val;
 }
 
 static u64 gicv3_read_lr(int n) {
@@ -445,8 +446,8 @@ static void gicv3_init_cpu() {
 }
 
 static void gicv3_init(void) {
-  gicd_base = GICDBASE;
-  gicr_base = GICRBASE;
+  gicd_base = iomap(GICDBASE, 0x10000);
+  gicr_base = iomap(GICRBASE, 0xf60000);
 
   gicv3_d_init();
   gicv3_h_init();

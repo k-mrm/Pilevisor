@@ -164,27 +164,30 @@ void pagealloc_init_early() {
   spinlock_init(&mem.lock);
 
   u64 s = PAGE_ALIGN(vmm_end);
-  u64 end = ((u64)vmm_end + (0x200000 - 1)) & ~(0x200000 - 1);
-
-  early_alloc_end = end;
+  u64 end = (u64)__earlymem_end;
 
   for(; s < end; s += PAGESIZE) {
     free_page((void *)s);
   }
 }
 
+#define ORDER_ALIGN(order, _addr)         \
+  ({                                      \
+    u64 addr = (u64)_addr;                \
+    (((addr) + (PAGESIZE << ((order) - 1)) - 1) & ~((PAGESIZE << ((order) - 1)) - 1));    \
+  })
+
 void pageallocator_init() {
   /* align to PAGESIZE << (MAX_ORDER-1) */
-  u64 s = ((u64)vmm_end + (PAGESIZE << (MAX_ORDER - 1)) - 1) &
-              ~((PAGESIZE << (MAX_ORDER - 1)) - 1);
+  u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, __earlymem_end);
 
-  mem.start = s;
+  mem.start = early_alloc_end;
   mem.end = PHYEND;
 
   printf("buddy: heap [%p - %p) (free area: %d MB) \n", mem.start, mem.end, (mem.end - mem.start) >> 20);
   printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);
 
-  for(; s < PHYEND; s += PAGESIZE << (MAX_ORDER - 1)) {
+  for(u64 s = mem.start; s < mem.end; s += PAGESIZE << (MAX_ORDER - 1)) {
     free_pages((void *)s, MAX_ORDER - 1);
   }
 

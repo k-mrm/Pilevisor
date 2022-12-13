@@ -36,8 +36,11 @@ prestartup:
 startup0:
   bl bss_clear
 
+  /*
+   *  make early 1:1 mapping vmm_start to __earlymem_end
+   */
   ldr x1, =vmm_start
-  ldr x2, =vmm_end
+  ldr x2, =__earlymem_end
   bl setup_boot_pagetable
 
   bl initcpu
@@ -73,9 +76,9 @@ startupothers:
 .endm 
 
 /*
- *  make identity mapping
- *  x1: vmm binary start address
- *  x2: vmm binary end address
+ *  make 1:1 mapping
+ *  x1: start address
+ *  x2: end address
  */
 setup_boot_pagetable:
   pgt_index x3, x1, 1     // x3 = PIDX(x1, 1)

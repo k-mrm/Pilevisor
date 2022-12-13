@@ -64,6 +64,16 @@ SECTIONS {
 
     PROVIDE(vmm_end = .);
 
+    . = ALIGN(0x200000);
+    /*
+     *  reserver 2MB for vmm initialization
+     */
+    .boot_earlymem : {
+      __earlymem_start = .;
+      . += 0x200000;
+      __earlymem_end = .;
+    }
+
     /DISCARD/ : {
       *(.comment)
     }

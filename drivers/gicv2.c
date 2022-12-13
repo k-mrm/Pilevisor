@@ -15,32 +15,32 @@
 
 static struct gic_irqchip gicv2_irqchip;
 
-static u64 gicc_base;
-static u64 gicd_base;
-static u64 gich_base;
+static void *gicc_base;
+static void *gicd_base;
+static void *gich_base;
 
 static inline u32 gicd_read(u32 offset) {
-  return *(volatile u32 *)(gicd_base + offset);
+  return *(volatile u32 *)((u64)gicd_base + offset);
 }
 
 static inline void gicd_write(u32 offset, u32 val) {
-  *(volatile u32 *)(gicd_base + offset) = val;
+  *(volatile u32 *)((u64)gicd_base + offset) = val;
 }
 
 static inline u32 gicc_read(u32 offset) {
-  return *(volatile u32 *)(gicc_base + offset);
+  return *(volatile u32 *)((u64)gicc_base + offset);
 }
 
 static inline void gicc_write(u32 offset, u32 val) {
-  *(volatile u32 *)(gicc_base + offset) = val;
+  *(volatile u32 *)((u64)gicc_base + offset) = val;
 }
 
 static inline u32 gich_read(u32 offset) {
-  return *(volatile u32 *)(gich_base + offset);
+  return *(volatile u32 *)((u64)gich_base + offset);
 }
 
 static inline void gich_write(u32 offset, u32 val) {
-  *(volatile u32 *)(gich_base + offset) = val;
+  *(volatile u32 *)((u64)gich_base + offset) = val;
 }
 
 static u32 gicv2_read_lr(int n) {
@@ -253,9 +253,9 @@ static void gicv2_init_cpu(void) {
 }
 
 static void gicv2_init(void) {
-  gicc_base = GICCBASE;
-  gicd_base = GICDBASE;
-  gich_base = GICHBASE;
+  gicc_base = iomap(GICCBASE, 0x10000);
+  gicd_base = iomap(GICDBASE, 0x10000);
+  gich_base = iomap(GICHBASE, 0x10000);
 
   gicv2_d_init();
   gicv2_h_init();

@@ -6,11 +6,10 @@
 extern char vmm_start[], vmm_end[];
 extern char __text_start[], __text_end[];
 extern char __rodata_start[], __rodata_end[];
+extern char __earlymem_start[], __earlymem_end[];
 
 #define is_vmm_text(addr)     ((u64)__text_start <= (addr) && (addr) < (u64)__text_end)
 #define is_vmm_rodata(addr)   ((u64)__rodata_start <= (addr) && (addr) < (u64)__rodata_end)
-
-extern u64 early_alloc_end;
 
 enum maccsize {
   ACC_BYTE = 1 << 0,
