@@ -8,12 +8,14 @@
 #include "mm.h"
 #include "lib.h"
 #include "param.h"
+#include "localnode.h"
 #include "allocpage.h"
 #include "memory.h"
+#include "device.h"
 #include "compiler.h"
 #include "panic.h"
 
-u64 early_alloc_end;
+u64 phy_end;
 
 #define MAX_ORDER   10
 
@@ -181,8 +183,19 @@ void pageallocator_init() {
   /* align to PAGESIZE << (MAX_ORDER-1) */
   u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, __earlymem_end);
 
+  struct device_node *memdev = dt_find_node_type(localnode.device_tree, "memory");
+  if(!memdev)
+    panic("no memory device");
+
+  u32 reg[4];
+  int rc = dt_node_propa(memdev, "reg", reg);
+  if(rc < 0)
+    panic("memory device err");
+
+  phy_end = reg[1] + reg[3];
+
   mem.start = early_alloc_end;
-  mem.end = PHYEND;
+  mem.end = phy_end;
 
   printf("buddy: heap [%p - %p) (free area: %d MB) \n", mem.start, mem.end, (mem.end - mem.start) >> 20);
   printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);
