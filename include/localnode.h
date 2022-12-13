@@ -8,6 +8,7 @@
 #include "uart.h"
 #include "lib.h"
 #include "power.h"
+#include "device.h"
 #include "compiler.h"
 
 /* localvm */
@@ -47,6 +48,8 @@ struct localnode {
   struct uartchip *uart;
   /* node control dispatcher */
   struct nodectl *ctl;
+  /* device tree */
+  struct device_node *device_tree;
   /* my node in the cluster */
   struct cluster_node *node;
 };

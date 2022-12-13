@@ -19,9 +19,9 @@ struct device_node {
   struct property *prop;
 };
 
-struct device_node *device_tree_init(void *fdt_base);
+void device_tree_init(void *fdt_base);
 
-struct device_node *device_node_alloc(struct device_node *parent);
-struct property *device_property_alloc(struct device_node *node);
+struct device_node *dt_node_alloc(struct device_node *parent);
+struct property *dt_prop_alloc(struct device_node *node);
 
 #endif

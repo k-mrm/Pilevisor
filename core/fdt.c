@@ -17,7 +17,6 @@ static const char *fdt_string(struct fdt *fdt, u32 nameoff) {
 
 struct device_node *fdt_parse(struct fdt *fdt) {
   char *dt_struct = (char *)fdt->data + fdt->off_dt_struct;
-  char *dt_strings = (char *)fdt->data + fdt->off_dt_strings;
 
   fdt32 *cur = (fdt32 *)dt_struct;
   int depth = 0;
@@ -31,13 +30,9 @@ struct device_node *fdt_parse(struct fdt *fdt) {
       case FDT_BEGIN_NODE: {
         struct fdt_node_header *hdr = (struct fdt_node_header *)cur;
 
-        node = device_node_alloc(node);
+        node = dt_node_alloc(node);
         if(!root)
           root = node;
-
-        for(int i = 0; i < depth; i++)
-          printf("\t");
-        printf("begin-node: %s\n", hdr->name);
 
         depth++;
 
@@ -65,17 +60,13 @@ struct device_node *fdt_parse(struct fdt *fdt) {
       case FDT_PROP: {
         struct fdt_property *prop = (struct fdt_property *)cur;
 
-        struct property *p = device_property_alloc(node);
+        struct property *p = dt_prop_alloc(node);
 
         const char *name = fdt_string(fdt, fdt32_to_u32(prop->nameoff));
 
         p->name = name;
         p->data = prop->data;
         p->data_len = fdt32_to_u32(prop->len);
-
-        for(int i = 0; i < depth; i++)
-          printf("\t");
-        printf("prop: %s %d\n", name, fdt32_to_u32(prop->len));
 
         cur += 3 + (((fdt32_to_u32(prop->len) + 4 - 1) & ~(4 - 1)) >> 2);
 
