@@ -4,16 +4,17 @@
 
 #include "types.h"
 #include "fdt.h"
+#include "printf.h"
+#include "lib.h"
+#include "panic.h"
 
-struct fdthdr {
-  u32 magic;
-  u32 totalsize;
-  u32 off_dt_struct;
-  u32 off_dt_strings;
-  u32 off_mem_rsvmap;
-  u32 version;
-  u32 last_comp_version;
-  u32 boot_cpuid_phys;
-  u32 size_dt_strings;
-  u32 size_dt_struct;
-};
+void device_tree_init(void *fdt) {
+  if(fdt_magic(fdt) != FDT_MAGIC) {
+    panic("no fdt");
+  }
+
+  printf("fdt detected: version %d\n", fdt_version(fdt));
+  printf("%d %d\n", fdt_off_dt_struct(fdt), fdt_off_dt_strings(fdt));
+
+  bin_dump(fdt_off_dt_strings(fdt), 128);
+}

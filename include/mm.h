@@ -157,6 +157,9 @@
 #define PAGESIZE          4096  /* 4KB */
 #define PAGESHIFT         12    /* 1 << 12 */
 
+#define BLOCKSIZE_L2      0x200000      /* 2 MB */
+#define BLOCKSIZE_L1      0x40000000    /* 1 GB */
+
 #define PAGE_ADDRESS(p)   ((u64)(p) & ~(PAGESIZE-1))
 #define PAGE_ALIGNED(p)   ((u64)(p) % PAGESIZE == 0)
 #define PAGE_ALIGN(p)     (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
@@ -200,7 +203,7 @@ u64 faulting_ipa_page(void);
 
 void *iomap(u64 pa, u64 size);
 
-void setup_pagetable(void);
+void setup_pagetable(u64 fdt_base);
 
 #endif  /* __ASSEMBLER__ */
 
