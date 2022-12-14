@@ -40,6 +40,7 @@ struct device_node *dt_node_alloc(struct device_node *parent);
 struct property *dt_prop_alloc(struct device_node *node);
 
 int dt_node_propa(struct device_node *node, const char *name, u32 *buf);
+int dt_node_propa64(struct device_node *node, const char *name, u64 *buf);
 const char *dt_node_props(struct device_node *node, const char *name);
 bool dt_node_propb(struct device_node *node, const char *name);
 

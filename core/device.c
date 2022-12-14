@@ -55,6 +55,27 @@ int dt_node_propa(struct device_node *node, const char *name, u32 *buf) {
   return -1;
 }
 
+int dt_node_propa64(struct device_node *node, const char *name, u64 *buf) {
+  if(!buf)
+    return -1;
+
+  struct property *p = node->prop;
+
+  for(; p; p = p->next) {
+    if(strcmp(p->name, name) == 0) {
+      fdt64 *data = p->data;
+      for(int i = 0; i < p->data_len / 8; i++) {
+        fdt64 d = data[i];
+        buf[i] = fdt64_to_u64(d);
+      }
+
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
 const char *dt_node_props(struct device_node *node, const char *name) {
   struct property *p = node->prop;
 

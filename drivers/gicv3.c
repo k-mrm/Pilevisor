@@ -447,8 +447,21 @@ static void gicv3_init_cpu() {
 }
 
 static void gicv3_dt_init(struct device_node *dev) {
-  gicd_base = iomap(GICDBASE, 0x10000);
-  gicr_base = iomap(GICRBASE, 0xf60000);
+  u64 reg[4];
+  int rc = dt_node_propa64(dev, "reg", reg);
+  if(rc < 0)
+    panic("gicv3 err");
+
+  u64 dist_base = reg[0];
+  u64 dist_size = reg[1];
+  u64 redist_base = reg[2];
+  u64 redist_size = reg[3];
+
+  printf("GICv3 detected:\n");
+  printf("\tGICD: %p GICR: %p\n", reg[0], reg[2]);
+
+  gicd_base = iomap(dist_base, dist_size);
+  gicr_base = iomap(redist_base, redist_size);
 
   gicv3_d_init();
   gicv3_h_init();
