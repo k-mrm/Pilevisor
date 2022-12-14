@@ -84,10 +84,9 @@ poc-main-vsm: $(MAINOBJS) $(M)/memory.ld guest/vsmtest.img
 
 poc-sub: $(SUBOBJS) $(S)/memory.ld dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
-	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
-	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o
+	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o
 
-poc-sub-vsm: $(SUBOBJS) $(S)/memory.ld guest/vsmtest.img
+poc-sub-vsm: $(SUBOBJS) $(S)/memory.ld
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
 

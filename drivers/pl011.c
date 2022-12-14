@@ -35,7 +35,7 @@ static void *uartbase;
 #define LCRH_FEN        (1<<4)
 #define LCRH_WLEN_8BIT  (3<<5)
 
-#define UART_FREQ   48000000ull
+#define UART_FREQ       48000000ull
 
 static u32 pl011_read(unsigned int reg) {
   return *(volatile u32 *)((u64)uartbase + reg);
@@ -133,6 +133,7 @@ static void pl011_dt_init(struct device_node *dev) {
 
 struct dt_compatible pl011_compat[] = {
   { "arm,pl011" },
+  { "arm,primecell" },
   {},
 };
 
