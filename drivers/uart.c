@@ -25,7 +25,11 @@ void uart_init() {
   if(!uart)
     panic("no uart?");
 
-  localnode.uart = &pl011;
+  const char *comp = dt_node_props(uart, "compatible");
+  if(!comp)
+    panic("uart compatible");
 
-  localnode.uart->init(uart);
+  int rc = compat_dt_device_init(__dt_serial_device, uart, comp);
+  if(rc < 0)
+    panic("no uart?");
 }

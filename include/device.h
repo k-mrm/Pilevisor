@@ -60,6 +60,15 @@ int compat_dt_device_init(struct dt_device *table, struct device_node *node,
     .init = initfn,                                             \
   };
 
+#define DT_SERIAL_INIT(name, comp, initfn)                     \
+  static struct dt_device _dt_serial_ ## name                  \
+    __used __section("__dt_serial_device") __aligned(8) = {    \
+    .dev_name = #name,                                         \
+    .compat = comp,                                            \
+    .init = initfn,                                            \
+  };
+
 extern struct dt_device __dt_irqchip_device[];
+extern struct dt_device __dt_serial_device[];
 
 #endif

@@ -8,6 +8,7 @@
 #include "vcpu.h"
 #include "irq.h"
 #include "mm.h"
+#include "localnode.h"
 #include "compiler.h"
 
 static void *uartbase;
@@ -91,8 +92,23 @@ static void pl011_intr(__unused void *arg) {
   pl011_write(ICR, INT_RX_ENABLE);
 }
 
-static void pl011_init(struct device_node *dev) {
-  uartbase = iomap(UARTBASE, PAGESIZE);
+static struct uartchip pl011 = {
+  .name = "pl011",
+  .putc = pl011_putc,
+  .puts = pl011_puts,
+};
+
+static void pl011_dt_init(struct device_node *dev) {
+  u64 reg[2];
+
+  int rc = dt_node_propa64(dev, "reg", reg);
+  if(rc < 0)
+    panic("?");
+
+  u64 uart_base = reg[0];
+  u64 uart_size = reg[1];
+
+  uartbase = iomap(uart_base, uart_size);
 
   /* disable uart */
   pl011_write(CR, 0);
@@ -110,11 +126,14 @@ static void pl011_init(struct device_node *dev) {
   pl011_write(CR, 0x301);   /* RXE, TXE, UARTEN */
 
   // irq_register(33, pl011_intr);
+  localnode.uart = &pl011;
+
+  printf("pl011 detected: %p\n", uartbase);
 }
 
-struct uartchip pl011 = {
-  .name = "pl011",
-  .init = pl011_init,
-  .putc = pl011_putc,
-  .puts = pl011_puts,
+struct dt_compatible pl011_compat[] = {
+  { "arm,pl011" },
+  {},
 };
+
+DT_SERIAL_INIT(pl011, pl011_compat, pl011_dt_init);
