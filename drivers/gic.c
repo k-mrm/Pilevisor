@@ -52,7 +52,7 @@ void irqchip_init_core() {
 
 void irqchip_init() {
   /* support only GICv2 or GICv3 */
-  struct device_node *n, *intc;
+  struct device_node *n;
 
   foreach_device_node_child(n, localnode.device_tree) {
     if(!dt_node_propb(n, "interrupt-controller"))
@@ -63,6 +63,10 @@ void irqchip_init() {
       continue;
 
     printf("intc: comp %s\n", comp);
+
+    int rc = compat_dt_device_init(__dt_irqchip_device, n, comp);
+    if(rc == 0)
+      break;
   }
 
   if(!n)

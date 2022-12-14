@@ -21,6 +21,16 @@ struct device_node {
   struct property *prop;
 };
 
+struct dt_compatible {
+  const char *comp;
+};
+
+struct dt_device {
+  char *dev_name;
+  struct dt_compatible *compat;
+  void (*init)(struct device_node *);
+};
+
 #define foreach_device_node_child(n, node)   \
   for(n = node->child; n; n = n->next)
 
@@ -38,18 +48,13 @@ struct device_node *dt_find_node_type_cont(struct device_node *node, const char 
                                             struct device_node *cont);
 struct device_node *dt_find_node_path(struct device_node *node, const char *path);
 
-struct dt_compatible {
-  const char *comp;
-};
-
-struct dt_device {
-  struct dt_compatible *compat;
-  void (*init)(struct device_node *);
-};
+int compat_dt_device_init(struct dt_device *table, struct device_node *node,
+                           const char *compat);
 
 #define DT_IRQCHIP_INIT(name, comp, initfn)                     \
   static struct dt_device _dt_irqchip_ ## name                  \
     __used __section("__dt_irqchip_device") __aligned(8) = {    \
+    .dev_name = #name,                                          \
     .compat = comp,                                             \
     .init = initfn,                                             \
   };

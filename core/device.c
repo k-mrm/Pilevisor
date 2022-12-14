@@ -116,6 +116,21 @@ struct device_node *dt_find_node_path(struct device_node *node, const char *path
   return NULL;
 }
 
+int compat_dt_device_init(struct dt_device *table, struct device_node *node,
+                           const char *compat) {
+  for(struct dt_device *dev = table; dev->dev_name[0] || dev->compat; dev++) {
+    for(struct dt_compatible *c = dev->compat; c->comp; c++) {
+      if(strcmp(c->comp, compat) == 0) {
+        dev->init(node);
+
+        return 0;
+      }
+    }
+  }
+
+  return -1;
+}
+
 void device_tree_init(void *fdt_base) {
   struct fdt fdt;
 
