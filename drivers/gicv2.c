@@ -253,9 +253,13 @@ static void gicv2_init_cpu(void) {
 }
 
 static void gicv2_dt_init(struct device_node *dev) {
+  /*
   gicc_base = iomap(GICCBASE, 0x10000);
   gicd_base = iomap(GICDBASE, 0x10000);
   gich_base = iomap(GICHBASE, 0x10000);
+  */
+  
+  panic("gicv2_dt_init");
 
   gicv2_d_init();
   gicv2_h_init();

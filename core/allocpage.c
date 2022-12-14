@@ -187,12 +187,12 @@ void pageallocator_init() {
   if(!memdev)
     panic("no memory device");
 
-  u32 reg[4];
-  int rc = dt_node_propa(memdev, "reg", reg);
+  u64 reg[2];
+  int rc = dt_node_propa64(memdev, "reg", reg);
   if(rc < 0)
     panic("memory device err");
 
-  phy_end = reg[1] + reg[3];
+  phy_end = reg[0] + reg[1];
 
   mem.start = early_alloc_end;
   mem.end = phy_end;

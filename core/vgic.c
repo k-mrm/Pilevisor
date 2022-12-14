@@ -684,9 +684,9 @@ static void load_new_vgic(void) {
 
   spinlock_init(&vgic->lock);
 
-  vmmio_reg_handler(GICDBASE, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
-  vmmio_reg_handler(GICRBASE, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
-  vmmio_reg_handler(GITSBASE, 0x20000, vgits_mmio_read, vgits_mmio_write);
+  vmmio_reg_handler(0x08000000, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
+  vmmio_reg_handler(0x080a0000, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
+  vmmio_reg_handler(0x08080000, 0x20000, vgits_mmio_read, vgits_mmio_write);
 
   localvm.vgic = vgic;
 }

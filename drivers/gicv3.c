@@ -457,19 +457,18 @@ static void gicv3_dt_init(struct device_node *dev) {
   u64 redist_base = reg[2];
   u64 redist_size = reg[3];
 
-  printf("GICv3 detected:\n");
-  printf("\tGICD: %p GICR: %p\n", reg[0], reg[2]);
-
   gicd_base = iomap(dist_base, dist_size);
   gicr_base = iomap(redist_base, redist_size);
 
   gicv3_d_init();
   gicv3_h_init();
 
+  printf("GICv3 detected:\n");
   printf("GICv3: nirqs: %d max_lr: %d\n", gicv3_irqchip.nirqs, gicv3_irqchip.max_lr);
-
   printf("GICv3: dist base %p\n"
          "       redist base %p\n", gicd_base, gicr_base);
+
+  localnode.irqchip = &gicv3_irqchip;
 }
 
 static struct gic_irqchip gicv3_irqchip = {
