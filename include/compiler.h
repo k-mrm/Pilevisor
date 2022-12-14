@@ -7,5 +7,6 @@
 #define __aligned(n)    __attribute__((aligned(n)))
 #define __noreturn      __attribute__((noreturn))
 #define __section(s)    __attribute__((section(s)))
+#define __used          __attribute__((used))
 
 #endif

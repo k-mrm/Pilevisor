@@ -6,6 +6,7 @@
 #include "irq.h"
 #include "log.h"
 #include "spinlock.h"
+#include "device.h"
 #include "panic.h"
 
 void gic_sgi_handler(enum gic_sgi_id sgi_id) {
@@ -28,7 +29,6 @@ static void gic_irqchip_check(struct gic_irqchip *irqchip) {
 
   bool all_implemented = true;
 
-  all_implemented &= !!(irqchip->init);
   all_implemented &= !!(irqchip->initcore);
   all_implemented &= !!(irqchip->inject_guest_irq);
   all_implemented &= !!(irqchip->irq_pending);
@@ -46,15 +46,30 @@ static void gic_irqchip_check(struct gic_irqchip *irqchip) {
     panic("irqchip: features incomplete");
 }
 
-void gic_init_cpu() {
+void irqchip_init_core() {
   localnode.irqchip->initcore();
 }
 
-void gic_init() {
+void irqchip_init() {
+  /* support only GICv2 or GICv3 */
+  struct device_node *n, *intc;
+
+  foreach_device_node_child(n, localnode.device_tree) {
+    if(!dt_node_propb(n, "interrupt-controller"))
+      continue;
+
+    const char *comp = dt_node_props(n, "compatible");
+    if(!comp)
+      continue;
+
+    printf("intc: comp %s\n", comp);
+  }
+
+  if(!n)
+    panic("no irqchip");
+
   if(!localnode.irqchip)
     panic("no irqchip");
 
   gic_irqchip_check(localnode.irqchip);
-
-  localnode.irqchip->init();
 }

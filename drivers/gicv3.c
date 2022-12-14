@@ -12,6 +12,7 @@
 #include "localnode.h"
 #include "mm.h"
 #include "compiler.h"
+#include "device.h"
 #include "panic.h"
 
 static struct gic_irqchip gicv3_irqchip;
@@ -445,7 +446,7 @@ static void gicv3_init_cpu() {
   gicv3_h_init();
 }
 
-static void gicv3_init(void) {
+static void gicv3_dt_init(struct device_node *dev) {
   gicd_base = iomap(GICDBASE, 0x10000);
   gicr_base = iomap(GICRBASE, 0xf60000);
 
@@ -461,9 +462,7 @@ static void gicv3_init(void) {
 static struct gic_irqchip gicv3_irqchip = {
   .version = 3,
 
-  .init             = gicv3_init,
   .initcore         = gicv3_init_cpu,
-
   .inject_guest_irq = gicv3_inject_guest_irq,
   .irq_pending      = gicv3_irq_pending,
   .host_eoi         = gicv3_host_eoi,
@@ -478,6 +477,9 @@ static struct gic_irqchip gicv3_irqchip = {
   .irq_handler      = gicv3_irq_handler,
 };
 
-void gicv3_sysinit() {
-  localnode.irqchip = &gicv3_irqchip;
-}
+static struct dt_compatible gicv3_compat[] = {
+  { "arm,gic-v3" },
+  {},
+};
+
+DT_IRQCHIP_INIT(gicv3, gicv3_compat, gicv3_dt_init);

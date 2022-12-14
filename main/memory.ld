@@ -41,6 +41,12 @@ SECTIONS {
     }
 
     . = ALIGN(4096);
+    .data.device : {
+      __dt_irqchip_device = .;
+      KEEP(*(__dt_irqchip_device));
+    }
+
+    . = ALIGN(16);
     .data : {
       *(.data) *(.data.*)
     }

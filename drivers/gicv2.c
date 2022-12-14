@@ -252,7 +252,7 @@ static void gicv2_init_cpu(void) {
   gicv2_h_init();
 }
 
-static void gicv2_init(void) {
+static void gicv2_dt_init(struct device_node *dev) {
   gicc_base = iomap(GICCBASE, 0x10000);
   gicd_base = iomap(GICDBASE, 0x10000);
   gich_base = iomap(GICHBASE, 0x10000);
@@ -270,9 +270,7 @@ static void gicv2_init(void) {
 static struct gic_irqchip gicv2_irqchip = {
   .version = 2,
 
-  .init             = gicv2_init,
   .initcore         = gicv2_init_cpu,
-
   .inject_guest_irq = gicv2_inject_guest_irq,
   .irq_pending      = gicv2_irq_pending,
   .host_eoi         = gicv2_host_eoi,
@@ -287,6 +285,9 @@ static struct gic_irqchip gicv2_irqchip = {
   .irq_handler      = gicv2_irq_handler,
 };
 
-void gicv2_sysinit() {
-  localnode.irqchip = &gicv2_irqchip;
-}
+static struct dt_compatible gicv2_compat[] = {
+  { "arm,gic-v2" },
+  {},
+};
+
+DT_IRQCHIP_INIT(gicv2, gicv2_compat, gicv2_dt_init);

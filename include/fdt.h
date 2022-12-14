@@ -63,6 +63,15 @@ static inline u32 fdt32_to_u32(fdt32 x) {
 
 #define u32_to_fdt32  fdt32_to_u32
 
+static inline u64 fdt64_to_u64(fdt64 x) {
+  return (x & 0xff) << 56 | ((x >> 8) & 0xff) << 48 |
+          ((x >> 16) & 0xff) << 40 | ((x >> 24) & 0xff) << 32 |
+          ((x >> 32) & 0xff) << 24 | ((x >> 40) & 0xff) << 16 |
+          ((x >> 48) & 0xff) << 8  | ((x >> 56) & 0xff);
+}
+
+#define u64_to_fdt64  fdt64_to_u64
+
 #define FDT_BEGIN_NODE    0x1
 #define FDT_END_NODE      0x2
 #define FDT_PROP          0x3

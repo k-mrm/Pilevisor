@@ -4,6 +4,7 @@
 #include "spinlock.h"
 #include "device.h"
 #include "localnode.h"
+#include "panic.h"
 #include "msg.h"
 
 struct pcpu pcpus[NCPU_MAX];
@@ -21,6 +22,8 @@ void pcpu_init_core() {
 
 void pcpu_init() {
   struct device_node *cpus = dt_find_node_path(localnode.device_tree, "/cpus");
+  if(!cpus)
+    panic("cpu?");
 
   struct device_node *cpu = NULL;
 
@@ -35,4 +38,6 @@ void pcpu_init() {
 
   if(nr_online_pcpus == 0)
     panic("no pcpu?");
+  if(nr_online_pcpus > NCPU_MAX)
+    panic("too many cpu");
 }

@@ -53,7 +53,7 @@ int vmm_init_secondary() {
   pcpu_init_core();
   vcpu_init_core();
 
-  gic_init_cpu();
+  irqchip_init_core();
 
   arch_timer_init_core();
 
@@ -82,9 +82,8 @@ int vmm_init_cpu0(void *fdt) {
   pcpu_init_core();
   vcpu_init_core();
 
-  gicv3_sysinit();
-  gic_init();
-  gic_init_cpu();
+  irqchip_init();
+  irqchip_init_core();
 
   powerctl_init();
 

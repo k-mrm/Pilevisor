@@ -80,9 +80,7 @@ struct gic_irqchip {
   int nirqs;
   int max_lr;
 
-  void (*init)(void);
   void (*initcore)(void);
-
   int (*inject_guest_irq)(struct gic_pending_irq *irq);
   bool (*irq_pending)(u32 irq);
   void (*host_eoi)(u32 iar);
@@ -105,8 +103,8 @@ struct gic_state {
   u32 sre_el1;
 };
 
-void gic_init(void);
-void gic_init_cpu(void);
+void irqchip_init(void);
+void irqchip_init_core(void);
 void gic_sgi_handler(enum gic_sgi_id sgi_id);
 
 #endif

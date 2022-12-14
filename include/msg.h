@@ -95,34 +95,40 @@ struct pocv2_msg_data {
   void (*recv_handler)(struct pocv2_msg *);
 };
 
-#define DEFINE_POCV2_MSG(ty, hdr_struct, handler)  \
-  struct pocv2_msg_size_data _msdata_##ty __section(".rodata.pocv2_msg") = {            \
-    .type = (ty),                                                                       \
-    .msg_hdr_size = sizeof(hdr_struct),                                                 \
-  };                                                                                    \
-  struct pocv2_msg_handler_data _mhdata_##ty __section(".rodata.pocv2_msg.common") = {  \
-    .type = (ty),                                                                       \
-    .recv_handler = handler,                                                            \
+#define DEFINE_POCV2_MSG(ty, hdr_struct, handler)       \
+  static struct pocv2_msg_size_data _msdata_##ty        \
+  __used __section(".rodata.pocv2_msg") = {             \
+    .type = (ty),                                       \
+    .msg_hdr_size = sizeof(hdr_struct),                 \
+  };                                                    \
+  static struct pocv2_msg_handler_data _mhdata_##ty     \
+  __used __section(".rodata.pocv2_msg.common") = {      \
+    .type = (ty),                                       \
+    .recv_handler = handler,                            \
   };
 
 #define DEFINE_POCV2_MSG_RECV_NODE0(ty, hdr_struct, handler)  \
-  struct pocv2_msg_size_data _msdata_##ty __section(".rodata.pocv2_msg") = {          \
-    .type = (ty),                                                                     \
-    .msg_hdr_size = sizeof(hdr_struct),                                               \
-  };                                                                                  \
-  struct pocv2_msg_handler_data _mhdata_##ty __section(".rodata.pocv2_msg.node0") = { \
-    .type = (ty),                                                                     \
-    .recv_handler = handler,                                                          \
+  static struct pocv2_msg_size_data _msdata_##ty              \
+  __used __section(".rodata.pocv2_msg") = {                   \
+    .type = (ty),                                             \
+    .msg_hdr_size = sizeof(hdr_struct),                       \
+  };                                                          \
+  static struct pocv2_msg_handler_data _mhdata_##ty           \
+  __used __section(".rodata.pocv2_msg.node0") = {             \
+    .type = (ty),                                             \
+    .recv_handler = handler,                                  \
   };
 
 #define DEFINE_POCV2_MSG_RECV_SUBNODE(ty, hdr_struct, handler)  \
-  struct pocv2_msg_size_data _msdata_##ty __section(".rodata.pocv2_msg") = {            \
-    .type = (ty),                                                                       \
-    .msg_hdr_size = sizeof(hdr_struct),                                                 \
-  };                                                                                    \
-  struct pocv2_msg_handler_data _mhdata_##ty __section(".rodata.pocv2_msg.subnode") = { \
-    .type = (ty),                                                                       \
-    .recv_handler = handler,                                                            \
+  static struct pocv2_msg_size_data _msdata_##ty                \
+  __used __section(".rodata.pocv2_msg") = {                     \
+    .type = (ty),                                               \
+    .msg_hdr_size = sizeof(hdr_struct),                         \
+  };                                                            \
+  static struct pocv2_msg_handler_data _mhdata_##ty             \
+  __used __section(".rodata.pocv2_msg.subnode") = {             \
+    .type = (ty),                                               \
+    .recv_handler = handler,                                    \
   };
 
 void send_msg(struct pocv2_msg *msg);

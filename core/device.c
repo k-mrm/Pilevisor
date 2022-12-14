@@ -66,6 +66,17 @@ const char *dt_node_props(struct device_node *node, const char *name) {
   return NULL;
 }
 
+bool dt_node_propb(struct device_node *node, const char *name) {
+  struct property *p = node->prop;
+
+  for(; p; p = p->next) {
+    if(strcmp(p->name, name) == 0)
+      return true;
+  }
+
+  return false;
+}
+
 struct device_node *dt_find_node_type_cont(struct device_node *node, const char *type,
                                             struct device_node *cont) {
   if(!node || !type)
