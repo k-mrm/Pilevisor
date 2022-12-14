@@ -1,7 +1,6 @@
 #ifndef CORE_PARAM_H
 #define CORE_PARAM_H
 
-#define UARTBASE    0x09000000
 #define RTCBASE     0x09010000
 #define GPIOBASE    0x09030000
 #define VIRTIO0     0x0a000000
@@ -16,7 +15,7 @@
 #define PHYEND      (VMMBASE+PHYSIZE)
 
 /* global vm memory size = 768 MB */
-#define GVM_MEMORY            (512*1024*1024)
+#define GVM_MEMORY            (1024*1024*1024)
 
 /* 256 MiB per Node */
 #define MEM_PER_NODE          (256*1024*1024)
@@ -33,6 +32,6 @@
 /* max node */
 #define NODE_MAX  32
 
-#define NR_NODE   2
+#define NR_NODE   4
 
 #endif

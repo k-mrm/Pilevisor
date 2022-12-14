@@ -47,6 +47,10 @@ void panic(const char *fmt, ...) {
 
   va_end(ap);
 
-  for(;;)
-    asm volatile("wfi");
+  node_cluster_dump();
+
+  for(;;) {
+    wfi();
+    wfe();
+  }
 }

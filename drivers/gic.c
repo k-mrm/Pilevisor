@@ -25,8 +25,6 @@ static void gic_irqchip_check(struct gic_irqchip *irqchip) {
   if(version != 2 && version != 3)
     panic("GIC?");
 
-  printf("irqchip: GICv%d detected\n", version);
-
   bool all_implemented = true;
 
   all_implemented &= !!(irqchip->initcore);

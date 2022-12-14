@@ -91,7 +91,7 @@ void map_guest_image(u64 *pgt, struct guest *img, u64 ipa) {
 }
 
 void map_guest_peripherals(u64 *s2pgt) {
-  vmiomap_passthrough(s2pgt, UARTBASE, PAGESIZE);
+  vmiomap_passthrough(s2pgt, 0x09000000, PAGESIZE);
   vmiomap_passthrough(s2pgt, GPIOBASE, PAGESIZE);
   vmiomap_passthrough(s2pgt, RTCBASE, PAGESIZE);
   /*

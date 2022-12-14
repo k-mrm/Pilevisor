@@ -28,6 +28,33 @@ struct cpu_wakeup_ack_hdr {
   i32 ret;
 };
 
+static char *psci_status_map(int status) {
+  switch(status) {
+    case PSCI_SUCCESS:
+      return "SUCCESS";
+    case PSCI_NOT_SUPPORTED:
+      return "NOT_SUPPORTED";
+    case PSCI_INVALID_PARAMETERS:
+      return "INVALID_PARAMETERS";
+    case PSCI_DENIED:
+      return "DENIED"; 
+    case PSCI_ALREADY_ON:
+      return "ALREADY_ON";
+    case PSCI_ON_PENDING:
+      return "ON_PENDING"; 
+    case PSCI_INTERNAL_FAILURE:
+      return "INTERNAL_FAILURE"; 
+    case PSCI_NOT_PRESENT:
+      return "NOT_PRESENT"; 
+    case PSCI_DISABLED:
+      return "DISABLED"; 
+    case PSCI_INVALID_ADDRESS:
+      return "INVALID_ADDRESS";
+    default:
+      return "???";
+  }
+}
+
 static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid) {
   struct pocv2_msg msg;
   struct pocv2_msg *reply;
@@ -47,6 +74,9 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
   reply = pocv2_recv_reply(&msg);
 
   struct cpu_wakeup_ack_hdr *ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
+
+  vmm_log("get ack!!!!!!!!!! %p\n", ack);
+
   int ret = ack->ret;
 
   vmm_log("remote vcpu wakeup status: %d(=%s)\n", ret, psci_status_map(ret));

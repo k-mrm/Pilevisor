@@ -424,6 +424,8 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
 
   page_pa = (void *)PTE_PA(*pte);
 
+  vmm_log("rf: get page %p\n", page_pa);
+
   /* read data */
   if(d)
     memcpy(d->buf, (char *)page_pa + d->offset, d->size);
@@ -633,7 +635,7 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
     /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, page_ipa, 0);
   } else {
-    panic("read server: read %p %d unreachable", page_ipa, req_nodeid);
+    panic("read server: read %p (manager %d) %d unreachable", page_ipa, manager, req_nodeid);
   }
 
   return 0;
@@ -690,7 +692,7 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
     /* now owner is request node */
     cache_page_set_owner(p, req_nodeid);
   } else {
-    panic("write server: %p %d unreachable", page_ipa, req_nodeid);
+    panic("write server: %p (manager %d) %d unreachable", page_ipa, manager, req_nodeid);
   }
 
   return 0;

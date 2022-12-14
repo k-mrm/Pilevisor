@@ -99,6 +99,8 @@ struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
   struct pocv2_msg *msg = q->head;
   q->head = q->head->next;
 
+  msg->next = NULL;
+
   spin_unlock_irqrestore(&q->lock, flags); 
 
   return msg;
@@ -189,6 +191,8 @@ void send_msg(struct pocv2_msg *msg) {
   if(memcmp(pocv2_msg_dst_mac(msg), localnode.nic->mac, 6) == 0)
     panic("send msg to me %m %m", pocv2_msg_dst_mac(msg), cluster_me()->mac);
 
+  vmm_log("send msg to %m\n", pocv2_msg_dst_mac(msg));
+
   struct iobuf *buf = alloc_iobuf(64);
 
   struct etherheader *eth = (struct etherheader *)buf->data;
@@ -210,13 +214,19 @@ void send_msg(struct pocv2_msg *msg) {
 static void replyq_enqueue(struct pocv2_msg *msg) {
   struct pocv2_msg_queue *q = &replyq[msg->hdr->type];
 
+  vmm_log("replyq enqueue q %p %p\n", q, msg);
+
   pocv2_msg_enqueue(q, msg);
 }
 
 static struct pocv2_msg *replyq_dequeue(enum msgtype type) {
   struct pocv2_msg_queue *q = &replyq[type];
 
-  return pocv2_msg_dequeue(q);
+  struct pocv2_msg *rep = pocv2_msg_dequeue(q);
+
+  vmm_log("replyq dequeue q %p %p\n", q, rep);
+
+  return rep;
 }
 
 struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
@@ -229,7 +239,7 @@ struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
 
   reply = replyq_dequeue(reptype);
 
-  printf("recv %s(%p)!!!!!!!!!!!!!!!!!\n", msmap[reptype], read_sysreg(daif));
+  printf("recv %s(%p)!!!!!!!!!!!!!!!!!\n", msmap[reptype], reply);
 
   return reply;
 }

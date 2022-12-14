@@ -19,11 +19,11 @@ NCPU = 1
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 2
+GUEST_NCPU = 4
 endif
 
 ifndef GUEST_MEMORY
-GUEST_MEMORY = 512
+GUEST_MEMORY = 1G
 endif
 
 # directory

@@ -46,7 +46,8 @@
 #define isb()     asm volatile("isb");
 #define dsb(ty)   asm volatile("dsb " #ty);
 
-#define wfi()     asm volatile("wfi");
+#define wfi()     asm volatile("wfi" ::: "memory");
+#define wfe()     asm volatile("wfe" ::: "memory");
 
 #define sev()     asm volatile("sev");
 #define sevl()    asm volatile("sevl");

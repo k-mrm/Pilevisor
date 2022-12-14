@@ -142,9 +142,10 @@ int compat_dt_device_init(struct dt_device *table, struct device_node *node,
   for(struct dt_device *dev = table; dev->dev_name[0] || dev->compat; dev++) {
     for(struct dt_compatible *c = dev->compat; c->comp; c++) {
       if(strcmp(c->comp, compat) == 0) {
-        dev->init(node);
-
-        return 0;
+        if(dev->init) {
+          dev->init(node);
+          return 0;
+        }
       }
     }
   }
