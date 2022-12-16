@@ -28,7 +28,7 @@ static inline void s2pte_rw(u64 *pte) {
 }
 
 static inline int s2pte_copyset(u64 *pte) {
-  return (*pte >> S2PTE_COPYSET_SHIFT) & 0x7;
+  return (*pte >> S2PTE_COPYSET_SHIFT) & 0xf;
 }
 
 static inline void s2pte_add_copyset(u64 *pte, int nodeid) {
