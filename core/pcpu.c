@@ -5,11 +5,29 @@
 #include "device.h"
 #include "localnode.h"
 #include "panic.h"
+#include "gic.h"
 #include "msg.h"
 
 struct pcpu pcpus[NCPU_MAX];
 char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 int nr_online_pcpus;
+
+void cpu_stop_all() {
+  struct gic_sgi sgi = {
+    .sgi_id = SGI_STOP,
+    .mode = ROUTE_BROADCAST,
+  };
+
+  localnode.irqchip->send_sgi(&sgi);
+}
+
+void cpu_stop_local() {
+  local_irq_disable();
+  printf("cpu%d stop\n", cpuid());
+
+  for(;;)
+    wfi();
+}
 
 void pcpu_init_core() {
   if(!mycpu->online)

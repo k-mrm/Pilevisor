@@ -34,6 +34,9 @@ struct pcpu {
 
 extern struct pcpu pcpus[NCPU_MAX];
 
+void cpu_stop_local(void);
+void cpu_stop_all(void);
+
 void pcpu_init_core(void);
 void pcpu_init(void);
 

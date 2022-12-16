@@ -62,8 +62,8 @@ enum sgi_mode {
 
 struct gic_sgi {
   enum gic_sgi_id sgi_id;
-  u16 targets;
   /* TODO: Affinity? */
+  u16 targets;
   enum sgi_mode mode;
 };
 

@@ -214,10 +214,13 @@ static void gicv3_guest_eoi(u32 iar) {
 
 static void gicv3_send_sgi(struct gic_sgi *sgi) {
   u64 sgir = (sgi->sgi_id & 0xf) << ICC_SGI1R_INTID_SHIFT;
-  sgir |= sgi->targets & 0xffff;
 
   if(sgi->mode == ROUTE_BROADCAST) {
     sgir |= 1ul << 40;      // IRM
+  } else if(sgi->mode == ROUTE_TARGETS) {
+    sgir |= sgi->targets & 0xffff;
+  } else {
+    panic("unknown sgi");
   }
 
   dsb(ish);
@@ -387,7 +390,6 @@ static void gicv3_d_init(void) {
   if(archrev != 0x3)
     panic("gicv3?");
 
-  vmm_log("GICv3 found\n");
   vmm_log("GICv3: security state: %s\n", security_disabled() ? "disabled" : "enabled");
 
   u32 lines = gicd_r(GICD_TYPER) & 0x1f;

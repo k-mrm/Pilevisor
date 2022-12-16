@@ -1,4 +1,5 @@
 #include "types.h"
+#include "pcpu.h"
 #include "vcpu.h"
 #include "localnode.h"
 #include "gic.h"
@@ -13,6 +14,9 @@ void gic_sgi_handler(enum gic_sgi_id sgi_id) {
   switch(sgi_id) {
     case SGI_INJECT:  /* inject guest pending interrupt */
       vgic_inject_pending_irqs();
+      break;
+    case SGI_STOP:
+      cpu_stop_local();
       break;
     default:
       panic("unknown sgi %d", sgi_id);

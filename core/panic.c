@@ -3,6 +3,7 @@
 #include "panic.h"
 #include "pcpu.h"
 #include "vcpu.h"
+#include "localnode.h"
 #include "memory.h"
 
 static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
@@ -27,12 +28,14 @@ void panic(const char *fmt, ...) {
   isb();
   dsb(sy);
 
-  intr_disable();
+  local_irq_disable();
+
+  cpu_stop_all();
 
   va_list ap;
   va_start(ap, fmt);
 
-  printf("!!!!!!vmm panic cpu%d: ", cpuid());
+  printf("!!!!!!vmm panic Node%d:cpu%d: ", local_nodeid(), cpuid());
   vprintf(fmt, ap);
   printf("\n");
 
