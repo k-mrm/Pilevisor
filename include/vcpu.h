@@ -61,6 +61,7 @@ void vcpu_entry(void);
 void vcpuid_init(u32 *vcpuids, int nvcpu);
 
 void vcpu_init_core(void);
+void vcpu_preinit(void);
 void wait_for_current_vcpu_online(void);
 
 void vcpu_dump(struct vcpu *vcpu);

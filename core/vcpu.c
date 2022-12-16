@@ -84,9 +84,6 @@ void vcpu_init_core() {
 
   /* current = vcpu */
 
-  spinlock_init(&vcpu->lock);
-  spinlock_init(&vcpu->pending.lock);
-
   vgic_cpu_init(vcpu);
 
   vcpu->reg.spsr = PSR_EL1H;     /* EL1h */
@@ -104,6 +101,13 @@ void wait_for_current_vcpu_online() {
 
   while(!current->online)
     wfi();
+}
+
+void vcpu_preinit() {
+  for(struct vcpu *v = localvm.vcpus; v < &localvm.vcpus[VCPU_PER_NODE_MAX]; v++) {
+    spinlock_init(&v->lock);
+    spinlock_init(&v->pending.lock);
+  }
 }
 
 void vcpu_dump(struct vcpu *vcpu) {

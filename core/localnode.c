@@ -9,8 +9,12 @@
 
 struct localnode localnode;    /* me */
 
+void localvm_initcore() {
+  vcpu_init_core();
+}
+
 void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
-  vmm_log("node n vCPU: %d total RAM: %p byte\n", nvcpu, nalloc);
+  printf("this node vCPU: %d total RAM: %p byte\n", nvcpu, nalloc);
 
   localvm.nvcpu = nvcpu;
   localvm.nalloc = nalloc;
@@ -24,9 +28,8 @@ void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
   /* TODO: determines vm's device info from fdt file */
   (void)guest_fdt;
 
+  vcpu_preinit();
   s2mmu_init();
-
   map_guest_peripherals(localvm.vttbr);
-
   vgic_init();
 }

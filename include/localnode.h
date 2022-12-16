@@ -61,6 +61,7 @@ extern struct localnode localnode;
 #define localvm           (localnode.vm)
 
 void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt);
+void localvm_initcore(void);
 
 static inline struct vcpu *node_vcpu(int vcpuid) {
   for(struct vcpu *v = localvm.vcpus; v < &localvm.vcpus[localvm.nvcpu]; v++) {

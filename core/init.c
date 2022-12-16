@@ -51,13 +51,14 @@ int vmm_init_secondary() {
   vmm_log("cpu%d activated...\n", cpuid());
 
   pcpu_init_core();
-  vcpu_init_core();
 
   irqchip_init_core();
 
   arch_timer_init_core();
 
   hcr_setup();
+
+  localvm_initcore();
 
   localnode.ctl->startcore();
 
@@ -80,7 +81,6 @@ int vmm_init_cpu0(void *fdt) {
 
   pcpu_init();
   pcpu_init_core();
-  vcpu_init_core();
 
   irqchip_init();
   irqchip_init_core();
@@ -99,6 +99,7 @@ int vmm_init_cpu0(void *fdt) {
   nodectl_init();
 
   localvm_init(2, 256 * MiB, &virt_dtb);
+  localvm_initcore();
 
   localnode.ctl->init();
   localnode.ctl->startcore();
