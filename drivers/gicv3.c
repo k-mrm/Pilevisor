@@ -423,6 +423,10 @@ static void gicv3_r_init() {
   gicr_w32(id, GICR_IGROUPR0, ~0);
   gicr_w32(id, GICR_IGRPMODR0, 0);
 
+  gicr_w32(id, GICR_ICACTIVER0, 0xffffffff);
+  gicr_w32(id, GICR_ICENABLER0, 0xffff0000);
+  gicr_w32(id, GICR_ISENABLER0, 0x0000ffff);
+
   u32 waker = gicr_r32(id, GICR_WAKER);
   gicr_w32(id, GICR_WAKER, waker & ~(1<<1));
   while(gicr_r32(id, GICR_WAKER) & (1<<2))

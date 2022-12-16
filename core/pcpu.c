@@ -23,7 +23,6 @@ void cpu_stop_all() {
 
 void cpu_stop_local() {
   local_irq_disable();
-  printf("cpu%d stop\n", cpuid());
 
   for(;;)
     wfi();
