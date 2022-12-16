@@ -75,6 +75,8 @@ void pocv2_msg_queue_init(struct pocv2_msg_queue *q) {
 void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg) {
   u64 flags;
 
+  msg->next = NULL;
+
   spin_lock_irqsave(&q->lock, flags); 
 
   if(q->head == NULL)
@@ -98,8 +100,6 @@ struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
 
   struct pocv2_msg *msg = q->head;
   q->head = q->head->next;
-
-  msg->next = NULL;
 
   spin_unlock_irqrestore(&q->lock, flags); 
 

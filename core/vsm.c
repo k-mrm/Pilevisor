@@ -30,7 +30,7 @@ static u64 w_copyset = 0;
 static u64 w_roowner = 0;
 static u64 w_inv = 0;
 
-static char *pte_state[4] = {
+static const char *pte_state[4] = {
   [0]   "INV",
   [1]   " RO",
   [2]   " WO",
@@ -247,7 +247,7 @@ static inline int page_manager(u64 ipa) {
 }
 
 static inline u64 *vsm_wait_for_recv_timeout(u64 *vttbr, u64 page_ipa) {
-  int timeout_us = 3000000;   // wait for 3s
+  int timeout_us = 2000000;   // wait for 2s
   u64 *pte;
 
   while(!(pte = page_accessible_pte(vttbr, page_ipa)) && timeout_us--) {
@@ -322,7 +322,7 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
   int node = 0;
   do {
     if((copyset & 1) && (node != local_nodeid())) {
-      vmm_log("send invalidate msg to Node %d\n", node);
+      vmm_log("send invalidate %p msg to Node %d\n", ipa, node);
 
       pocv2_msg_init2(&msg, node, MSG_INVALIDATE, &hdr, NULL, 0);
 
@@ -635,7 +635,8 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
     /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, page_ipa, 0);
   } else {
-    panic("read server: read %p (manager %d) %d unreachable", page_ipa, manager, req_nodeid);
+    printf("read server: read %p (manager %d) from Node %d", page_ipa, manager, req_nodeid);
+    panic("unreachable");
   }
 
   return 0;

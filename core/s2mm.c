@@ -91,11 +91,10 @@ void map_guest_image(u64 *pgt, struct guest *img, u64 ipa) {
 }
 
 void map_guest_peripherals(u64 *s2pgt) {
-  vmiomap_passthrough(s2pgt, 0x09000000, PAGESIZE);
-  vmiomap_passthrough(s2pgt, GPIOBASE, PAGESIZE);
-  vmiomap_passthrough(s2pgt, RTCBASE, PAGESIZE);
+  vmiomap_passthrough(s2pgt, 0x09000000, PAGESIZE);   // UART
+  vmiomap_passthrough(s2pgt, 0x09010000, PAGESIZE);   // RTC
+  vmiomap_passthrough(s2pgt, 0x09030000, PAGESIZE);   // GPIO
   /*
-  vmiomap_passthrough(s2pgt, VIRTIO0, 0x4000);
   vmiomap_passthrough(s2pgt, PCIE_ECAM_BASE, 256*1024*1024);
   vmiomap_passthrough(s2pgt, PCIE_MMIO_BASE, 0x2eff0000);
   vmiomap_passthrough(s2pgt, PCIE_HIGH_MMIO_BASE, 0x100000);

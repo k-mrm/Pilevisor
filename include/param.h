@@ -1,8 +1,6 @@
 #ifndef CORE_PARAM_H
 #define CORE_PARAM_H
 
-#define RTCBASE     0x09010000
-#define GPIOBASE    0x09030000
 #define VIRTIO0     0x0a000000
 
 #define PCIE_MMIO_BASE       0x10000000

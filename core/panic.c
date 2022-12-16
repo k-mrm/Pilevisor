@@ -3,6 +3,7 @@
 #include "panic.h"
 #include "pcpu.h"
 #include "vcpu.h"
+#include "memory.h"
 
 static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
   if(sp >= (u64)mycpu->stackbase || bsp > sp)
@@ -10,6 +11,10 @@ static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
 
   u64 x29 = *(u64 *)(sp);
   u64 x30 = *(u64 *)(sp + 8);
+  u64 callee = x30 - 4;
+
+  if(!is_vmm_text(callee))
+    return -1;
 
   printf("\tfrom: %p\n", x30 - 4);
 
@@ -19,6 +24,9 @@ static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
 }
 
 void panic(const char *fmt, ...) {
+  isb();
+  dsb(sy);
+
   intr_disable();
 
   va_list ap;
