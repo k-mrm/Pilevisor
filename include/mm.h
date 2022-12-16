@@ -137,21 +137,6 @@
 #define PTE_NORMAL_NC       PTE_INDX(AI_NORMAL_NC_IDX)
 #define PTE_NORMAL          PTE_INDX(AI_NORMAL_IDX)
 
-/* stage 2 attribute */
-#define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
-
-#define S2PTE_S2AP_MASK   (3ul << 6)
-#define S2PTE_RO          S2PTE_S2AP(1ul)
-#define S2PTE_WO          S2PTE_S2AP(2ul)
-#define S2PTE_RW          S2PTE_S2AP(3ul)
-
-#define S2PTE_DBM         (1ul << 51)
-
-/* use bit[58:55] to keep page's copyset  */
-#define S2PTE_COPYSET_SHIFT 55
-#define S2PTE_COPYSET(c)    (((u64)(c) & 0xf) << S2PTE_COPYSET_SHIFT)
-#define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0xf)
-
 #define PTE_PA(pte)         ((u64)(pte) & 0xfffffffff000)
 
 #define PAGESIZE          4096  /* 4KB */

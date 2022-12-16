@@ -14,6 +14,7 @@ extern char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 struct pcpu {
   void *stackbase;
   int mpidr;
+  bool online;
   bool wakeup;
   
   struct pocv2_msg_queue recv_waitq;

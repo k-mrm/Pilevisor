@@ -12,6 +12,9 @@ char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 int nr_online_pcpus;
 
 void pcpu_init_core() {
+  if(!mycpu->online)
+    panic("offline cpu?");
+
   mycpu->stackbase = _stack + PAGESIZE * (cpuid() + 1);
   mycpu->mpidr = cpuid();    /* affinity? */
   mycpu->wakeup = true;
@@ -26,18 +29,27 @@ void pcpu_init() {
     panic("cpu?");
 
   struct device_node *cpu = NULL;
+  u32 reg;
 
   do {
     cpu = dt_find_node_type_cont(cpus, "cpu", cpu);
     if(!cpu)
       break;
 
-    nr_online_pcpus++;
-    printf("cpu: %s\n", cpu->name);
+    if(nr_online_pcpus++ > NCPU_MAX)
+      panic("too many cpu");
+
+    int rc = dt_node_propa(cpu, "reg", &reg);
+    if(rc < 0)
+      panic("cpu? %s", cpu->name);
+
+    const char *compat = dt_node_props(cpu, "compatible");
+
+    printf("cpu: %s id: %d compat %s\n", cpu->name, reg, compat);
+
+    pcpus[reg].online = true;
   } while(1);
 
   if(nr_online_pcpus == 0)
     panic("no pcpu?");
-  if(nr_online_pcpus > NCPU_MAX)
-    panic("too many cpu");
 }

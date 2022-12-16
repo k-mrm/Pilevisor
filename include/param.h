@@ -3,17 +3,13 @@
 
 #define VIRTIO0     0x0a000000
 
-#define PCIE_MMIO_BASE       0x10000000
-#define PCIE_HIGH_MMIO_BASE  0x8000000000ULL
-#define PCIE_ECAM_BASE       0x4010000000ULL
-
 #define VMMBASE     0x40000000
 
 #define PHYSIZE     (512*1024*1024)     /* 512 MB */
 #define PHYEND      (VMMBASE+PHYSIZE)
 
 /* global vm memory size = 768 MB */
-#define GVM_MEMORY            (1024*1024*1024)
+#define GVM_MEMORY            (512*1024*1024)
 
 /* 256 MiB per Node */
 #define MEM_PER_NODE          (256*1024*1024)
@@ -30,6 +26,6 @@
 /* max node */
 #define NODE_MAX  32
 
-#define NR_NODE   4
+#define NR_NODE   2
 
 #endif

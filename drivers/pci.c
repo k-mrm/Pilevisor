@@ -1,5 +1,6 @@
 /*
  *  PCI driver
+ *  XXX: virt board
  */
 
 #include "pci.h"
@@ -80,7 +81,7 @@ static void pci_func_enable(struct pci_dev *dev) {
 static void pci_scan_bus() {
   struct pci_dev dev;
   struct pci_config *cfg;
-  struct pci_config_space *space = (struct pci_config_space *)PCIE_ECAM_BASE;
+  struct pci_config_space *space = (struct pci_config_space *)0x4010000000ul;
 
   for(int bc = 0; bc < 256; bc++)
     for(int dc = 0; dc < 32; dc++)

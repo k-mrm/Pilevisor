@@ -238,6 +238,12 @@ void node_cluster_dump() {
            "\t\tvm memory: %p - %p\n"
            "\t\tnum of vcpus: %d\n",
            id, node->mac, online, active, memstart, memend, node->nvcpu);
+
+    printf("\t\tvcpuid: ");
+    for(int i = 0; i < node->nvcpu; i++) {
+      printf("%d ", node->vcpus[i]);
+    }
+    printf("\n");
   }
 }
 

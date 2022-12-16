@@ -27,7 +27,7 @@ struct hyp_context {
   u64 elr;
 } __packed;
 
-static const char *dabort_dfsc_enc[64] = {
+static const char *xabort_xfsc_enc[64] = {
   [0x0]   "Address size fault Level0 or translation table base register",
   [0x1]   "Address size fault Level1",
   [0x2]   "Address size fault Level2",
@@ -233,7 +233,7 @@ static int hvc_handler(struct vcpu *vcpu, int imm) {
 static void dabort_iss_dump(u64 iss) {
   int dfsc = iss & 0x3f;
 
-  const char *status = dabort_dfsc_enc[dfsc];
+  const char *status = xabort_xfsc_enc[dfsc];
   if(!status)
     status = "(nil)";
 
@@ -254,12 +254,18 @@ static void dabort_iss_dump(u64 iss) {
 }
 
 static void iabort_iss_dump(u64 iss) {
+  int ifsc = iss & 0x3f;
+
+  const char *status = xabort_xfsc_enc[ifsc];
+  if(!status)
+    status = "(nil)";
+
   printf("iabort:\n");
   printf("\tSET  : %d\n", (iss >> 11) & 0x3);
   printf("\tFnV  : %d\n", (iss >> 10) & 0x1);
   printf("\tEA   : %d\n", (iss >> 9) & 0x1);
   printf("\tS1PTW: %d\n", (iss >> 7) & 0x1);
-  printf("\tIFSC : %p\n", iss & 0x3f);
+  printf("\tIFSC : %p (%s)\n", ifsc, status);
 }
 
 void vm_sync_handler() {

@@ -15,7 +15,7 @@ GIC_VERSION = 3
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 
 ifndef NCPU
-NCPU = 1
+NCPU = 2
 endif
 
 ifndef GUEST_NCPU
@@ -23,25 +23,30 @@ GUEST_NCPU = 4
 endif
 
 ifndef GUEST_MEMORY
-GUEST_MEMORY = 1G
+GUEST_MEMORY = 512
 endif
 
 # directory
+B = boot
 C = core
 D = drivers
 M = main
 S = sub
 
+BOOTOBJS = $(patsubst %.c,%.o,$(wildcard $(B)/*.c))
+BOOTOBJS += $(patsubst %.S,%.o,$(wildcard $(B)/*.S))
+
 COREOBJS = $(patsubst %.c,%.o,$(wildcard $(C)/*.c))
 COREOBJS += $(patsubst %.S,%.o,$(wildcard $(C)/*.S))
+
 DRVOBJS = $(patsubst %.c,%.o,$(wildcard $(D)/*.c))
 DRVOBJS += $(patsubst %.c,%.o,$(wildcard $(D)/virtio/*.c))
 
 MOBJS = $(patsubst %.c,%.o,$(wildcard $(M)/*.c))
 SOBJS = $(patsubst %.c,%.o,$(wildcard $(S)/*.c))
 
-MAINOBJS = $(COREOBJS) $(DRVOBJS) $(MOBJS)
-SUBOBJS = $(COREOBJS) $(DRVOBJS) $(SOBJS)
+MAINOBJS = $(BOOTOBJS) $(COREOBJS) $(DRVOBJS) $(MOBJS)
+SUBOBJS = $(BOOTOBJS) $(COREOBJS) $(DRVOBJS) $(SOBJS)
 
 MAINDEP = $(MAINOBJS:.o=.d)
 SUBDEP = $(SUBOBJS:.o=.d)
@@ -179,7 +184,7 @@ dtb:
 
 clean:
 	make -C guest clean
-	$(RM) $(COREOBJS) $(DRVOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d *.dtb *.dts
+	$(RM) $(BOOTOBJS) $(COREOBJS) $(DRVOBJS) $(MOBJS) $(SOBJS) poc-main poc-sub *.img *.o */*.d *.dtb *.dts
 
 -include: $(MAINDEP) $(SUBDEP)
 

@@ -10,6 +10,21 @@ void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size);
 void s2mmu_init_core(void);
 void s2mmu_init(void);
 
+/* stage 2 attribute */
+#define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
+
+#define S2PTE_S2AP_MASK   (3ul << 6)
+#define S2PTE_RO          S2PTE_S2AP(1ul)
+#define S2PTE_WO          S2PTE_S2AP(2ul)
+#define S2PTE_RW          S2PTE_S2AP(3ul)
+
+#define S2PTE_DBM         (1ul << 51)
+
+/* use bit[58:55] to keep page's copyset  */
+#define S2PTE_COPYSET_SHIFT 55
+#define S2PTE_COPYSET(c)    (((u64)(c) & 0xf) << S2PTE_COPYSET_SHIFT)
+#define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0xf)
+
 static inline int s2pte_perm(u64 *pte) {
   return (*pte & S2PTE_S2AP_MASK) >> 6;
 }
