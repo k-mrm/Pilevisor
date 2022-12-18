@@ -10,7 +10,7 @@
 
 struct pcpu pcpus[NCPU_MAX];
 char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
-int nr_online_pcpus;
+static int nr_online_pcpus;
 
 void cpu_stop_all() {
   struct gic_sgi sgi = {

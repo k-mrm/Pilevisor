@@ -124,6 +124,12 @@ static inline int page_trylock(u64 ipa) {
   return r;
 }
 
+static inline void page_spinlock(u64 ipa) {
+  u8 *lock = &ipa_to_desc(ipa)->lock;
+
+  spin_lock(lock);
+}
+
 static inline void page_unlock(u64 ipa) {
   u8 *lock = &ipa_to_desc(ipa)->lock;
 
@@ -404,8 +410,11 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   if(manager < 0)
     return NULL;
 
+  page_spinlock(page_ipa);
+  /*
   if(page_trylock(page_ipa))
     panic("rf: locked %p", page_ipa);
+    */
 
   if(manager == local_nodeid()) {   /* I am manager */
     /* receive page from owner of page */
@@ -466,8 +475,11 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   if(manager < 0)
     return NULL;
 
+  page_spinlock(page_ipa);
+  /*
   if(page_trylock(page_ipa))
     panic("wf: locked %p", page_ipa);
+    */
 
   if(!local_irq_enabled())
     panic("bug: local irq disabled");

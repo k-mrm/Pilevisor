@@ -74,7 +74,7 @@ SECTIONS {
 
     . = ALIGN(0x200000);
     /*
-     *  reserver 2MB for vmm initialization
+     *  reserve 2MB for vmm initialization
      */
     .boot_earlymem : {
       __earlymem_start = .;

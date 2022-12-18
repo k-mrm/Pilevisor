@@ -6,7 +6,7 @@
 #include "log.h"
 #include "panic.h"
 
-#define SPINLOCK_DEBUG
+// #define SPINLOCK_DEBUG
 
 #ifdef SPINLOCK_DEBUG
 
@@ -78,7 +78,7 @@ static inline void spin_lock(spinlock_t *lk) {
   );
 
   lk->cpuid = cpuid();
-#else
+#else   /* !SPINLOCK_DEBUG */
   asm volatile(
     "sevl\n"
     "1: wfe\n"
