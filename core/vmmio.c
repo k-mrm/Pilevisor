@@ -71,7 +71,7 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
   hdr.vcpuid = target_vcpuid;
   memcpy(&hdr.mmio, mmio, sizeof(*mmio));
 
-  vmm_log("vmmio forwarding to vcpu%d\n", target_vcpuid);
+  printf("vmmio forwarding to vcpu%d %p\n", target_vcpuid, mmio->ipa);
 
   pocv2_msg_init2(&msg, target_nodeid, MSG_MMIO_REQUEST, &hdr, NULL, 0);
 
@@ -102,8 +102,6 @@ static void vmmio_reply(u8 *dst_mac, enum vmmio_status status, u64 addr, u64 val
   hdr.val = val;
   hdr.status = status;
 
-  vmm_log("vmmio reply\n");
-
   pocv2_msg_init(&msg, dst_mac, MSG_MMIO_REPLY, &hdr, NULL, 0);
 
   send_msg(&msg);
@@ -120,7 +118,8 @@ static void vmmio_req_recv_intr(struct pocv2_msg *msg) {
   if(vmmio_emulate(vcpu, &hdr->mmio) < 0)
     status = VMMIO_FAILED;
 
-  vmm_log("mmio access %s %p %p\n", hdr->mmio.wnr ? "write" : "read", hdr->mmio.ipa, hdr->mmio.val);
+  printf("mmio access %s %p %p\n",
+          hdr->mmio.wnr ? "write" : "read", hdr->mmio.ipa, hdr->mmio.val);
 
   vmmio_reply(pocv2_msg_src_mac(msg), status, hdr->mmio.ipa, hdr->mmio.val);
 }

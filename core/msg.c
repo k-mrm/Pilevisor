@@ -93,8 +93,10 @@ void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg) {
 struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
   u64 flags;
 
-  while(pocv2_msg_queue_empty(q))
-    wfi();
+  while(pocv2_msg_queue_empty(q)) {
+    ;
+    // wfi();
+  }
 
   spin_lock_irqsave(&q->lock, flags); 
 
@@ -214,8 +216,6 @@ void send_msg(struct pocv2_msg *msg) {
 static void replyq_enqueue(struct pocv2_msg *msg) {
   struct pocv2_msg_queue *q = &replyq[msg->hdr->type];
 
-  vmm_log("replyq enqueue q %p %p\n", q, msg);
-
   pocv2_msg_enqueue(q, msg);
 }
 
@@ -223,8 +223,6 @@ static struct pocv2_msg *replyq_dequeue(enum msgtype type) {
   struct pocv2_msg_queue *q = &replyq[type];
 
   struct pocv2_msg *rep = pocv2_msg_dequeue(q);
-
-  vmm_log("replyq dequeue q %p %p\n", q, rep);
 
   return rep;
 }

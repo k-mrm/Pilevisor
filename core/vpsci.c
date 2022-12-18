@@ -99,7 +99,7 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
   int localid = vcpu_localid(vcpu);
   int status;
 
-  vmm_log("wakeup vcpu%d(cpu%d)\n", vcpu->vmpidr, localid);
+  printf("wakeup vcpu%d(cpu%d)\n", vcpu->vmpidr, localid);
 
   if(vcpu->online) {
     status = PSCI_ALREADY_ON;

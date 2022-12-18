@@ -424,7 +424,9 @@ static void gicv3_r_init() {
   gicr_w32(id, GICR_IGRPMODR0, 0);
 
   gicr_w32(id, GICR_ICACTIVER0, 0xffffffff);
+  /* disable PPI */
   gicr_w32(id, GICR_ICENABLER0, 0xffff0000);
+  /* enable SGI */
   gicr_w32(id, GICR_ISENABLER0, 0x0000ffff);
 
   u32 waker = gicr_r32(id, GICR_WAKER);

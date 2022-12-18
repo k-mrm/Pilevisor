@@ -425,11 +425,13 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     struct cache_page *p = ipa_cache_page(page_ipa);
     int owner = CACHE_PAGE_OWNER(p);
 
-    vmm_log("rf: request remote read fetch!!!!: %p owner %d elr %p far %p\n", page_ipa, owner, current->reg.elr, far);
+    vmm_log("rf: request remote read fetch!!!!: %p owner %d elr %p far %p\n",
+              page_ipa, owner, current->reg.elr, far);
     send_fetch_request(local_nodeid(), owner, page_ipa, 0);
   } else {
     /* ask manager for read access to page and a copy of page */
-    vmm_log("rf: request remote read fetch!!!!: %p manager %d elr %p far %p\n", page_ipa, manager, current->reg.elr, far);
+    vmm_log("rf: request remote read fetch!!!!: %p manager %d elr %p far %p\n",
+              page_ipa, manager, current->reg.elr, far);
     send_fetch_request(local_nodeid(), manager, page_ipa, 0);
   }
 
@@ -495,14 +497,16 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
     if(s2pte_copyset(pte) != 0) {
       /* I am owner */
-      vmm_log("wf: write to owner ro page %p elr %p far %p %d\n", page_ipa, current->reg.elr, far, ++w_roowner);
+      vmm_log("wf: write to owner ro page %p elr %p far %p %d\n",
+                page_ipa, current->reg.elr, far, ++w_roowner);
       goto inv_phase;
     }
 
     /*
      *  TODO: no need to fetch page from remote node
      */
-    vmm_log("wf: write to ro page(copyset) %p elr %p far %p %d\n", page_ipa, current->reg.elr, far, ++w_copyset);
+    vmm_log("wf: write to ro page(copyset) %p elr %p far %p %d\n",
+              page_ipa, current->reg.elr, far, ++w_copyset);
 
     void *pa = (void *)PTE_PA(*pte);
 
@@ -517,11 +521,13 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     struct cache_page *page = ipa_cache_page(page_ipa);
     int owner = CACHE_PAGE_OWNER(page);
 
-    vmm_log("wf: request remote write fetch!!!!: %p owner %d elr %p far %p\n", page_ipa, owner, current->reg.elr, far);
+    vmm_log("wf: request remote write fetch!!!!: %p owner %d elr %p far %p\n",
+              page_ipa, owner, current->reg.elr, far);
     send_fetch_request(local_nodeid(), owner, page_ipa, 1);
   } else {
     /* ask manager for write access to page and a copy of page */
-    vmm_log("wf: request remote write fetch!!!!: %p manager %d elr %p far %p\n", page_ipa, manager, current->reg.elr, far);
+    vmm_log("wf: request remote write fetch!!!!: %p manager %d elr %p far %p\n",
+              page_ipa, manager, current->reg.elr, far);
     send_fetch_request(local_nodeid(), manager, page_ipa, 1);
   }
 
@@ -706,7 +712,8 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
     vmm_log("write server: forward write fetch request to %d (%p)\n", p_owner, page_ipa);
 
     if(req_nodeid == p_owner)
-      panic("write server: req_nodeid(%d) == p_owner(%d) fetch request from owner!", req_nodeid, p_owner);
+      panic("write server: req_nodeid(%d) == p_owner(%d) fetch request from owner!",
+              req_nodeid, p_owner);
 
     /* forward request to p's owner */
     send_fetch_request(req_nodeid, p_owner, page_ipa, 1);
