@@ -411,10 +411,14 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
     return NULL;
 
   page_spinlock(page_ipa);
+
   /*
-  if(page_trylock(page_ipa))
-    panic("rf: locked %p", page_ipa);
-    */
+   * may other cpu has readable page already
+   */
+  if((pte = s2_readable_pte(vttbr, page_ipa)) != NULL) {
+    page_pa = (void *)PTE_PA(*pte);
+    goto end;
+  }
 
   if(manager == local_nodeid()) {   /* I am manager */
     /* receive page from owner of page */
@@ -442,6 +446,7 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   s2pte_ro(pte);
   tlb_s2_flush_all();
 
+end:
   vsm_process_waitqueue(page_ipa);
 
   return page_pa;
@@ -477,9 +482,12 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
 
   page_spinlock(page_ipa);
   /*
-  if(page_trylock(page_ipa))
-    panic("wf: locked %p", page_ipa);
-    */
+   * may other cpu has readable/writable page already
+   */
+  if((pte = page_rwable_pte(vttbr, page_ipa)) != NULL) {
+    page_pa = (void *)PTE_PA(*pte);
+    goto end;
+  }
 
   if(!local_irq_enabled())
     panic("bug: local irq disabled");
@@ -536,6 +544,7 @@ inv_phase:
   s2pte_rw(pte);
   // tlb_s2_flush_all();
 
+end:
   vsm_process_waitqueue(page_ipa);
 
   return page_pa;

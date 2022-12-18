@@ -113,7 +113,7 @@ void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
 
 u64 *page_accessible_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
-    panic("page_invalidate");
+    panic("page accessible pte");
 
   u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
@@ -127,7 +127,7 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
 
 u64 *page_rwable_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
-    panic("page_invalidate");
+    panic("page rwable pte");
 
   u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
@@ -136,6 +136,20 @@ u64 *page_rwable_pte(u64 *pgt, u64 va) {
   if((*pte & (PTE_AF | S2PTE_S2AP_MASK)) == (PTE_AF | S2PTE_RW))
     return pte;
     
+  return NULL;
+}
+
+u64 *s2_readable_pte(u64 *s2pgt, u64 ipa) {
+  if(!PAGE_ALIGNED(ipa))
+    panic("s2 readable pte");
+
+  u64 *pte = pagewalk(s2pgt, ipa, root_level, 0);
+  if(!pte)
+    return NULL;
+
+  if((*pte & PTE_AF) && (*pte & S2PTE_RO))
+    return pte;
+  
   return NULL;
 }
 
