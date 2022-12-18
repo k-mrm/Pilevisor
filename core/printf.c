@@ -9,11 +9,10 @@
 /*
  *  log level:
  *    
- *  0: panic  (flush)
+ *  0: flush
  *  1: warn
- *  2: normal
- *  3: vsm log
- *  4: log
+ *  2: vsm log
+ *  3: log
  *
  */
 struct log {
@@ -133,10 +132,6 @@ static void prmacaddr(u8 *mac, void (*putc)(char)) {
   }
 }
 
-int vprintf_flush(const char *fmt, va_list ap) {
-  return __vprintf(fmt, ap, uart_putc);
-}
-
 static int __vprintf(const char *fmt, va_list ap, void (*putc)(char)) {
   char *s;
   void *p;
@@ -206,16 +201,27 @@ void log_dump_level(int level) {
   ;
 }
 
+int vprintf(const char *fmt, va_list ap) {
+  u64 flags;
+
+  spin_lock_irqsave(&loglock, flags);
+
+  int rc = __vprintf(fmt, ap, uart_putc);
+
+  spin_unlock_irqrestore(&loglock, flags);
+
+  return rc;
+}
+
 int printf(const char *fmt, ...) {
   u64 flags;
   int level;
+  va_list ap;
 
-  if(panicked_context)
-    level = 0;
-  else if(*fmt == '\001')
+  if(*fmt == '\001')
     level = *++fmt - '0';
   else
-    level = 2;      // default
+    level = 0;      // default
 
   spin_lock_irqsave(&loglock, flags);
 
@@ -224,11 +230,8 @@ int printf(const char *fmt, ...) {
   l->level = level;
   l->msg = &printbuf[pbuf_tail];
 
-  va_list ap;
   va_start(ap, fmt);
-
   __vprintf(fmt, ap, level == 0 ? uart_putc : lputc);
-
   va_end(ap);
 
   spin_unlock_irqrestore(&loglock, flags);

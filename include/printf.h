@@ -9,7 +9,8 @@
 
 void pflush(void);
 int printf(const char *fmt, ...);
+int vprintf(const char *fmt, va_list ap);
+
 void printf_init(void);
-int vprintf_flush(const char *fmt, va_list ap);
 
 #endif

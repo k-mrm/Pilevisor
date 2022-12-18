@@ -43,7 +43,7 @@ void panic(const char *fmt, ...) {
   va_start(ap, fmt);
 
   printf("!!!!!!vmm panic Node%d:cpu%d: ", local_nodeid(), cpuid());
-  vprintf_flush(fmt, ap);
+  vprintf(fmt, ap);
   printf("\n");
   va_end(ap);
 
