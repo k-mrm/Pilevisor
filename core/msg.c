@@ -103,6 +103,9 @@ struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
   struct pocv2_msg *msg = q->head;
   q->head = q->head->next;
 
+  if(!q->head)
+    q->tail = NULL;
+
   spin_unlock_irqrestore(&q->lock, flags); 
 
   return msg;
@@ -216,6 +219,8 @@ void send_msg(struct pocv2_msg *msg) {
 static void replyq_enqueue(struct pocv2_msg *msg) {
   struct pocv2_msg_queue *q = &replyq[msg->hdr->type];
 
+  printf("enqueueueeu %p %p %p\n", q, msg, msg->next);
+
   pocv2_msg_enqueue(q, msg);
 }
 
@@ -223,6 +228,8 @@ static struct pocv2_msg *replyq_dequeue(enum msgtype type) {
   struct pocv2_msg_queue *q = &replyq[type];
 
   struct pocv2_msg *rep = pocv2_msg_dequeue(q);
+
+  printf("dequeueueeu %p %p %p\n", q, rep, rep->next);
 
   return rep;
 }
@@ -233,7 +240,7 @@ struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
   if(reptype == 0)
     return NULL;
 
-  printf("waiting recv %s........... (%p)\n", msmap[reptype], read_sysreg(daif));
+  printf("%d waiting recv %s........... (%p)\n", cpuid(), msmap[reptype], read_sysreg(daif));
 
   reply = replyq_dequeue(reptype);
 

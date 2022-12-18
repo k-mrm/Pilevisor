@@ -62,6 +62,9 @@ static void virtio_net_xmit(struct nic *nic, struct iobuf *iobuf) {
 static void txintr(struct virtq *txq) {
   struct virtio_tx_hdr *hdr;
   u32 len;
+  u64 flags;
+
+  spin_lock_irqsave(&txq->lock, flags);
 
   while((hdr = virtq_dequeue(txq, &len)) != NULL) {
     struct iobuf *iobuf = hdr->packet;
@@ -71,6 +74,8 @@ static void txintr(struct virtq *txq) {
       free_page(iobuf->body);
     free_iobuf(iobuf);
   }
+
+  spin_unlock_irqrestore(&txq->lock, flags);
 }
 
 static void fill_recv_queue(struct virtq *rxq) {
