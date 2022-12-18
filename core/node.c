@@ -5,6 +5,7 @@
 #include "types.h"
 #include "aarch64.h"
 #include "vcpu.h"
+#include "pcpu.h"
 #include "mm.h"
 #include "allocpage.h"
 #include "lib.h"
@@ -351,8 +352,13 @@ void node_panic_signal(void) {
 }
 
 static void recv_panic_intr(struct pocv2_msg *msg) {
+  local_irq_disable();
+
   printf("recv panic signal from Node%d (%m)\n", msg->hdr->src_nodeid, pocv2_msg_src_mac(msg));
-  panic("system aborted");
+  printf("system aborted\n");
+
+  cpu_stop_all();
+  cpu_stop_local();
 }
 
 DEFINE_POCV2_MSG(MSG_PANIC, struct panic_hdr, recv_panic_intr);
