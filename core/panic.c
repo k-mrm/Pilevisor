@@ -7,6 +7,8 @@
 #include "node.h"
 #include "memory.h"
 
+volatile int panicked_context = 0;
+
 static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
   if(sp >= (u64)mycpu->stackbase || bsp > sp)
     return -1;
@@ -29,6 +31,8 @@ void panic(const char *fmt, ...) {
   isb();
   dsb(sy);
 
+  panicked_context = 1;
+
   node_panic_signal();
 
   local_irq_disable();
@@ -39,8 +43,9 @@ void panic(const char *fmt, ...) {
   va_start(ap, fmt);
 
   printf("!!!!!!vmm panic Node%d:cpu%d: ", local_nodeid(), cpuid());
-  vprintf(fmt, ap);
+  vprintf_flush(fmt, ap);
   printf("\n");
+  va_end(ap);
 
   printf("stack trace:\n");
 
@@ -58,9 +63,6 @@ void panic(const char *fmt, ...) {
   printf("stack trace done\n");
 
   vcpu_dump(current);
-
-  va_end(ap);
-
   node_cluster_dump();
 
   for(;;) {

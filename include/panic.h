@@ -5,4 +5,6 @@
 
 void panic(const char *fmt, ...) __noreturn;
 
-#endif
+extern volatile int panicked_context;
+
+#endif  /* CORE_PANIC_H */

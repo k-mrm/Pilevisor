@@ -1,5 +1,5 @@
-#ifndef MVMM_SPINLOCK_H
-#define MVMM_SPINLOCK_H
+#ifndef SPINLOCK_H
+#define SPINLOCK_H
 
 #include "aarch64.h"
 #include "types.h"
@@ -35,7 +35,7 @@ static inline void __spinlock_init_dbg(spinlock_t *lk, char *name) {
 
 #define spinlock_init(lk) __spinlock_init_dbg(lk, #lk)
 
-#else
+#else   /* !SPINLOCK_DEBUG */
 
 typedef u8 spinlock_t;
 
@@ -88,7 +88,7 @@ static inline void spin_lock(spinlock_t *lk) {
     "cbnz   %w0, 1b\n"
     : "=&r"(tmp) : "r"(lk), "r"(l) : "memory"
   );
-#endif
+#endif  /* SPINLOCK_DEBUG */
 
   isb();
 }
@@ -110,9 +110,9 @@ static inline void spin_unlock(spinlock_t *lk) {
 
   lk->cpuid = -1;
   asm volatile("stlrb wzr, [%0]" :: "r"(&lk->lock) : "memory");
-#else
+#else   /* !SPINLOCK_DEBUG */
   asm volatile("stlrb wzr, [%0]" :: "r"(lk) : "memory");
-#endif
+#endif  /* SPINLOCK_DEBUG */
 
   isb();
 }
@@ -123,4 +123,4 @@ static inline void __spin_unlock_irqrestore(spinlock_t *lk, u64 flags) {
   write_sysreg(daif, flags);
 }
 
-#endif
+#endif    /* SPINLOCK_H */

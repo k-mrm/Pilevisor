@@ -75,6 +75,7 @@ int vmm_init_cpu0(void *fdt) {
   device_tree_init(fdt);
 
   uart_init();
+  printf_init();
   printf("vmm booting...\n");
 
   pageallocator_init();

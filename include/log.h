@@ -1,12 +1,18 @@
-#ifndef MVMM_LOG_H
-#define MVMM_LOG_H
+#ifndef LOG_H
+#define LOG_H
 
 #include "printf.h"
 
-#define vmm_log(...)  (void)0
+// #define vmm_log(...)  (void)0
 
-// #define vmm_log(...)  printf("[vmm-log] " __VA_ARGS__)
-#define vmm_warn(...) printf("[vmm-warn] " __VA_ARGS__)
+#define WARN      "\001" "1"
+#define DEFAULT   "\001" "2"
+#define VSMLOG    "\001" "3"
+#define LOG       "\001" "4"
+
+#define vmm_log(...)  printf(LOG __VA_ARGS__)
+#define vsm_log(...)  printf(VSMLOG __VA_ARGS__)
+#define vmm_warn(...) printf(WARN __VA_ARGS__)
 
 #define vmm_warn_on(cond, ...)  \
   do {    \
@@ -23,5 +29,4 @@
 #define build_bug_on(cond) \
   (void)(sizeof(struct { int:-!!(cond); }))
 
-
-#endif
+#endif  /* LOG_H */
