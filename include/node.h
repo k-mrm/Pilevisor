@@ -208,4 +208,13 @@ void node_cluster_dump(void);
 void __node0 cluster_init(void);
 void __subnode subnode_cluster_init(void);
 
+/*
+ *  panic signal: Node n -broadcast-> Node n
+ */
+struct panic_hdr {
+  POCV2_MSG_HDR_STRUCT;
+};
+
+void node_panic_signal(void);
+
 #endif

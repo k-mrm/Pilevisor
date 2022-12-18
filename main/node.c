@@ -86,14 +86,14 @@ static void node0_init() {
 /* call per cpu */
 static void node0_start() {
   int cpu = cpuid();
-  vmm_log("cpu%d: node0@cpu%d: start\n", cpu, cpu);
+  printf("cpu%d: node0@cpu%d: start %d\n", cpu, cpu, now_cycles());
 
   node_cluster_dump();
 
   // waiting wakeup signal from vpsci
   wait_for_current_vcpu_online();
 
-  vmm_log("cpu%d: entry to vcpu\n", cpu);
+  printf("cpu%d: entry to vcpu %d\n", cpu, now_cycles());
 
   current->vmm_boot_clk = now_cycles();
 

@@ -341,6 +341,21 @@ static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg) {
   update_cluster_info(h->nnodes, h->nvcpus, b->cluster_info);
 }
 
+void node_panic_signal(void) {
+  struct pocv2_msg msg;
+  struct panic_hdr hdr;
+
+  pocv2_broadcast_msg_init(&msg, MSG_PANIC, &hdr, NULL, 0);
+
+  send_msg(&msg);
+}
+
+static void recv_panic_intr(struct pocv2_msg *msg) {
+  printf("recv panic signal from Node%d (%m)\n", msg->hdr->src_nodeid, pocv2_msg_src_mac(msg));
+  panic("system aborted");
+}
+
+DEFINE_POCV2_MSG(MSG_PANIC, struct panic_hdr, recv_panic_intr);
 DEFINE_POCV2_MSG_RECV_NODE0(MSG_INIT_ACK, struct init_ack_hdr, recv_init_ack_intr);
 DEFINE_POCV2_MSG_RECV_NODE0(MSG_SETUP_DONE, struct setup_done_hdr, recv_sub_setup_done_notify_intr);
 DEFINE_POCV2_MSG_RECV_SUBNODE(MSG_INIT, struct init_req_hdr, recv_init_request_intr);

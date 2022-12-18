@@ -4,6 +4,7 @@
 #include "pcpu.h"
 #include "vcpu.h"
 #include "localnode.h"
+#include "node.h"
 #include "memory.h"
 
 static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
@@ -27,6 +28,8 @@ static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
 void panic(const char *fmt, ...) {
   isb();
   dsb(sy);
+
+  node_panic_signal();
 
   local_irq_disable();
 

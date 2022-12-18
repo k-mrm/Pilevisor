@@ -25,6 +25,7 @@ enum msgtype {
   MSG_MMIO_REPLY      = 0xe,
   MSG_GIC_CONFIG      = 0xf,
   MSG_SGI             = 0x10,
+  MSG_PANIC           = 0x11,
   NUM_MSG,
 };
 
