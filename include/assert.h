@@ -3,13 +3,13 @@
 
 #include "panic.h"
 
-#define assert(cond)    __assert(__func__, (cond))
+#define assert(cond)    __assert(__func__, __LINE__, (cond))
 
-#define __assert(fn, cond)                        \
-  do {                                            \
-    if(!(cond)) {                                 \
-      panic("assert failed in %s: " #cond, fn);   \
-    }                                             \
+#define __assert(fn, ln, cond)                          \
+  do {                                                  \
+    if(!(cond)) {                                       \
+      panic("assert failed in %s:%d: " #cond, fn, ln);  \
+    }                                                   \
   } while(0)
 
 #endif
