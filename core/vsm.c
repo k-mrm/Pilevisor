@@ -105,11 +105,8 @@ struct invalidate_ack_hdr {
  *  else:    return 1 
  */
 static inline int page_trylock(u64 ipa) {
-  u64 flags = 0;
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
-
-  irqsave(flags);
 
   asm volatile(
     "ldaxrb %w0, [%1]\n"
@@ -118,8 +115,6 @@ static inline int page_trylock(u64 ipa) {
     "1:\n"
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
-
-  irqrestore(flags);
 
   return r;
 }
@@ -359,6 +354,10 @@ static int vsm_invalidate_server_process(struct vsm_server_proc *proc, bool lock
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
 
+  /*
+   *  XXX: buggy code: must be disabled interrupt here: now enabled here
+   */
+
   if(!locked && page_trylock(ipa)) {
     vsm_enqueue_proc(ipa, proc);
     return -1;
@@ -439,7 +438,7 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
 
   page_pa = (void *)PTE_PA(*pte);
 
-  vmm_log("rf: get page %p\n", page_pa);
+  vmm_log("rf: get remote page @%p\n", page_ipa);
 
   /* read data */
   if(d)
@@ -626,6 +625,10 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
 
+  /*
+   *  XXX: buggy code: must be disabled interrupt here: now enabled here
+   */
+
   if(!locked && page_trylock(page_ipa)) {
     vsm_enqueue_proc(page_ipa, proc);
     return -1;
@@ -675,6 +678,10 @@ static int vsm_write_server_process(struct vsm_server_proc *proc, bool locked) {
   u64 page_ipa = proc->page_ipa;
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
+
+  /*
+   *  XXX: buggy code: must be disabled interrupt here: now enabled here
+   */
 
   if(!locked && page_trylock(page_ipa)) {
     vsm_enqueue_proc(page_ipa, proc);

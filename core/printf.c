@@ -33,6 +33,7 @@ static int log_head = 0;
 static int log_tail = 0;
 
 static int __vprintf(const char *fmt, va_list ap, void (*putc)(char));
+static int __printf(const char *fmt, ...);
 
 enum printopt {
   PR_0X     = 1 << 0,
@@ -216,15 +217,28 @@ int vprintf(const char *fmt, va_list ap) {
 static void levelprefix(int level) {
   switch(level) {
     case 1:     // WARN
-      uart_puts("[warning]: ");
+      __printf("[warning]:cpu%d: ", cpuid());
       return;
     case 2:
-      uart_puts("[vsm-log]: ");
+      __printf("[vsm-log]: cpu%d: ", cpuid());
       return;
     case 3:
-      uart_puts("[log]: ");
+      __printf("[log]: cpu%d: ", cpuid());
       return;
   }
+}
+
+/*
+ *  must hold loglock
+ */
+static int __printf(const char *fmt, ...) {
+  va_list ap;
+
+  va_start(ap, fmt);
+  __vprintf(fmt, ap, uart_putc);
+  va_end(ap);
+
+  return 0;
 }
 
 int printf(const char *fmt, ...) {
@@ -240,12 +254,16 @@ int printf(const char *fmt, ...) {
     level = 0;      // default
   }
 
+  /* filter */
+  if(level >= 1)
+    return 0;
+
   spin_lock_irqsave(&loglock, flags);
 
   // void (*putcf) = level == 0 ? uart_putc : lputc;
   putcf = uart_putc;
 
-  if(level != 0) {
+  if(putcf == lputc) {
     struct log *l = logpush();
     l->cpu = cpuid();
     l->level = level;
