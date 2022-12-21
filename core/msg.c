@@ -52,6 +52,7 @@ static char *msmap[NUM_MSG] = {
   [MSG_MMIO_REPLY]      "msg:mmio_reply",
   [MSG_GIC_CONFIG]      "msg:gic_config",
   [MSG_SGI]             "msg:sgi",
+  [MSG_PANIC]           "msg:panic",
 };
 
 /* msg ring queue */

@@ -213,25 +213,48 @@ int vprintf(const char *fmt, va_list ap) {
   return rc;
 }
 
+static void levelprefix(int level) {
+  switch(level) {
+    case 1:     // WARN
+      uart_puts("[warning]: ");
+      return;
+    case 2:
+      uart_puts("[vsm-log]: ");
+      return;
+    case 3:
+      uart_puts("[log]: ");
+      return;
+  }
+}
+
 int printf(const char *fmt, ...) {
   u64 flags;
   int level;
   va_list ap;
+  void (*putcf)(char);
 
-  if(*fmt == '\001')
+  if(*fmt == '\001') {
     level = *++fmt - '0';
-  else
+    fmt++;
+  } else {
     level = 0;      // default
+  }
 
   spin_lock_irqsave(&loglock, flags);
 
-  struct log *l = logpush();
-  l->cpu = cpuid();
-  l->level = level;
-  l->msg = &printbuf[pbuf_tail];
+  // void (*putcf) = level == 0 ? uart_putc : lputc;
+  putcf = uart_putc;
+
+  if(level != 0) {
+    struct log *l = logpush();
+    l->cpu = cpuid();
+    l->level = level;
+    l->msg = &printbuf[pbuf_tail];
+    levelprefix(level);
+  }
 
   va_start(ap, fmt);
-  __vprintf(fmt, ap, level == 0 ? uart_putc : lputc);
+  __vprintf(fmt, ap, putcf);
   va_end(ap);
 
   spin_unlock_irqrestore(&loglock, flags);
