@@ -18,6 +18,7 @@
 #include "msg.h"
 #include "tlb.h"
 #include "panic.h"
+#include "assert.h"
 
 #define ipa_to_pfn(ipa)   ((ipa - 0x40000000) >> PAGESHIFT)
 
@@ -207,8 +208,7 @@ restart:
 
   spin_unlock_irqrestore(&page->wq->lock, flags);
 
-  if(!page_trylock(ipa))
-    panic("bug: not held lock");
+  assert(page_trylock(ipa));
 
   for(p = head; p; p = p_next) {
     vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
@@ -628,6 +628,8 @@ static int vsm_read_server_process(struct vsm_server_proc *proc, bool locked) {
   /*
    *  XXX: buggy code: must be disabled interrupt here: now enabled here
    */
+
+  assert(!local_irq_enabled());
 
   if(!locked && page_trylock(page_ipa)) {
     vsm_enqueue_proc(page_ipa, proc);
