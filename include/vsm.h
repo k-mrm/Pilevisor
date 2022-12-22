@@ -47,7 +47,7 @@ struct vsm_server_proc {
   u64 copyset;        // for invalidate server
   int req_nodeid;
   int type;           // for debug
-  int (*do_process)(struct vsm_server_proc *, bool locked);
+  void (*do_process)(struct vsm_server_proc *);
 };
 
 #define NR_CACHE_PAGES        (MEM_PER_NODE >> PAGESHIFT)

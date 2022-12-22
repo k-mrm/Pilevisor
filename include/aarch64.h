@@ -91,6 +91,10 @@ static inline bool local_irq_enabled() {
   return !((read_sysreg(daif) >> 7) & 0x1);
 }
 
+static inline bool local_irq_disabled() {
+  return (read_sysreg(daif) >> 7) & 0x1;
+}
+
 static inline u64 r_sp() {
   u64 x;
   asm volatile("mov %0, sp" : "=r"(x));
