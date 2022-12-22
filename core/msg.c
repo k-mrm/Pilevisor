@@ -119,8 +119,9 @@ void free_recv_msg(struct pocv2_msg *msg) {
 }
 
 void handle_recv_waitqueue() {
-  u64 flags;
-  struct pocv2_msg *m, *m_next;
+  struct pocv2_msg *m, *m_next, *head;
+
+  struct pocv2_msg_queue *recvq = &mycpu->recv_waitq;
 
   if(in_lazyirq())
     panic("nest lazyirq");
@@ -132,19 +133,19 @@ void handle_recv_waitqueue() {
   /* prevent nest handle_recv_waitqueue() */
   lazyirq_enter();
 
+restart:
+  spin_lock(&recvq->lock); 
+
+  head = recvq->head;
+
+  recvq->head = NULL;
+  recvq->tail = NULL;
+
+  spin_unlock(&recvq->lock); 
+
   local_irq_enable();
 
-restart:
-  spin_lock_irqsave(&mycpu->recv_waitq.lock, flags); 
-
-  struct pocv2_msg *waitq = mycpu->recv_waitq.head;
-
-  mycpu->recv_waitq.head = NULL;
-  mycpu->recv_waitq.tail = NULL;
-
-  spin_unlock_irqrestore(&mycpu->recv_waitq.lock, flags); 
-
-  for(m = waitq; m; m = m_next) {
+  for(m = head; m; m = m_next) {
     enum msgtype type = m->hdr->type;
     m_next = m->next;
 
@@ -161,13 +162,13 @@ restart:
     }
   }
 
+  local_irq_disable();
+
   /*
    *  handle enqueued msg during in this function
    */
-  if(!pocv2_msg_queue_empty(&mycpu->recv_waitq))
+  if(!pocv2_msg_queue_empty(recvq))
     goto restart;
-
-  local_irq_disable();
 
   lazyirq_exit();
 }
