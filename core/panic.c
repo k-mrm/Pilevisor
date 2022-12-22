@@ -33,7 +33,7 @@ void panic(const char *fmt, ...) {
 
   panicked_context = 1;
 
-  node_panic_signal();
+  // node_panic_signal();
 
   local_irq_disable();
 

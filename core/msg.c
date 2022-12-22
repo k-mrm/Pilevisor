@@ -15,6 +15,7 @@
 #include "lib.h"
 #include "malloc.h"
 #include "panic.h"
+#include "assert.h"
 
 #define USE_SCATTER_GATHER
 
@@ -121,8 +122,15 @@ void handle_recv_waitqueue() {
   u64 flags;
   struct pocv2_msg *m, *m_next;
 
+  if(in_lazyirq())
+    panic("nest lazyirq");
+
+  vmm_log("handle recv waiteueueueueueue\n");
+
+  assert(local_irq_disabled());
+
   /* prevent nest handle_recv_waitqueue() */
-  local_lazyirq_disable();
+  lazyirq_enter();
 
   local_irq_enable();
 
@@ -161,7 +169,7 @@ restart:
 
   local_irq_disable();
 
-  local_lazyirq_enable();
+  lazyirq_exit();
 }
 
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {

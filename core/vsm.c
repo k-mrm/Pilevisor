@@ -5,6 +5,7 @@
 #include "types.h"
 #include "aarch64.h"
 #include "arch-timer.h"
+#include "pcpu.h"
 #include "vsm.h"
 #include "mm.h"
 #include "s2mm.h"
@@ -106,10 +107,6 @@ struct invalidate_ack_hdr {
  *  else:    return 1 
  */
 static inline int page_trylock(u64 ipa) {
-  u64 flags;
-
-  irqsave(flags);
-
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
 
@@ -120,8 +117,6 @@ static inline int page_trylock(u64 ipa) {
     "1:\n"
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
-
-  irqrestore(flags);
 
   return r;
 }
@@ -171,7 +166,7 @@ static inline void invoke_vsm_process(struct vsm_server_proc *p) {
 
 static void vsm_enqueue_proc(struct vsm_server_proc *p) {
   u64 flags;
-  vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p %d\n", p, p->type);
+  vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p %p\n", p, p->page_ipa);
 
   struct page_desc *page = ipa_to_desc(p->page_ipa);
 
@@ -193,32 +188,21 @@ static void vsm_enqueue_proc(struct vsm_server_proc *p) {
   spin_unlock_irqrestore(&page->wq->lock, flags);
 }
 
-/*
- *  must be held ptable[ipa].lock
- */
-static void vsm_process_waitqueue(u64 ipa) {
+static void vsm_process_wq_core(struct page_desc *page) {
   struct vsm_server_proc *p, *p_next, *head;
-  u64 flags;
-
-  struct page_desc *page = ipa_to_desc(ipa);
+  assert(local_irq_disabled());
 
 restart:
-  /* waitqueue is empty */
-  if(!page->wq || !page->wq->head) {
-    page_unlock(ipa);
-    return;
-  }
-
-  spin_lock_irqsave(&page->wq->lock, flags);
+  spin_lock(&page->wq->lock);
 
   head = page->wq->head;
 
   page->wq->head = NULL;
   page->wq->tail = NULL;
 
-  spin_unlock_irqrestore(&page->wq->lock, flags);
+  spin_unlock(&page->wq->lock);
 
-  assert(page_trylock(ipa));
+  local_irq_enable();
 
   for(p = head; p; p = p_next) {
     vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
@@ -228,10 +212,37 @@ restart:
     free(p);
   }
 
+  local_irq_disable();
+
   /*
    *  process enqueued processes during in this function
    */
-  goto restart;
+  if(page->wq && page->wq->head)
+    goto restart;
+}
+
+/*
+ *  must be held ptable[ipa].lock
+ */
+static void vsm_process_waitqueue(u64 ipa) {
+  u64 flags;
+
+  assert(page_trylock(ipa));
+
+  struct page_desc *page = ipa_to_desc(ipa);
+
+  irqsave(flags);
+
+  if(page->wq && page->wq->head)
+    vsm_process_wq_core(page);
+
+  vmm_log("unlock %p\n", ipa);
+
+  page_unlock(ipa);
+
+  irqrestore(flags);
+
+  return;
 }
 
 static inline struct cache_page *ipa_cache_page(u64 ipa) {
@@ -257,7 +268,7 @@ static inline int page_manager(u64 ipa) {
 }
 
 static inline u64 *vsm_wait_for_recv_timeout(u64 *vttbr, u64 page_ipa) {
-  int timeout_us = 2000000;   // wait for 2s
+  int timeout_us = 3000000;   // wait for 2s
   u64 *pte;
 
   while(!(pte = page_accessible_pte(vttbr, page_ipa)) && timeout_us--) {
@@ -721,9 +732,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
   // assert(local_irq_disabled());
-  // for(int i = 0; i < 1000000000000ull; i++)
-    // ;
-
+  //
   if(page_trylock(a->ipa)) {
     vsm_enqueue_proc(p);
     return;
@@ -739,6 +748,7 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   struct vsm_server_proc *p = new_vsm_inv_server_proc(h->ipa, h->from_nodeid, h->copyset);
 
   // assert(local_irq_disabled());
+  assert(!local_lazyirq_enabled());
 
   if(page_trylock(h->ipa)) {
     vsm_enqueue_proc(p);

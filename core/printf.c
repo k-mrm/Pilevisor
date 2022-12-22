@@ -254,28 +254,26 @@ int printf(const char *fmt, ...) {
     level = 0;      // default
   }
 
-  /* filter */
-  if(level >= 1)
-    return 0;
-
-  spin_lock_irqsave(&loglock, flags);
+  // spin_lock_irqsave(&loglock, flags);
 
   // void (*putcf) = level == 0 ? uart_putc : lputc;
   putcf = uart_putc;
+
+  if(level)
+    levelprefix(level);
 
   if(putcf == lputc) {
     struct log *l = logpush();
     l->cpu = cpuid();
     l->level = level;
     l->msg = &printbuf[pbuf_tail];
-    levelprefix(level);
   }
 
   va_start(ap, fmt);
   __vprintf(fmt, ap, putcf);
   va_end(ap);
 
-  spin_unlock_irqrestore(&loglock, flags);
+  // spin_unlock_irqrestore(&loglock, flags);
 
   return 0;
 }
