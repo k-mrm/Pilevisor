@@ -19,6 +19,12 @@ u64 phy_end;
 
 #define MAX_ORDER   10
 
+#define ORDER_ALIGN(order, _addr)         \
+  ({                                      \
+    u64 addr = (u64)_addr;                \
+    (((addr) + (PAGESIZE << ((order) - 1)) - 1) & ~((PAGESIZE << ((order) - 1)) - 1));    \
+  })
+
 static u64 used_bitmap[PHYSIZE >> 12 >> 6];
 
 static void pageallocator_test(void) __unused;
@@ -134,6 +140,13 @@ void free_pages(void *pages, int order) {
   spin_unlock_irqrestore(&mem.lock, flags);
 }
 
+static void init_free_pages(struct memzone *z, void *pages, int order) {
+  struct free_chunk *f = &z->chunks[order];
+
+  freelist_add(f, pages);
+  ((struct header *)pages)->order = order;
+}
+
 static void buddydump(void) {
   printf("----------buddy allocator debug----------\n");
   for(int i = 0; i < MAX_ORDER; i++) {
@@ -173,12 +186,6 @@ void pagealloc_init_early() {
   }
 }
 
-#define ORDER_ALIGN(order, _addr)         \
-  ({                                      \
-    u64 addr = (u64)_addr;                \
-    (((addr) + (PAGESIZE << ((order) - 1)) - 1) & ~((PAGESIZE << ((order) - 1)) - 1));    \
-  })
-
 void pageallocator_init() {
   /* align to PAGESIZE << (MAX_ORDER-1) */
   u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, __earlymem_end);
@@ -201,7 +208,7 @@ void pageallocator_init() {
   printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);
 
   for(u64 s = mem.start; s < mem.end; s += PAGESIZE << (MAX_ORDER - 1)) {
-    free_pages((void *)s, MAX_ORDER - 1);
+    init_free_pages(&mem, (void *)s, MAX_ORDER - 1);
   }
 
   // pageallocator_test();

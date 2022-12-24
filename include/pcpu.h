@@ -62,4 +62,8 @@ void pcpu_init(void);
 
 #define in_lazyirq()      (mycpu->lazyirq_depth != 0)
 
+static inline bool in_interrupt() {
+  return mycpu->irq_depth != 0;
+}
+
 #endif

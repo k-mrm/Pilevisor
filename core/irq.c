@@ -31,10 +31,6 @@ static inline void irq_exit() {
   mycpu->irq_depth--;
 }
 
-static inline bool in_interrupt() {
-  return !!mycpu->irq_depth;
-}
-
 void irq_entry(int from_guest) {
   if(local_irq_enabled())  
     panic("local irq enabled?");

@@ -69,6 +69,9 @@ void hyp_sync_handler(struct hyp_context *ctx) {
         printf("NULL pointer derefernce?\n"); 
 
       break;
+    case 0x3c:
+      printf("brk occured\n");
+      break;
     default:
       break;
   }

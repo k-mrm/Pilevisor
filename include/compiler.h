@@ -9,4 +9,7 @@
 #define __section(s)    __attribute__((section(s)))
 #define __used          __attribute__((used))
 
+#define likely(cond)    __builtin_expect(!!(cond), 1)
+#define unlikely(cond)  __builtin_expect(!!(cond), 0)
+
 #endif

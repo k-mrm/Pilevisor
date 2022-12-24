@@ -37,6 +37,7 @@ void pcpu_init_core() {
   mycpu->wakeup = true;
   pocv2_msg_queue_init(&mycpu->recv_waitq);
   mycpu->irq_depth = 0;
+  mycpu->lazyirq_depth = 0;
   mycpu->lazyirq_enabled = true;
 }
 

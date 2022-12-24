@@ -6,6 +6,7 @@
 #include "malloc.h"
 #include "log.h"
 #include "msg.h"
+#include "aarch64.h"
 
 u8 broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
@@ -13,7 +14,7 @@ void ethernet_recv_intr(struct nic *nic, struct iobuf *iobuf) {
   struct etherheader *eth = iobuf_pull(iobuf, sizeof(struct etherheader));
   int need_free_body = 1;
 
-  vmm_log("ether: recv intr from %m %p\n", eth->src, eth->type);
+  vmm_log("ether: recv intr from %m %p %p\n", eth->src, eth->type, read_sysreg(elr_el2));
 
   if(memcmp(eth->dst, broadcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
     if((eth->type & 0xff) == 0x19) {

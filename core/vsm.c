@@ -20,6 +20,7 @@
 #include "tlb.h"
 #include "panic.h"
 #include "assert.h"
+#include "compiler.h"
 
 #define ipa_to_pfn(ipa)   ((ipa - 0x40000000) >> PAGESHIFT)
 
@@ -166,7 +167,7 @@ static inline void invoke_vsm_process(struct vsm_server_proc *p) {
 
 static void vsm_enqueue_proc(struct vsm_server_proc *p) {
   u64 flags;
-  vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p %p\n", p, p->page_ipa);
+  vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p %p %p\n", p, p->page_ipa, read_sysreg(elr_el2));
 
   struct page_desc *page = ipa_to_desc(p->page_ipa);
 
@@ -205,7 +206,7 @@ restart:
   local_irq_enable();
 
   for(p = head; p; p = p_next) {
-    vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
+    // vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
     invoke_vsm_process(p);
 
     p_next = p->next;
@@ -217,7 +218,7 @@ restart:
   /*
    *  process enqueued processes during in this function
    */
-  if(page->wq && page->wq->head)
+  if(page->wq->head)
     goto restart;
 }
 
@@ -227,7 +228,7 @@ restart:
 static void vsm_process_waitqueue(u64 ipa) {
   u64 flags;
 
-  assert(page_trylock(ipa));
+  assert(page_locked(ipa));
 
   struct page_desc *page = ipa_to_desc(ipa);
 
@@ -235,8 +236,6 @@ static void vsm_process_waitqueue(u64 ipa) {
 
   if(page->wq && page->wq->head)
     vsm_process_wq_core(page);
-
-  vmm_log("unlock %p\n", ipa);
 
   page_unlock(ipa);
 
@@ -275,7 +274,7 @@ static inline u64 *vsm_wait_for_recv_timeout(u64 *vttbr, u64 page_ipa) {
     usleep(1);
   }
 
-  if(!pte)
+  if(unlikely(!pte))
     panic("vsm timeout: failed @%p", page_ipa);
 
   return pte;
@@ -732,7 +731,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
   // assert(local_irq_disabled());
-  //
+
   if(page_trylock(a->ipa)) {
     vsm_enqueue_proc(p);
     return;

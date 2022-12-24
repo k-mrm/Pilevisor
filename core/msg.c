@@ -125,8 +125,8 @@ void handle_recv_waitqueue() {
 
   if(in_lazyirq())
     panic("nest lazyirq");
-
-  vmm_log("handle recv waiteueueueueueue\n");
+  if(in_interrupt())
+    panic("in interrupt?");
 
   assert(local_irq_disabled());
 
