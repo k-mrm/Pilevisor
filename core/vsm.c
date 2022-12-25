@@ -109,8 +109,12 @@ struct invalidate_ack_hdr {
  *  else:    return 1 
  */
 static inline int page_trylock(u64 ipa) {
+  u64 flags;
+
   u8 *lock = &ipa_to_desc(ipa)->lock;
   u8 r, l = 1;
+
+  irqsave(flags);
 
   asm volatile(
     "ldaxrb %w0, [%1]\n"
@@ -119,6 +123,8 @@ static inline int page_trylock(u64 ipa) {
     "1:\n"
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
+
+  irqrestore(flags);
 
   return r;
 }
@@ -726,7 +732,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
-  // assert(local_irq_disabled());
+  assert(!local_lazyirq_enabled());
 
   if(page_trylock(a->ipa)) {
     vsm_enqueue_proc(p);
@@ -742,7 +748,6 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   struct invalidate_hdr *h = (struct invalidate_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_inv_server_proc(h->ipa, h->from_nodeid, h->copyset);
 
-  // assert(local_irq_disabled());
   assert(!local_lazyirq_enabled());
 
   if(page_trylock(h->ipa)) {

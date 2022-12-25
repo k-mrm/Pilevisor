@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define VLOG_LEVEL  2
+#define VLOG_LEVEL  0
 
 enum {
   READ_SENDER,
