@@ -6,6 +6,7 @@
 #include "localnode.h"
 #include "node.h"
 #include "memory.h"
+#include "vsm-log.h"
 
 volatile int panicked_context = 0;
 
@@ -64,6 +65,8 @@ void panic(const char *fmt, ...) {
 
   vcpu_dump(current);
   node_cluster_dump();
+
+  vsm_logdump(100);
 
   for(;;) {
     wfi();

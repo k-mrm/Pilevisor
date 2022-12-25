@@ -34,6 +34,7 @@ static inline void __spinlock_init_dbg(spinlock_t *lk, char *name) {
 }
 
 #define spinlock_init(lk) __spinlock_init_dbg(lk, #lk)
+#define SPINLOCK_INIT     {-1, 0, NULL, true}
 
 #else   /* !SPINLOCK_DEBUG */
 
@@ -44,6 +45,7 @@ static inline void __spinlock_init(spinlock_t *lk) {
 }
 
 #define spinlock_init(lk) __spinlock_init(lk)
+#define SPINLOCK_INIT     0
 
 #endif  /* SPINLOCK_DEBUG */
 

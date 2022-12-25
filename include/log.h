@@ -3,23 +3,20 @@
 
 #include "printf.h"
 
-#define NDEBUG
+// #define NDEBUG
 
 #define WARN      "\001" "1"
-#define VSMLOG    "\001" "2"
-#define LOG       "\001" "3"
+#define LOG       "\001" "2"
 
 #define vmm_warn(...) printf(WARN __VA_ARGS__)
 
 #ifdef NDEBUG
 
 #define vmm_log(...)  (void)0
-#define vsm_log(...)  (void)0
 
 #else   /* !NDEBUG */
 
 #define vmm_log(...)  printf(LOG __VA_ARGS__)
-#define vsm_log(...)  printf(VSMLOG __VA_ARGS__)
 
 #endif  /* NDEBUG */
 

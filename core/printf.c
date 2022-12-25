@@ -11,8 +11,7 @@
  *    
  *  0: flush
  *  1: warn
- *  2: vsm log
- *  3: log
+ *  2: log
  *
  */
 struct log {
@@ -219,10 +218,7 @@ static void levelprefix(int level) {
     case 1:     // WARN
       __printf("[warning]:cpu%d: ", cpuid());
       return;
-    case 2:
-      __printf("[vsm-log]: cpu%d: ", cpuid());
-      return;
-    case 3:
+    case 2:     // LOG
       __printf("[log]: cpu%d: ", cpuid());
       return;
   }
