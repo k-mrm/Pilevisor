@@ -23,11 +23,12 @@
 #include "compiler.h"
 #include "vsm-log.h"
 
-#define ipa_to_pfn(ipa)   ((ipa - 0x40000000) >> PAGESHIFT)
+#define ipa_to_pfn(ipa)       (((ipa) - 0x40000000) >> PAGESHIFT)
+#define ipa_to_desc(ipa)      (&ptable[ipa_to_pfn(ipa)])
 
-#define ipa_to_desc(ipa)  (&ptable[ipa_to_pfn(ipa)])
+#define page_desc_addr(page)  ((((page) - ptable) << PAGESHIFT) + 0x40000000)
 
-static struct cache_page pages[NR_CACHE_PAGES];
+static struct manager_page manager[NR_MANAGER_PAGES];
 static struct page_desc ptable[GVM_MEMORY / PAGESIZE];
 
 static u64 w_copyset = 0;
@@ -53,8 +54,8 @@ struct vsm_rw_data {
   u64 size;
 };
 
-static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d);
-static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d);
+static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
+static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
 static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
 
 static void vsm_read_server_process(struct vsm_server_proc *proc);
@@ -108,13 +109,9 @@ struct invalidate_ack_hdr {
  *  success: return 0
  *  else:    return 1 
  */
-static inline int page_trylock(u64 ipa) {
-  u64 flags;
-
-  u8 *lock = &ipa_to_desc(ipa)->lock;
+static inline int page_trylock(struct page_desc *page) {
+  u8 *lock = &page->lock;
   u8 r, l = 1;
-
-  irqsave(flags);
 
   asm volatile(
     "ldaxrb %w0, [%1]\n"
@@ -124,23 +121,19 @@ static inline int page_trylock(u64 ipa) {
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
 
-  irqrestore(flags);
-
   return r;
 }
 
-static inline int page_locked(u64 ipa) {
-  return ipa_to_desc(ipa)->lock;
+static inline int page_locked(struct page_desc *page) {
+  return page->lock;
 }
 
-static inline void page_spinlock(u64 ipa) {
-  u8 *lock = &ipa_to_desc(ipa)->lock;
-
-  spin_lock(lock);
+static inline void page_spinlock(struct page_desc *page) {
+  spin_lock(&page->lock);
 }
 
-static inline void page_unlock(u64 ipa) {
-  u8 *lock = &ipa_to_desc(ipa)->lock;
+static inline void page_unlock(struct page_desc *page) {
+  u8 *lock = &page->lock;
 
   asm volatile("stlrb wzr, [%0]" :: "r"(lock) : "memory");
 }
@@ -172,9 +165,15 @@ static inline void invoke_vsm_process(struct vsm_server_proc *p) {
   p->do_process(p);
 }
 
-static void vsm_enqueue_proc(struct vsm_server_proc *p) {
+/*
+ *  return value:
+ *    0: nothing to do
+ *    1: process enqueued server_proc myself
+ */
+static int vsm_enqueue_proc(struct vsm_server_proc *p) {
+  int myself = 0;
   u64 flags;
-  vmm_log("enquuuuuuuuuuuuuuueueueeueueue %p %p %p\n", p, p->page_ipa, read_sysreg(elr_el2));
+  printf("%d enquuuuuuuuuuuuuuueueueeueueue %p %p %p\n", cpuid(), p, p->page_ipa, read_sysreg(elr_el2));
 
   struct page_desc *page = ipa_to_desc(p->page_ipa);
 
@@ -185,6 +184,8 @@ static void vsm_enqueue_proc(struct vsm_server_proc *p) {
 
   spin_lock_irqsave(&page->wq->lock, flags);
 
+  myself = page->wq->processing;
+
   if(page->wq->head == NULL)
     page->wq->head = p;
 
@@ -194,6 +195,8 @@ static void vsm_enqueue_proc(struct vsm_server_proc *p) {
   page->wq->tail = p;
 
   spin_unlock_irqrestore(&page->wq->lock, flags);
+
+  return myself;
 }
 
 static void vsm_process_wq_core(struct page_desc *page) {
@@ -208,26 +211,35 @@ restart:
   page->wq->head = NULL;
   page->wq->tail = NULL;
 
+  page->wq->processing = true;
+
   spin_unlock(&page->wq->lock);
 
   local_irq_enable();
 
   for(p = head; p; p = p_next) {
-    // vmm_log("process %p(%d) %p................\n", p, p->type, p->page_ipa);
+    printf("%d process %p(%d) %p................\n", cpuid(), p, p->type, p->page_ipa);
     invoke_vsm_process(p);
 
     p_next = p->next;
     free(p);
   }
 
+  printf("%d processing doneeeeeeeeeeee\n", cpuid());
+
   local_irq_disable();
+
   spin_lock(&page->wq->lock);
+
+  page->wq->processing = false;
 
   /*
    *  process enqueued processes during in this function
    */
-  if(page->wq->head)
+  if(page->wq->head) {
+    printf("restage!\n");
     goto restart;
+  }
 
   spin_unlock(&page->wq->lock);
 }
@@ -235,34 +247,40 @@ restart:
 /*
  *  must be held ptable[ipa].lock
  */
-static void vsm_process_waitqueue(u64 ipa) {
+static void vsm_process_waitqueue(struct page_desc *page) {
   u64 flags;
 
-  assert(page_locked(ipa));
-
-  struct page_desc *page = ipa_to_desc(ipa);
+  assert(page_locked(page));
 
   irqsave(flags);
 
   if(page->wq && page->wq->head)
     vsm_process_wq_core(page);
 
-  page_unlock(ipa);
+  page_unlock(page);
 
   irqrestore(flags);
-
-  return;
 }
 
-static inline struct cache_page *ipa_cache_page(u64 ipa) {
+static void vsm_process_waitqueue_spinlock(struct page_desc *page) {
+  u64 flags;
+
+  page_spinlock(page);
+
+  irqsave(flags);
+
+  if(page->wq && page->wq->head)
+    vsm_process_wq_core(page);
+
+  page_unlock(page);
+
+  irqrestore(flags);
+}
+
+static inline struct manager_page *ipa_manager_page(u64 ipa) {
   assert(in_memrange(&cluster_me()->mem, ipa));
 
-  return pages + ((ipa - cluster_me()->mem.start) >> PAGESHIFT);
-}
-
-static inline void cache_page_set_owner(struct cache_page *p, int owner) {
-  p->flags &= ~((u64)CACHE_PAGE_OWNER_MASK << CACHE_PAGE_OWNER_SHIFT);
-  p->flags |= ((u64)owner & CACHE_PAGE_OWNER_MASK) << CACHE_PAGE_OWNER_SHIFT;
+  return manager + ((ipa - cluster_me()->mem.start) >> PAGESHIFT);
 }
 
 /* determine manager's node of page by ipa */
@@ -378,12 +396,13 @@ static void send_invalidate_ack(int from_nodeid, u64 ipa) {
 
 static void vsm_invalidate_server_process(struct vsm_server_proc *proc) {
   u64 ipa = proc->page_ipa;
+  struct page_desc *page = ipa_to_desc(ipa);
   u64 copyset = proc->copyset;
   u64 from_nodeid = proc->req_nodeid;
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
 
-  assert(page_locked(proc->page_ipa));
+  assert(page_locked(page));
 
   if(!page_accessible(vttbr, ipa)) {
     // panic("invalidate already: %p", ipa);
@@ -402,34 +421,37 @@ static void vsm_invalidate_server_process(struct vsm_server_proc *proc) {
 }
 
 void *vsm_read_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size)  {
+  struct page_desc *page = ipa_to_desc(page_ipa);
+
   struct vsm_rw_data d = {
     .offset = offset,
     .buf = buf,
     .size = size,
   };
 
-  return __vsm_read_fetch_page(page_ipa, &d);
+  return __vsm_read_fetch_page(page, &d);
 }
 
 void *vsm_read_fetch_page(u64 page_ipa) {
-  return __vsm_read_fetch_page(page_ipa, NULL);
+  struct page_desc *page = ipa_to_desc(page_ipa);
+
+  return __vsm_read_fetch_page(page, NULL);
 }
 
 /* read fault handler */
-static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
+static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d) {
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
   void *page_pa = NULL;
   u64 far = read_sysreg(far_el2);
   int manager = -1;
-
-  vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
+  u64 page_ipa = page_desc_addr(page);
 
   manager = page_manager(page_ipa);
   if(manager < 0)
     return NULL;
 
-  page_spinlock(page_ipa);
+  page_spinlock(page);
 
   /*
    * may other cpu has readable page already
@@ -441,8 +463,8 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
 
   if(manager == local_nodeid()) {   /* I am manager */
     /* receive page from owner of page */
-    struct cache_page *p = ipa_cache_page(page_ipa);
-    int owner = CACHE_PAGE_OWNER(p);
+    struct manager_page *p = ipa_manager_page(page_ipa);
+    int owner = p->owner;
 
     vsm_log(READ_SENDER, local_nodeid(), owner, page_ipa, "request to owner");
 
@@ -459,47 +481,51 @@ static void *__vsm_read_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
   page_pa = (void *)PTE_PA(*pte);
 
   /* read data */
-  if(d)
+  if(unlikely(d))
     memcpy(d->buf, (char *)page_pa + d->offset, d->size);
 
   s2pte_ro(pte);
   tlb_s2_flush_all();
 
 end:
-  vsm_process_waitqueue(page_ipa);
+  vsm_process_waitqueue(page);
 
   return page_pa;
 }
 
 void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
+  struct page_desc *page = ipa_to_desc(page_ipa);
+
   struct vsm_rw_data d = {
     .offset = offset,
     .buf = buf,
     .size = size,
   };
 
-  return __vsm_write_fetch_page(page_ipa, &d);
+  return __vsm_write_fetch_page(page, &d);
 }
 
 void *vsm_write_fetch_page(u64 page_ipa) {
-  return __vsm_write_fetch_page(page_ipa, NULL);
+  struct page_desc *page = ipa_to_desc(page_ipa);
+
+  return __vsm_write_fetch_page(page, NULL);
 }
 
 /* write fault handler */
-static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
+static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *d) {
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
   void *page_pa;
   u64 far = read_sysreg(far_el2);
   int manager = -1;
-
-  vmm_bug_on(!PAGE_ALIGNED(page_ipa), "page_ipa align");
+  u64 page_ipa = page_desc_addr(page);
 
   manager = page_manager(page_ipa);
   if(manager < 0)
     return NULL;
 
-  page_spinlock(page_ipa);
+  page_spinlock(page);
+
   /*
    * may other cpu has readable/writable page already
    */
@@ -533,8 +559,8 @@ static void *__vsm_write_fetch_page(u64 page_ipa, struct vsm_rw_data *d) {
 
   if(manager == local_nodeid()) {   /* I am manager */
     /* receive page from owner of page */
-    struct cache_page *page = ipa_cache_page(page_ipa);
-    int owner = CACHE_PAGE_OWNER(page);
+    struct manager_page *page = ipa_manager_page(page_ipa);
+    int owner = page->owner;
 
     vsm_log(WRITE_SENDER, local_nodeid(), owner, page_ipa, "request to owner");
 
@@ -559,14 +585,14 @@ inv_phase:
   page_pa = (void *)PTE_PA(*pte);
 
   /* write data */
-  if(d)
+  if(unlikely(d))
     memcpy((char *)page_pa + d->offset, d->buf, d->size);
 
   s2pte_rw(pte);
   // tlb_s2_flush_all();
 
 end:
-  vsm_process_waitqueue(page_ipa);
+  vsm_process_waitqueue(page);
 
   return page_pa;
 }
@@ -634,10 +660,11 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
 static void vsm_read_server_process(struct vsm_server_proc *proc) {
   u64 *vttbr = localvm.vttbr;
   u64 page_ipa = proc->page_ipa;
+  struct page_desc *page = ipa_to_desc(page_ipa);
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
 
-  assert(page_locked(page_ipa));
+  assert(page_locked(page));
 
   int manager = page_manager(page_ipa);
   if(manager < 0)
@@ -659,8 +686,8 @@ static void vsm_read_server_process(struct vsm_server_proc *proc) {
     /* send p */
     send_read_fetch_reply(req_nodeid, page_ipa, (void *)pa);
   } else if(local_nodeid() == manager) {  /* I am manager */
-    struct cache_page *p = ipa_cache_page(page_ipa);
-    int p_owner = CACHE_PAGE_OWNER(p);
+    struct manager_page *p = ipa_manager_page(page_ipa);
+    int p_owner = p->owner;
 
     vsm_log(READ_RECEIVER, req_nodeid, p_owner, page_ipa, "forward read request");
 
@@ -679,10 +706,11 @@ static void vsm_read_server_process(struct vsm_server_proc *proc) {
 static void vsm_write_server_process(struct vsm_server_proc *proc) {
   u64 *vttbr = localvm.vttbr;
   u64 page_ipa = proc->page_ipa;
+  struct page_desc *page = ipa_to_desc(page_ipa);
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
 
-  assert(page_locked(page_ipa));
+  assert(page_locked(page));
 
   int manager = page_manager(page_ipa);
   if(manager < 0)
@@ -705,12 +733,13 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
     free_page(pa);
 
     if(local_nodeid() == manager) {
-      struct cache_page *p = ipa_cache_page(page_ipa);
-      cache_page_set_owner(p, req_nodeid);
+      struct manager_page *p = ipa_manager_page(page_ipa);
+
+      p->owner = req_nodeid;
     }
   } else if(local_nodeid() == manager) {
-    struct cache_page *p = ipa_cache_page(page_ipa);
-    int p_owner = CACHE_PAGE_OWNER(p);
+    struct manager_page *p = ipa_manager_page(page_ipa);
+    int p_owner = p->owner;
 
     vsm_log(WRITE_RECEIVER, req_nodeid, p_owner, page_ipa, "forward write request");
 
@@ -722,7 +751,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
     send_fetch_request(req_nodeid, p_owner, page_ipa, 1);
 
     /* now owner is request node */
-    cache_page_set_owner(p, req_nodeid);
+    p->owner = req_nodeid;
   } else {
     panic("write server: %p (manager %d) %d unreachable", page_ipa, manager, req_nodeid);
   }
@@ -734,14 +763,22 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
 
   assert(!local_lazyirq_enabled());
 
-  if(page_trylock(a->ipa)) {
-    vsm_enqueue_proc(p);
-    return;
+  struct page_desc *page = ipa_to_desc(a->ipa);
+
+  if(page_trylock(page)) {
+    int proc_myself = vsm_enqueue_proc(p);
+
+    if(proc_myself)
+      goto end;
+    else
+      return;
   }
 
   invoke_vsm_process(p);
   free(p);
-  vsm_process_waitqueue(a->ipa);
+
+end:
+  vsm_process_waitqueue(page);
 }
 
 static void recv_invalidate_intr(struct pocv2_msg *msg) {
@@ -750,14 +787,22 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
 
   assert(!local_lazyirq_enabled());
 
-  if(page_trylock(h->ipa)) {
-    vsm_enqueue_proc(p);
-    return;
+  struct page_desc *page = ipa_to_desc(h->ipa);
+
+  if(page_trylock(page)) {
+    int proc_myself = vsm_enqueue_proc(p);
+
+    if(proc_myself)
+      goto end;
+    else
+      return;
   }
 
   invoke_vsm_process(p); 
   free(p);
-  vsm_process_waitqueue(h->ipa);
+
+end:
+  vsm_process_waitqueue(page);
 }
 
 static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
@@ -783,10 +828,10 @@ void vsm_node_init(struct memrange *mem) {
 
   vmm_log("Node %d mapped: [%p - %p]\n", local_nodeid(), start, start+p);
 
-  struct cache_page *c;
-  for(c = pages; c < &pages[NR_CACHE_PAGES]; c++) {
+  struct manager_page *page;
+  for(page = manager; page < &manager[NR_MANAGER_PAGES]; page++) {
     /* now owner is me */
-    c->flags = ((u64)local_nodeid() & CACHE_PAGE_OWNER_MASK) << CACHE_PAGE_OWNER_SHIFT;
+    page->owner = local_nodeid();
   }
 }
 
