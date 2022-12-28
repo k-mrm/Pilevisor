@@ -130,8 +130,8 @@ static inline int page_locked(struct page_desc *page) {
 }
 
 static inline void page_spinlock(struct page_desc *page) {
-  printf("%d spinlock %p\n", cpuid(), page_desc_addr(page));
   spin_lock(&page->lock);
+  printf("%d spinlock %p\n", cpuid(), page_desc_addr(page));
 }
 
 /*
@@ -141,6 +141,24 @@ static inline int page_unlock(struct page_desc *page) {
   u16 *l = &page->ll;
 
   asm volatile("stlrh wzr, [%0]" :: "r"(l) : "memory");
+  printf("%d unlock %p\n", cpuid(), page_desc_addr(page));
+}
+
+/*
+ *  lock page and vsm_waitqueue
+ */
+static inline void page_vwq_lock(struct page_desc *page) {
+  u16 tmp, l = 0x0101;
+
+  asm volatile(
+    "sevl\n"
+    "1: wfe\n"
+    "2: ldaxrh %w0, [%1]\n"
+    "cbnz   %w0, 1b\n"
+    "stxrh  %w0, %w2, [%1]\n"
+    "cbnz   %w0, 1b\n"
+    : "=&r"(tmp) : "r"(&page->wqlock), "r"(l) : "memory"
+  );
 }
 
 /*
@@ -202,7 +220,7 @@ static inline void invoke_vsm_process(struct vsm_server_proc *p) {
  *    0: nothing to do
  *    1: process enqueued server_proc myself
  */
-static int vsm_enqueue_proc(struct vsm_server_proc *p) {
+static bool vsm_enqueue_proc(struct vsm_server_proc *p) {
   u64 flags;
   struct page_desc *page = ipa_to_desc(p->page_ipa);
 
@@ -236,8 +254,6 @@ static void vsm_process_wq_core(struct page_desc *page) {
   struct vsm_server_proc *p, *p_next, *head;
   assert(local_irq_disabled());
 
-  vwq_lock(page);
-
   head = page->wq->head;
 
   page->wq->head = NULL;
@@ -259,8 +275,6 @@ static void vsm_process_wq_core(struct page_desc *page) {
   if(page->wq->head) {
     panic("restage");
   }
-
-  /* caller will call unlock */
 }
 
 /*
@@ -272,6 +286,8 @@ static void vsm_process_waitqueue(struct page_desc *page) {
   assert(page_locked(page));
 
   irqsave(flags);
+
+  vwq_lock(page);
 
   if(page->wq && page->wq->head) {
     vsm_process_wq_core(page);
@@ -290,7 +306,8 @@ static void vsm_process_waitqueue_lock(struct page_desc *page) {
 
   irqsave(flags);
 
-  page_spinlock(page);
+  /* lock page lock and wqlock atomic */
+  page_vwq_lock(page);
 
   if(page->wq && page->wq->head) {
     vsm_process_wq_core(page);
@@ -791,7 +808,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct page_desc *page = ipa_to_desc(a->ipa);
 
   if(page_trylock(page)) {
-    int proc_myself = vsm_enqueue_proc(p);
+    bool proc_myself = vsm_enqueue_proc(p);
     if(proc_myself)
       vsm_process_waitqueue_lock(page);
     
@@ -812,7 +829,7 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   struct page_desc *page = ipa_to_desc(h->ipa);
 
   if(page_trylock(page)) {
-    int proc_myself = vsm_enqueue_proc(p);
+    bool proc_myself = vsm_enqueue_proc(p);
     if(proc_myself)
       vsm_process_waitqueue_lock(page);
 
