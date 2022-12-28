@@ -288,9 +288,9 @@ static void vsm_process_waitqueue_lock(struct page_desc *page) {
 
   assert(!page_locked(page));
 
-  page_spinlock(page);
-
   irqsave(flags);
+
+  page_spinlock(page);
 
   if(page->wq && page->wq->head) {
     vsm_process_wq_core(page);
