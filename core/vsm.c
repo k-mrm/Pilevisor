@@ -107,9 +107,10 @@ struct invalidate_ack_hdr {
 
 /*
  *  success: return 0
- *  else:    return 1 
+ *  else:    return 1
  */
 static inline int page_trylock(struct page_desc *page) {
+  printf("%d trylock %p\n", cpuid(), page_desc_addr(page));
   u8 *lock = &page->lock;
   u8 r, l = 1;
 
@@ -129,13 +130,44 @@ static inline int page_locked(struct page_desc *page) {
 }
 
 static inline void page_spinlock(struct page_desc *page) {
+  printf("%d spinlock %p\n", cpuid(), page_desc_addr(page));
   spin_lock(&page->lock);
 }
 
-static inline void page_unlock(struct page_desc *page) {
-  u8 *lock = &page->lock;
+/*
+ *  cpu that locked page and cpu that unlocked page must be the same
+ */
+static inline int page_unlock(struct page_desc *page) {
+  u16 *l = &page->ll;
 
-  asm volatile("stlrb wzr, [%0]" :: "r"(lock) : "memory");
+  asm volatile("stlrh wzr, [%0]" :: "r"(l) : "memory");
+}
+
+/*
+ *  lock vsm_waitqueue
+ */
+static inline u8 vwq_lock(struct page_desc *page) {
+  u8 tmp, l = 1;
+
+  asm volatile(
+    "sevl\n"
+    "1: wfe\n"
+    "2: ldaxrb %w0, [%1]\n"
+    "cbnz   %w0, 1b\n"
+    "stxrb  %w0, %w2, [%1]\n"
+    "cbnz   %w0, 1b\n"
+    : "=&r"(tmp) : "r"(&page->wqlock), "r"(l) : "memory"
+  );
+
+  return !page_locked(page);
+}
+
+static inline void vwq_unlock(struct page_desc *page) {
+  asm volatile("stlrb wzr, [%0]" :: "r"(&page->wqlock) : "memory");
+}
+
+static inline void vwqinit(struct vsm_waitqueue *wq) {
+  memset(wq, 0, sizeof(*wq));
 }
 
 static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid, bool wnr) {
@@ -171,20 +203,19 @@ static inline void invoke_vsm_process(struct vsm_server_proc *p) {
  *    1: process enqueued server_proc myself
  */
 static int vsm_enqueue_proc(struct vsm_server_proc *p) {
-  int myself = 0;
   u64 flags;
-  printf("%d enquuuuuuuuuuuuuuueueueeueueue %p %p %p\n", cpuid(), p, p->page_ipa, read_sysreg(elr_el2));
-
   struct page_desc *page = ipa_to_desc(p->page_ipa);
 
   if(!page->wq) {
     page->wq = malloc(sizeof(*page->wq));
-    spinlock_init(&page->wq->lock);
+    vwqinit(page->wq);
   }
 
-  spin_lock_irqsave(&page->wq->lock, flags);
+  irqsave(flags);
 
-  myself = page->wq->processing;
+  bool punlocked = vwq_lock(page);
+  
+  printf("%d enquuuuuuuuuuuuuuueueueeueueue %d %p %p\n", cpuid(), punlocked, p->page_ipa, read_sysreg(elr_el2));
 
   if(page->wq->head == NULL)
     page->wq->head = p;
@@ -194,28 +225,23 @@ static int vsm_enqueue_proc(struct vsm_server_proc *p) {
 
   page->wq->tail = p;
 
-  spin_unlock_irqrestore(&page->wq->lock, flags);
+  vwq_unlock(page);
 
-  return myself;
+  irqrestore(flags);
+
+  return punlocked;
 }
 
 static void vsm_process_wq_core(struct page_desc *page) {
   struct vsm_server_proc *p, *p_next, *head;
   assert(local_irq_disabled());
 
-  spin_lock(&page->wq->lock);
+  vwq_lock(page);
 
-restart:
   head = page->wq->head;
 
   page->wq->head = NULL;
   page->wq->tail = NULL;
-
-  page->wq->processing = true;
-
-  spin_unlock(&page->wq->lock);
-
-  local_irq_enable();
 
   for(p = head; p; p = p_next) {
     printf("%d process %p(%d) %p................\n", cpuid(), p, p->type, p->page_ipa);
@@ -227,25 +253,18 @@ restart:
 
   printf("%d processing doneeeeeeeeeeee\n", cpuid());
 
-  local_irq_disable();
-
-  spin_lock(&page->wq->lock);
-
-  page->wq->processing = false;
-
   /*
    *  process enqueued processes during in this function
    */
   if(page->wq->head) {
-    printf("restage!\n");
-    goto restart;
+    panic("restage");
   }
 
-  spin_unlock(&page->wq->lock);
+  /* caller will call unlock */
 }
 
 /*
- *  must be held ptable[ipa].lock
+ *  must be held page->lock
  */
 static void vsm_process_waitqueue(struct page_desc *page) {
   u64 flags;
@@ -254,24 +273,30 @@ static void vsm_process_waitqueue(struct page_desc *page) {
 
   irqsave(flags);
 
-  if(page->wq && page->wq->head)
+  if(page->wq && page->wq->head) {
     vsm_process_wq_core(page);
+  }
 
+  /* unlock page lock and wqlock atomic */
   page_unlock(page);
 
   irqrestore(flags);
 }
 
-static void vsm_process_waitqueue_spinlock(struct page_desc *page) {
+static void vsm_process_waitqueue_lock(struct page_desc *page) {
   u64 flags;
+
+  assert(!page_locked(page));
 
   page_spinlock(page);
 
   irqsave(flags);
 
-  if(page->wq && page->wq->head)
+  if(page->wq && page->wq->head) {
     vsm_process_wq_core(page);
+  }
 
+  /* unlock page lock and wqlock atomic */
   page_unlock(page);
 
   irqrestore(flags);
@@ -767,17 +792,14 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
 
   if(page_trylock(page)) {
     int proc_myself = vsm_enqueue_proc(p);
-
     if(proc_myself)
-      goto end;
-    else
-      return;
+      vsm_process_waitqueue_lock(page);
+    
+    return;
   }
 
   invoke_vsm_process(p);
   free(p);
-
-end:
   vsm_process_waitqueue(page);
 }
 
@@ -791,17 +813,14 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
 
   if(page_trylock(page)) {
     int proc_myself = vsm_enqueue_proc(p);
-
     if(proc_myself)
-      goto end;
-    else
-      return;
+      vsm_process_waitqueue_lock(page);
+
+    return;
   }
 
   invoke_vsm_process(p); 
   free(p);
-
-end:
   vsm_process_waitqueue(page);
 }
 

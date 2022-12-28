@@ -21,13 +21,18 @@ struct manager_page {
 struct vsm_waitqueue {
   struct vsm_server_proc *head;
   struct vsm_server_proc *tail;
-  spinlock_t lock;
-  bool processing: 1;
 };
 
 struct page_desc {
   struct vsm_waitqueue *wq;
-  u8 lock;
+  union {
+    u16 ll;
+    struct {
+      /* vsm waitqueue lock */
+      u8 wqlock;
+      u8 lock;
+    };
+  };
 };
 
 struct vsm_server_proc {

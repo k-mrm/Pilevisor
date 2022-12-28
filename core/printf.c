@@ -250,7 +250,7 @@ int printf(const char *fmt, ...) {
     level = 0;      // default
   }
 
-  // spin_lock_irqsave(&loglock, flags);
+  spin_lock_irqsave(&loglock, flags);
 
   // void (*putcf) = level == 0 ? uart_putc : lputc;
   putcf = uart_putc;
@@ -269,7 +269,7 @@ int printf(const char *fmt, ...) {
   __vprintf(fmt, ap, putcf);
   va_end(ap);
 
-  // spin_unlock_irqrestore(&loglock, flags);
+  spin_unlock_irqrestore(&loglock, flags);
 
   return 0;
 }
