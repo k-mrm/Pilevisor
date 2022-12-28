@@ -170,7 +170,7 @@ gdb-sub: poc-sub
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
 linux-gdb: $(KERNIMG)
-	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -append "console=ttyAMA0" -m 256 -S -gdb tcp::1234
+	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0" -m 256 -S -gdb tcp::1234
 
 linux: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0" -m $(GUEST_MEMORY)
