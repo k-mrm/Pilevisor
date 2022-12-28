@@ -110,7 +110,6 @@ struct invalidate_ack_hdr {
  *  else:    return 1
  */
 static inline int page_trylock(struct page_desc *page) {
-  printf("%d trylock %p\n", cpuid(), page_desc_addr(page));
   u8 *lock = &page->lock;
   u8 r, l = 1;
 
@@ -131,7 +130,6 @@ static inline int page_locked(struct page_desc *page) {
 
 static inline void page_spinlock(struct page_desc *page) {
   spin_lock(&page->lock);
-  printf("%d spinlock %p\n", cpuid(), page_desc_addr(page));
 }
 
 /*
@@ -141,7 +139,6 @@ static inline int page_unlock(struct page_desc *page) {
   u16 *l = &page->ll;
 
   asm volatile("stlrh wzr, [%0]" :: "r"(l) : "memory");
-  printf("%d unlock %p\n", cpuid(), page_desc_addr(page));
 }
 
 /*
@@ -233,8 +230,6 @@ static bool vsm_enqueue_proc(struct vsm_server_proc *p) {
 
   bool punlocked = vwq_lock(page);
   
-  printf("%d enquuuuuuuuuuuuuuueueueeueueue %d %p %p\n", cpuid(), punlocked, p->page_ipa, read_sysreg(elr_el2));
-
   if(page->wq->head == NULL)
     page->wq->head = p;
 
@@ -260,14 +255,14 @@ static void vsm_process_wq_core(struct page_desc *page) {
   page->wq->tail = NULL;
 
   for(p = head; p; p = p_next) {
-    printf("%d process %p(%d) %p................\n", cpuid(), p, p->type, p->page_ipa);
+    // printf("%d process %p(%d) %p................\n", cpuid(), p, p->type, p->page_ipa);
     invoke_vsm_process(p);
 
     p_next = p->next;
     free(p);
   }
 
-  printf("%d processing doneeeeeeeeeeee\n", cpuid());
+  // printf("%d processing doneeeeeeeeeeee\n", cpuid());
 
   /*
    *  process enqueued processes during in this function
