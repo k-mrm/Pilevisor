@@ -27,7 +27,7 @@ struct chunk {
 };
 
 static struct chunk malloc_chunk[8];
-static spinlock_t heaplock;
+static spinlock_t heaplock = SPINLOCK_INIT;
 
 static inline int chunk_order(struct chunk *c) {
   return c - malloc_chunk;
@@ -150,10 +150,4 @@ static void __malloc_test() {
   p = malloc(32);
   printf("mtest: %p\n", p);
   free(p);
-}
-
-void malloc_init() {
-  spinlock_init(&heaplock);
-
-  // __malloc_test();
 }

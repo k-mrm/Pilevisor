@@ -144,7 +144,7 @@ bss_clear:
 
 initcpu:
   /* setup vector table */
-  ldr x1, =vectable 
+  ldr x1, =early_vectable
   msr vbar_el2, x1
 
   /* setup mair_el2 */
@@ -176,6 +176,40 @@ initsp:
   isb
 
   ret
+
+.macro ventry, label
+.balign 0x80
+  b \label
+.endm
+
+.balign 0x800
+early_vectable:
+/* current EL with sp0 */
+  ventry  .
+  ventry  .
+  ventry  .
+  ventry  .
+
+/* current EL with spx */
+  ventry  early_panic
+  ventry  .
+  ventry  .
+  ventry  .
+
+/* lower EL using aarch64 */
+  ventry  .
+  ventry  .
+  ventry  .
+  ventry  .
+
+/* lower EL using aarch32 */
+  ventry  .
+  ventry  .
+  ventry  .
+  ventry  .
+
+early_panic:
+  b .
 
 .section ".text"
 

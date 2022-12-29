@@ -116,6 +116,8 @@ static inline void __irqrestore(u64 flags) {
 #define irqsave(flags)      do { flags = __irqsave(); } while(0)
 #define irqrestore(flags)   __irqrestore(flags)
 
+void trapinit(void);
+
 #endif    /* __ASSEMBLER__ */
 
 #endif

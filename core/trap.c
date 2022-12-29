@@ -18,6 +18,8 @@
 #include "compiler.h"
 #include "panic.h"
 
+void vectable(void);
+
 static void dabort_iss_dump(u64 iss);
 static void iabort_iss_dump(u64 iss);
 
@@ -327,4 +329,10 @@ void vm_sync_handler() {
       vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
       panic("unknown sync");
   }
+}
+
+void trapinit() {
+  write_sysreg(vbar_el2, vectable);
+
+  isb();
 }

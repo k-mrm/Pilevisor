@@ -34,7 +34,6 @@ struct guest virt_dtb = {
 };
 
 void _start(void);
-void vectable();
 
 volatile static int cpu0_ready = 0;
 
@@ -50,6 +49,7 @@ static void hcr_setup() {
 int vmm_init_secondary() {
   vmm_log("cpu%d activated...\n", cpuid());
 
+  trapinit();
   pcpu_init_core();
 
   irqchip_init_core();
@@ -70,8 +70,6 @@ int vmm_init_cpu0(void *fdt) {
 
   setup_pagetable((u64)fdt);
 
-  malloc_init();
-
   device_tree_init(fdt);
 
   irqchip_init();
@@ -79,6 +77,8 @@ int vmm_init_cpu0(void *fdt) {
 
   uart_init();
   printf("vmm booting...\n");
+
+  trapinit();
 
   pageallocator_init();
 
