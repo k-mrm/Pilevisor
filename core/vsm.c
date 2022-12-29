@@ -113,6 +113,8 @@ static inline int page_trylock(struct page_desc *page) {
   u8 *lock = &page->lock;
   u8 r, l = 1;
 
+  vsm_log(VSM_INFO, -1, -1, page_desc_addr(page), "page trylock");
+
   asm volatile(
     "ldaxrb %w0, [%1]\n"
     "cbnz   %w0, 1f\n"
@@ -130,6 +132,7 @@ static inline int page_locked(struct page_desc *page) {
 
 static inline void page_spinlock(struct page_desc *page) {
   spin_lock(&page->lock);
+  vsm_log(VSM_INFO, -1, -1, page_desc_addr(page), "page spinlock");
 }
 
 /*
@@ -139,6 +142,7 @@ static inline int page_unlock(struct page_desc *page) {
   u16 *l = &page->ll;
 
   asm volatile("stlrh wzr, [%0]" :: "r"(l) : "memory");
+  vsm_log(VSM_INFO, -1, -1, page_desc_addr(page), "page unlock");
 }
 
 /*
@@ -228,6 +232,8 @@ static bool vsm_enqueue_proc(struct vsm_server_proc *p) {
 
   irqsave(flags);
 
+  vsm_log(VSM_INFO, -1, -1, p->page_ipa, "enqqqqqqqqqqqqqquu");
+
   bool punlocked = vwq_lock(page);
   
   if(page->wq->head == NULL)
@@ -255,21 +261,20 @@ static void vsm_process_wq_core(struct page_desc *page) {
   page->wq->tail = NULL;
 
   for(p = head; p; p = p_next) {
-    // printf("%d process %p(%d) %p................\n", cpuid(), p, p->type, p->page_ipa);
+    vsm_log(VSM_INFO, -1, -1, page_desc_addr(page), "processing queue....");
     invoke_vsm_process(p);
 
     p_next = p->next;
     free(p);
   }
 
-  // printf("%d processing doneeeeeeeeeeee\n", cpuid());
+  vsm_log(VSM_INFO, -1, -1, page_desc_addr(page), "processing doneeeeeeeeeeee");
 
   /*
    *  process enqueued processes during in this function
    */
-  if(page->wq->head) {
+  if(page->wq->head)
     panic("restage");
-  }
 }
 
 /*
@@ -297,7 +302,7 @@ static void vsm_process_waitqueue(struct page_desc *page) {
 static void vsm_process_waitqueue_lock(struct page_desc *page) {
   u64 flags;
 
-  assert(!page_locked(page));
+  // assert(!page_locked(page));
 
   irqsave(flags);
 
@@ -515,6 +520,8 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
 
   pte = vsm_wait_for_recv_timeout(vttbr, page_ipa);
 
+  vsm_log(READ_SENDER, -1, -1, page_ipa, "get remote page");
+
   page_pa = (void *)PTE_PA(*pte);
 
   /* read data */
@@ -611,7 +618,7 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
 
   pte = vsm_wait_for_recv_timeout(vttbr, page_ipa);
 
-  // vmm_log("wf: get remote page @%p\n", page_ipa);
+  vsm_log(WRITE_SENDER, -1, -1, page_ipa, "get remote page");
 
 inv_phase:
   /* invalidate request to copyset */

@@ -12,17 +12,17 @@ static bool loop = false;
 static spinlock_t vloglock = SPINLOCK_INIT;
 
 static const char *tyfmt[] = {
-  [READ_SENDER]     "read sender",
-  [READ_RECEIVER]   "read receiver",
-  [WRITE_SENDER]    "write sender",
-  [WRITE_RECEIVER]  "write receiver",
-  [INV_SENDER]      "inv sender",
-  [INV_RECEIVER]    "inv receiver",
+  [READ_SENDER]     "[read send]",
+  [READ_RECEIVER]   "[read recv]",
+  [WRITE_SENDER]    "[write send]",
+  [WRITE_RECEIVER]  "[write recv]",
+  [INV_SENDER]      "[inv send]",
+  [INV_RECEIVER]    "[inv recv]",
+  [VSM_INFO]        "[info]",
 };
 
 void vsm_logdump(int n) {
   int start;
-  const char *s;
   struct vsmlog *vl;
 
   assert(n < 4096);
@@ -44,8 +44,12 @@ void vsm_logdump(int n) {
     if(!vl->msg)
       vl->msg = "";
 
-    printf("%s:cpu%d from: Node %d to: Node %d "
-           "@%p %s\n", tyfmt[vl->type], vl->cpu, vl->from_node, vl->to_node, vl->ipa, vl->msg);
+    if(vl->type == VSM_INFO || vl->from_node < 0) {
+      printf("%s:cpu%d @%p %s\n", tyfmt[vl->type], vl->cpu, vl->ipa, vl->msg);
+    } else {
+      printf("%s:cpu%d from: Node %d to: Node %d "
+             "@%p %s\n", tyfmt[vl->type], vl->cpu, vl->from_node, vl->to_node, vl->ipa, vl->msg);
+    }
 
     start = (start + 1) % 4096;
   }

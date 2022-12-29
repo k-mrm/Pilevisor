@@ -12,6 +12,7 @@ enum {
   WRITE_RECEIVER,
   INV_SENDER,
   INV_RECEIVER,
+  VSM_INFO,
 };
 
 struct vsmlog {
