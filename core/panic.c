@@ -66,7 +66,7 @@ void panic(const char *fmt, ...) {
   vcpu_dump(current);
   node_cluster_dump();
 
-  vsm_logdump(100);
+  logflush();
 
   for(;;) {
     wfi();

@@ -6,48 +6,21 @@
 #include "panic.h"
 #include "log.h"
 
-/*
- *  log level:
- *    
- *  0: flush
- *  1: warn
- *  2: log
- *
- */
-struct log {
-  int cpu;
-  int level;
-  char *msg;
-};
 
 #define PRINT_NBUF    (32 * 1024)
-#define NLOG          1024
 
-static spinlock_t loglock;
+static spinlock_t prlock = SPINLOCK_INIT;
 static char printbuf[PRINT_NBUF];   /* 32 KB */
 static int pbuf_head = 0;
 static int pbuf_tail = 0;
-static struct log log[NLOG]; 
-static int log_head = 0;
-static int log_tail = 0;
 
 static int __vprintf(const char *fmt, va_list ap, void (*putc)(char));
-static int __printf(const char *fmt, ...);
+static int __printf(void (*cf)(char), const char *fmt, ...);
 
 enum printopt {
   PR_0X     = 1 << 0,
   ZERO_PAD  = 1 << 1,
 };
-
-/*
- *  must hold loglock
- */
-static struct log *logpush() {
-  int idx = log_tail;
-  log_tail = (log_tail + 1) % NLOG;
-
-  return &log[idx];
-}
 
 static void lputc(char c) {
   int idx = pbuf_tail;
@@ -193,33 +166,37 @@ static int __vprintf(const char *fmt, va_list ap, void (*putc)(char)) {
   return 0;
 }
 
-void pflush() {
-  ;
-}
+void logflush() {
+  u64 flags;
 
-void log_dump_level(int level) {
-  ;
+  spin_lock_irqsave(&prlock, flags);
+
+  for(int i = pbuf_head; i != pbuf_tail; i = (i + 1) % PRINT_NBUF) {
+    uart_putc(printbuf[i]);
+  }
+
+  spin_unlock_irqrestore(&prlock, flags);
 }
 
 int vprintf(const char *fmt, va_list ap) {
   u64 flags;
 
-  spin_lock_irqsave(&loglock, flags);
+  spin_lock_irqsave(&prlock, flags);
 
   int rc = __vprintf(fmt, ap, uart_putc);
 
-  spin_unlock_irqrestore(&loglock, flags);
+  spin_unlock_irqrestore(&prlock, flags);
 
   return rc;
 }
 
-static void levelprefix(int level) {
+static void levelprefix(int level, void (*cf)(char)) {
   switch(level) {
     case 1:     // WARN
-      __printf("[warning]:cpu%d: ", cpuid());
+      __printf(cf, "[warning]:cpu%d: ", cpuid());
       return;
     case 2:     // LOG
-      __printf("[log]: cpu%d: ", cpuid());
+      __printf(cf, "[log]: cpu%d: ", cpuid());
       return;
   }
 }
@@ -227,11 +204,11 @@ static void levelprefix(int level) {
 /*
  *  must hold loglock
  */
-static int __printf(const char *fmt, ...) {
+static int __printf(void (*cf)(char), const char *fmt, ...) {
   va_list ap;
 
   va_start(ap, fmt);
-  __vprintf(fmt, ap, uart_putc);
+  __vprintf(fmt, ap, cf);
   va_end(ap);
 
   return 0;
@@ -250,30 +227,18 @@ int printf(const char *fmt, ...) {
     level = 0;      // default
   }
 
-  spin_lock_irqsave(&loglock, flags);
+  spin_lock_irqsave(&prlock, flags);
 
-  // void (*putcf) = level == 0 ? uart_putc : lputc;
-  putcf = uart_putc;
+  putcf = level == 0 ? uart_putc : lputc;
 
   if(level)
-    levelprefix(level);
-
-  if(putcf == lputc) {
-    struct log *l = logpush();
-    l->cpu = cpuid();
-    l->level = level;
-    l->msg = &printbuf[pbuf_tail];
-  }
+    levelprefix(level, putcf);
 
   va_start(ap, fmt);
   __vprintf(fmt, ap, putcf);
   va_end(ap);
 
-  spin_unlock_irqrestore(&loglock, flags);
+  spin_unlock_irqrestore(&prlock, flags);
 
   return 0;
-}
-
-void printf_init() {
-  spinlock_init(&loglock);
 }

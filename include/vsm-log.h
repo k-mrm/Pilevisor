@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define VLOG_LEVEL  1
+#define VLOG_LEVEL  2
 
 enum {
   READ_SENDER,
@@ -22,6 +22,7 @@ struct vsmlog {
   const char *msg;
   int from_node;
   int to_node;
+  u64 daif;
 };
 
 void vsm_logdump(int n);
