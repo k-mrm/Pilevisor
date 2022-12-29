@@ -74,6 +74,9 @@ int vmm_init_cpu0(void *fdt) {
 
   device_tree_init(fdt);
 
+  irqchip_init();
+  irqchip_init_core();
+
   uart_init();
   printf("vmm booting...\n");
 
@@ -81,9 +84,6 @@ int vmm_init_cpu0(void *fdt) {
 
   pcpu_init();
   pcpu_init_core();
-
-  irqchip_init();
-  irqchip_init_core();
 
   powerctl_init();
 

@@ -471,10 +471,10 @@ static void gicv3_dt_init(struct device_node *dev) {
   gicv3_d_init();
   gicv3_h_init();
 
-  printf("GICv3 detected:\n");
-  printf("GICv3: nirqs: %d max_lr: %d\n", gicv3_irqchip.nirqs, gicv3_irqchip.max_lr);
-  printf("GICv3: dist base %p\n"
-         "       redist base %p\n", gicd_base, gicr_base);
+  vmm_log("GICv3 detected:\n");
+  vmm_log("GICv3: nirqs: %d max_lr: %d\n", gicv3_irqchip.nirqs, gicv3_irqchip.max_lr);
+  vmm_log("GICv3: dist base %p\n"
+          "       redist base %p\n", gicd_base, gicr_base);
 
   localnode.irqchip = &gicv3_irqchip;
 }

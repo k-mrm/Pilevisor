@@ -67,6 +67,7 @@ static void txintr(struct virtq *txq) {
   spin_lock_irqsave(&txq->lock, flags);
 
   while((hdr = virtq_dequeue(txq, &len)) != NULL) {
+    vmm_log("TXINTR!\n");
     struct iobuf *iobuf = hdr->packet;
 
     free(hdr);
@@ -103,6 +104,7 @@ static void rxintr(struct virtq *rxq) {
   u32 len;
 
   while((iobuf = virtq_dequeue(rxq, &len)) != NULL) {
+    vmm_log("RXINTR!\n");
     iobuf->body_len = len - iobuf->len;
     iobuf_pull(iobuf, sizeof(struct virtio_net_hdr));
 

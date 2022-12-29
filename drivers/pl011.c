@@ -125,7 +125,8 @@ static void pl011_dt_init(struct device_node *dev) {
   /* enable uart */
   pl011_write(CR, 0x301);   /* RXE, TXE, UARTEN */
 
-  // irq_register(33, pl011_intr);
+  irq_register(33, pl011_intr, NULL);
+
   localnode.uart = &pl011;
 
   printf("pl011 detected: %p\n", uartbase);

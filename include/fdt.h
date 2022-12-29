@@ -2,6 +2,7 @@
 #define CORE_FDT_H
 
 #include "types.h"
+#include "device.h"
 
 typedef u16 fdt16;
 typedef u32 fdt32;
@@ -79,5 +80,6 @@ static inline u64 fdt64_to_u64(fdt64 x) {
 #define FDT_END           0x9
 
 void fdt_probe(struct fdt *fdt, void *base);
+struct device_node *fdt_parse(struct fdt *fdt);
 
 #endif

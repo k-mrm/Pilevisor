@@ -64,7 +64,7 @@ void irqchip_init() {
     if(!comp)
       continue;
 
-    printf("intc: comp %s\n", comp);
+    vmm_log("intc: comp %s\n", comp);
 
     int rc = compat_dt_device_init(__dt_irqchip_device, n, comp);
     if(rc == 0)

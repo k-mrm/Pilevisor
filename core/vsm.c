@@ -725,7 +725,7 @@ static void vsm_read_server_process(struct vsm_server_proc *proc) {
     /* I am owner */
     u64 pa = PTE_PA(*pte);
 
-    vmm_log("read server %p: %d -> %d: I am owner!", page_ipa, req_nodeid, local_nodeid());
+    vmm_log("read server %p: %d -> %d: I am owner!\n", page_ipa, req_nodeid, local_nodeid());
 
     /* send p */
     send_read_fetch_reply(req_nodeid, page_ipa, (void *)pa);
@@ -733,7 +733,7 @@ static void vsm_read_server_process(struct vsm_server_proc *proc) {
     struct manager_page *p = ipa_manager_page(page_ipa);
     int p_owner = p->owner;
 
-    vmm_log("read server %p: %d -> %d: forward read request", page_ipa, req_nodeid, p_owner);
+    vmm_log("read server %p: %d -> %d: forward read request\n", page_ipa, req_nodeid, p_owner);
 
     if(req_nodeid == p_owner)
       panic("read server: req_nodeid(%d) == p_owner(%d)", req_nodeid, p_owner);
@@ -766,7 +766,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
     void *pa = (void *)PTE_PA(*pte);
     u64 copyset = s2pte_copyset(pte);
 
-    vmm_log("write server %p %d -> %d I am owner!", page_ipa, req_nodeid, local_nodeid());
+    vmm_log("write server %p %d -> %d I am owner!\n", page_ipa, req_nodeid, local_nodeid());
 
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
@@ -785,7 +785,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
     struct manager_page *p = ipa_manager_page(page_ipa);
     int p_owner = p->owner;
 
-    vmm_log("write server %p %d -> %d forward write request", page_ipa, req_nodeid, p_owner);
+    vmm_log("write server %p %d -> %d forward write request\n", page_ipa, req_nodeid, p_owner);
 
     if(req_nodeid == p_owner)
       panic("write server: req_nodeid(%d) == p_owner(%d) fetch request from owner!",
