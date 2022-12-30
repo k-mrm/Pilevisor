@@ -1,7 +1,8 @@
-#ifndef MVMM_PCPU_H
-#define MVMM_PCPU_H
+#ifndef PCPU_H
+#define PCPU_H
 
 #include "types.h"
+#include "aarch64.h"
 #include "param.h"
 #include "mm.h"
 #include "irq.h"
@@ -11,11 +12,21 @@
 
 extern char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 
+struct cpu_enable_method {
+  int (*init)(int cpu);
+  int (*boot)(int cpu, u64 entrypoint);
+};
+
 struct pcpu {
   void *stackbase;
   int mpidr;
+
   bool online;
   bool wakeup;
+
+  struct device_node *device;
+
+  const struct cpu_enable_method *enable_method;
   
   struct pocv2_msg_queue recv_waitq;
 
@@ -31,18 +42,27 @@ struct pcpu {
       ;
     } v2;
   };
-};
+} __cacheline_aligned;
 
 extern struct pcpu pcpus[NCPU_MAX];
 
 void cpu_stop_local(void);
 void cpu_stop_all(void);
 
+int cpu_boot(int cpu, u64 entrypoint);
+
 void pcpu_init_core(void);
 void pcpu_init(void);
 
 #define mycpu         (&pcpus[cpuid()])
 #define localcpu(id)  (&pcpus[id]) 
+
+static inline struct pcpu *get_cpu(int cpu) {
+  if(cpu >= NCPU_MAX)
+    panic("no cpu!");
+
+  return &pcpus[cpu];
+}
 
 #define local_lazyirq_enable()      (mycpu->lazyirq_enabled = true)
 #define local_lazyirq_disable()     (mycpu->lazyirq_enabled = false)

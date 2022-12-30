@@ -10,7 +10,6 @@
 #include "node.h"
 #include "msg.h"
 #include "pcpu.h"
-#include "power.h"
 #include "spinlock.h"
 #include "panic.h"
 
@@ -109,14 +108,17 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
     if(localcpu(localid)->wakeup) {  /* pcpu already wakeup */
       status = PSCI_SUCCESS;
     } else {    /* pcpu sleeping... */
-      int c = cpu_power_wakeup(localid, (u64)_start);
-      if(c < 0)
-        panic("cpu%d wakeup failed", localid);
-      
-      status = PSCI_SUCCESS;
+      int c = cpu_boot(localid, (u64)_start);
+      if(c < 0) {
+        vmm_warn("cpu%d wakeup failed", localid);
+        status = PSCI_DENIED;
+      } else {
+        status = PSCI_SUCCESS;
+      }
     }
 
-    vcpu->online = true;
+    if(status == PSCI_SUCCESS)
+      vcpu->online = true;
   }
 
   spin_unlock_irqrestore(&vcpu->lock, flags);

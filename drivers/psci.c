@@ -1,8 +1,10 @@
 #include "types.h"
 #include "psci.h"
-#include "power.h"
 #include "log.h"
 #include "device.h"
+#include "localnode.h"
+#include "lib.h"
+#include "pcpu.h"
 
 extern u64 psci_call(u32 func, u64 cpuid, u64 entry, u64 ctxid);
 
@@ -17,7 +19,7 @@ struct psci_info {
   u32 cpu_off;
   u32 cpu_suspend;
   enum psci_method method;
-} psci;
+} psci_info;
 
 static char *psci_status_map(int status) {
   switch(status) {
@@ -46,46 +48,52 @@ static char *psci_status_map(int status) {
   }
 }
 
-static int psci_cpu_wakeup(int cpuid, u64 entrypoint) {
-  i64 status = psci_call(psci.cpu_on, cpuid, entrypoint, 0);
+static int psci_cpu_boot(int cpuid, u64 entrypoint) {
+  i64 status = psci_call(psci_info.cpu_on, cpuid, entrypoint, 0);
 
   if(status == PSCI_SUCCESS) {
     return 0;
   } else {
-    vmm_warn("cpu%d wakeup failed: %d(=%s)", cpuid, status, psci_status_map(status));
+    vmm_warn("psci: cpu%d wakeup failed: %d(=%s)", cpuid, status, psci_status_map(status));
     return -1;
   }
 }
 
-static void psci_init(struct device_node *dev) {
-  const char *meth = dt_node_props(dev, "method");
+static int em_psci_init(int __unused cpu) {
+  return 0;
+}
 
-  if(strcmp(meth, "hvc") != 0)
-    psci.method = PSCI_HVC;
-  else if(strcmp(meth, "smc") != 0)
-    psci.method = PSCI_SMC;
+const struct cpu_enable_method psci = {
+  .init = em_psci_init,
+  .boot = psci_cpu_boot,
+};
+
+void psci_init() {
+  struct device_node *dev = dt_find_node_path(localnode.device_tree, "/psci");
+  if(!dev)
+    return;
+
+  printf("psci found\n");
+
+  const char *method = dt_node_props(dev, "method");
+
+  if(strcmp(method, "hvc") != 0)
+    psci_info.method = PSCI_HVC;
+  else if(strcmp(method, "smc") != 0)
+    psci_info.method = PSCI_SMC;
   else
     panic("psci method");
 
   int rc;
 
-  dt_node_propa(dev, "migrate", &psci.migrate);
-  dt_node_propa(dev, "cpu_suspend", &psci.cpu_suspend);
+  dt_node_propa(dev, "migrate", &psci_info.migrate);
+  dt_node_propa(dev, "cpu_suspend", &psci_info.cpu_suspend);
 
-  rc = dt_node_propa(dev, "cpu_on", &psci.cpu_on);
+  rc = dt_node_propa(dev, "cpu_on", &psci_info.cpu_on);
   if(rc < 0)
     panic("cpu on");
 
-  rc = dt_node_propa(dev, "cpu_off", &psci.cpu_off);
+  rc = dt_node_propa(dev, "cpu_off", &psci_info.cpu_off);
   if(rc < 0)
     panic("cpu off");
 }
-
-struct powerctl pscichip = {
-  .name = "psci",
-  .init = psci_init,
-  .wakeup = psci_cpu_wakeup,
-  .suspend = NULL,
-  .system_shutdown = NULL,
-  .system_reboot = NULL,
-};

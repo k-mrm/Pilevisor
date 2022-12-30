@@ -82,10 +82,10 @@ int vmm_init_cpu0(void *fdt) {
 
   pageallocator_init();
 
+  psci_init();
+
   pcpu_init();
   pcpu_init_core();
-
-  powerctl_init();
 
   arch_timer_init();
   arch_timer_init_core();

@@ -1,5 +1,5 @@
-#ifndef MVMM_PSCI_H
-#define MVMM_PSCI_H
+#ifndef PSCI_H
+#define PSCI_H
 
 #include "types.h"
 #include "power.h"
@@ -24,6 +24,6 @@
 #define PSCI_DISABLED           -8
 #define PSCI_INVALID_ADDRESS    -9
 
-extern struct powerctl pscichip;
+void psci_init(void);
 
 #endif
