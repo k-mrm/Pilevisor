@@ -16,6 +16,7 @@ struct device_node {
   struct device_node *child;
   struct device_node *next;
 
+  u32 phandle;
   const char *name;
   const char *device_type;
   struct property *prop;

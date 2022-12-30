@@ -68,7 +68,8 @@ static int cpu_init_enable_method(int cpu, struct device_node *cpudev) {
   } else if(strcmp(enable_method, "psci") == 0) {
     c->enable_method = &psci;
   } else {
-    panic("enable-method");
+    vmm_warn("enable-method");
+    return -1;
   }
 
   return c->enable_method->init(cpu);

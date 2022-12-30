@@ -70,6 +70,8 @@ struct device_node *fdt_parse(struct fdt *fdt) {
 
         if(strcmp(p->name, "device_type") == 0) {
           node->device_type = (const char *)p->data;
+        } else if(strcmp(p->name, "phandle") == 0) {
+          node->phandle = fdt32_to_u32(*(u32 *)p->data);
         }
 
         cur += 3 + (((fdt32_to_u32(prop->len) + 4 - 1) & ~(4 - 1)) >> 2);
