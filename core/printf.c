@@ -30,11 +30,13 @@ static void lputc(char c) {
 }
 
 static void printiu64(i64 num, int base, bool sign, int digit, enum printopt opt, void (*putc)(char)) {
-  char buf[sizeof(num) * 8 + 1] = {0};
+  char buf[sizeof(num) * 8 + 1];
   char *end = buf + sizeof(buf);
   char *cur = end - 1;
   u64 unum;
   bool neg = false;
+
+  *cur = '\0';
 
   if(sign && num < 0) {
     unum = (u64)(-(num + 1)) + 1;

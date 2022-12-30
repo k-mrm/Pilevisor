@@ -7,7 +7,7 @@ CPU = cortex-a72
 
 CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
 CFLAGS += -I ./include/
-LDFLAGS = -nostdlib -nostartfiles
+LDFLAGS = -nostdlib #-nostartfiles
 
 QEMUPREFIX = ~/qemu/build/
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
