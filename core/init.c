@@ -17,7 +17,6 @@
 #include "virtio-mmio.h"
 #include "malloc.h"
 #include "arch-timer.h"
-#include "power.h"
 #include "panic.h"
 
 #define KiB   (1024)

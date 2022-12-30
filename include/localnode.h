@@ -7,7 +7,6 @@
 #include "vgic.h"
 #include "uart.h"
 #include "lib.h"
-#include "power.h"
 #include "device.h"
 #include "compiler.h"
 
@@ -40,8 +39,6 @@ struct localnode {
   bool acked;
   /* network interface card */
   struct nic *nic;
-  /* machine power controller */
-  struct powerctl *powerctl;
   /* irqchip */
   struct gic_irqchip *irqchip;
   /* uartchip */

@@ -2,7 +2,6 @@
 #define PSCI_H
 
 #include "types.h"
-#include "power.h"
 
 #define PSCI_VERSION            0x84000000
 #define PSCI_MIGRATE_INFO_TYPE  0x84000006
