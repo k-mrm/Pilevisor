@@ -3,6 +3,27 @@
 
 .section ".text.boot"
 
+#include "earlyconsole.S.inc"
+
+
+/*
+ *  volatile x19, x20, x21
+ */
+.macro earlyputs, s
+  adr x19, 2f
+1:
+  ldrb w20, [x19], #1
+  cbz w20, 3f
+  earlycon_tx x21, w20
+  b 1b
+
+  .pushsection .rodata.str, "aS"
+2:.asciz "\s"
+  .popsection  
+
+3:
+.endm
+
 /*
  *  x0: dtb pointer
  */
@@ -43,6 +64,10 @@ startup0:
   ldr x2, =__earlymem_end
   bl setup_boot_pagetable
 
+  bl earlycon_init
+
+  earlyputs "boot cpu init...\r\n"
+
   bl initcpu
 
   ldr x30, =vmm_init_cpu0
@@ -54,11 +79,11 @@ startupothers:
   ldr x30, =vmm_init_secondary
   b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
 
-.macro set_block, pgt, idx, addr, level
+.macro set_block, pgt, idx, addr, level, memtype
   adrp x8, \pgt
   add x8, x8, \idx, lsl #3
   bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
-  mov x10, #(PTE_AF | PTE_NORMAL | PTE_VALID)
+  mov x10, #(PTE_AF | PTE_VALID | \memtype)
   orr x9, x9, x10
   str x9, [x8]
 .endm 
@@ -81,20 +106,33 @@ startupothers:
  *  x2: end address
  */
 setup_boot_pagetable:
+  /* map kernel */
   pgt_index x3, x1, 1     // x3 = PIDX(x1, 1)
 
-  set_table __boot_pgt_l1, x3, __boot_pgt_l2 
+  set_table __boot_pgt_l1, x3, __boot_pgt_l2_1
 
   pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
   pgt_index x5, x2, 2     // x5 = PIDX(x2, 2)
 
 1:
-  set_block __boot_pgt_l2, x4, x1, 2
+  set_block __boot_pgt_l2_1, x4, x1, 2, PTE_NORMAL
 
   add x4, x4, #1
   add x1, x1, #0x200000   // next block
   cmp x4, x5
   b.ls 1b
+ 
+  /* map earlyconsole */
+  ldr x1, =EARLY_PL011_BASE
+
+  pgt_index x2, x1, 1     // x2 = PIDX(x1, 1)
+  set_table __boot_pgt_l1, x2, __boot_pgt_l2_2
+
+  pgt_index x3, x1, 2     // x3 = PIDX(x1, 2)
+  set_table __boot_pgt_l2_2, x3, __boot_pgt_l3
+
+  pgt_index x4, x1, 3     // x4 = PIDX(x1, 3)
+  set_block __boot_pgt_l3, x4, x1, 3, PTE_DEVICE_nGnRE
 
   ret
 
@@ -209,6 +247,9 @@ early_vectable:
   ventry  .
 
 early_panic:
+  mrs x0, elr_el2
+  mrs x1, far_el2
+  mrs x2, esr_el2
   b .
 
 .section ".text"

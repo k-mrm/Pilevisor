@@ -57,7 +57,11 @@ SECTIONS {
     .boot_pagetable : {
       __boot_pgt_l1 = .;
       . += 4096;
-      __boot_pgt_l2 = .;
+      __boot_pgt_l2_1 = .;
+      . += 4096;
+      __boot_pgt_l2_2 = .;
+      . += 4096;
+      __boot_pgt_l3 = .;
       . += 4096;
     }
 
