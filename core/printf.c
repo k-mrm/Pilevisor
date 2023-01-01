@@ -4,8 +4,8 @@
 #include "spinlock.h"
 #include "printf.h"
 #include "panic.h"
+#include "localnode.h"
 #include "log.h"
-
 
 #define PRINT_NBUF    (32 * 1024)
 
@@ -195,10 +195,10 @@ int vprintf(const char *fmt, va_list ap) {
 static void levelprefix(int level, void (*cf)(char)) {
   switch(level) {
     case 1:     // WARN
-      __printf(cf, "[warning]:cpu%d: ", cpuid());
+      __printf(cf, "[warning]: Node%d:cpu%d: ", local_nodeid(), cpuid());
       return;
     case 2:     // LOG
-      __printf(cf, "[log]: cpu%d: ", cpuid());
+      __printf(cf, "[log]: Node%d:cpu%d: ", local_nodeid(), cpuid());
       return;
   }
 }

@@ -26,9 +26,11 @@ typedef unsigned long u64;
 #define ICR   0x44
 
 void uart_put64(u64 num, int base) {
-  char buf[sizeof(num) * 8 + 1] = {0};
+  char buf[sizeof(num) * 8 + 1];
   char *end = buf + sizeof(buf);
   char *cur = end - 1;
+
+  *cur = '\0';
 
   do {
     *--cur = "0123456789abcdef"[num % base];
