@@ -2,6 +2,7 @@
 #define CORE_IRQ_H
 
 #include "types.h"
+#include "param.h"
 
 #define NIRQ        256
 
@@ -9,6 +10,7 @@ struct irq {
   int count;
   void (*handler)(void *);
   void *arg;
+  int nhandle[NCPU_MAX];
 };
 
 extern struct irq irqlist[NIRQ];

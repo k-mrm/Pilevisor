@@ -17,6 +17,7 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
 
   struct irq *irq = irq_get(pirq);
 
+  irq->count++;
   irq->handler = handler;
   irq->arg = arg;
 
@@ -25,8 +26,6 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
 
 static inline void irq_enter() {
   mycpu->irq_depth++;
-
-  mycpu->nirq++;
 }
 
 static inline void irq_exit() {
@@ -49,11 +48,16 @@ void irq_entry(int from_guest) {
 }
 
 void irqstats() {
-  struct pcpu *p;
-
   printf("irqstats\n");
-  foreach_up_cpu(p) {
-    printf("cpu%d: %d irq\n", p->mpidr, p->nirq);
+
+  for(struct irq *irq = irqlist; irq < &irqlist[NIRQ]; irq++) {
+    if(!irq->count)
+      continue;
+
+    printf("irq %d: ", irq_no(irq));
+    for(int i = 0; i < NCPU_MAX; i++)
+      printf("CPU%d: %d ", i, irq->nhandle[i]);
+    printf("\n");
   }
 }
 
@@ -61,6 +65,8 @@ int handle_irq(u32 irqno) {
   /* interrupt to vmm */
   struct irq *irq = irq_get(irqno);
   int irqret = 0;
+
+  irq->nhandle[cpuid()]++;
 
   if(irq->handler) {
     irq->handler(irq->arg);
