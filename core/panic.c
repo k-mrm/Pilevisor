@@ -6,6 +6,7 @@
 #include "localnode.h"
 #include "node.h"
 #include "memory.h"
+#include "irq.h"
 #include "vsm-log.h"
 
 volatile int panicked_context = 0;
@@ -62,6 +63,8 @@ void panic(const char *fmt, ...) {
   }
 
   printf("stack trace done\n");
+
+  irqstats();
 
   vcpu_dump(current);
   node_cluster_dump();

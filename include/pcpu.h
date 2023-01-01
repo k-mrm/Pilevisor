@@ -33,6 +33,7 @@ struct pcpu {
   int irq_depth;
   bool lazyirq_enabled;
   int lazyirq_depth;
+  u64 nirq;
 
   union {
     struct {
@@ -67,6 +68,11 @@ static inline struct pcpu *get_cpu(int cpu) {
 #define local_lazyirq_enable()      (mycpu->lazyirq_enabled = true)
 #define local_lazyirq_disable()     (mycpu->lazyirq_enabled = false)
 #define local_lazyirq_enabled()     (mycpu->lazyirq_enabled)
+
+#define foreach_up_cpu(cpu)    \
+  for(cpu = pcpus; cpu < &pcpus[NCPU_MAX]; cpu++) \
+    if(cpu->wakeup)
+
 
 #define lazyirq_enter()         \
   do {                          \

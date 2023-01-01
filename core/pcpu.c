@@ -51,10 +51,8 @@ int cpu_boot(int cpu, u64 entrypoint) {
 
   struct pcpu *c = get_cpu(cpu);
 
-  if(!c->enable_method || !c->enable_method->boot) {
-    vmm_warn("no enable method");
+  if(!c->enable_method || !c->enable_method->boot)
     return -1;
-  }
 
   return c->enable_method->boot(cpu, entrypoint);
 }
@@ -89,8 +87,7 @@ static int cpu_prepare(struct device_node *cpudev) {
   const char *compat = dt_node_props(cpudev, "compatible");
   printf("cpu: %s id: %d compat %s\n", cpudev->name, reg, compat);
 
-  if(cpu_init_enable_method(reg, cpudev) < 0)
-    panic("no enable-method");
+  cpu_init_enable_method(reg, cpudev);
 
   return 0;
 }

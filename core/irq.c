@@ -25,6 +25,8 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
 
 static inline void irq_enter() {
   mycpu->irq_depth++;
+
+  mycpu->nirq++;
 }
 
 static inline void irq_exit() {
@@ -43,6 +45,15 @@ void irq_entry(int from_guest) {
 
   if(!pocv2_msg_queue_empty(&mycpu->recv_waitq) && !in_interrupt() && local_lazyirq_enabled()) {
     handle_recv_waitqueue();
+  }
+}
+
+void irqstats() {
+  struct pcpu *p;
+
+  printf("irqstats\n");
+  foreach_up_cpu(p) {
+    printf("cpu%d: %d irq\n", p->mpidr, p->nirq);
   }
 }
 

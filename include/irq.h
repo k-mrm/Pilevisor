@@ -24,4 +24,6 @@ static inline unsigned int irq_no(struct irq *irq) {
 int handle_irq(u32 pirq);
 void irq_register(u32 pirq, void (*handler)(void *), void *arg);
 
+void irqstats(void);
+
 #endif
