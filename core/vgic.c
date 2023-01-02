@@ -790,12 +790,14 @@ void vgic_cpu_init(struct vcpu *vcpu) {
     irq = &vgic->sgis[i];
     irq->intid = i;
     irq->enabled = true;
+    irq->config = CONFIG_EDGE;
   }
 
   for(int i = 0; i < GIC_NPPI; i++) {
     irq = &vgic->ppis[i];
     irq->intid = i + 16;
     irq->enabled = false;
+    irq->config = CONFIG_LEVEL;
   }
 }
 
