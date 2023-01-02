@@ -407,9 +407,11 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         vgic->enabled = false;
 
       goto end;
+
     case GICD_IIDR:
     case GICD_TYPER:
       goto readonly;
+
     case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3:
       /*
       intid = (offset - GICD_IGROUPR(0)) / sizeof(u32) * 32;
@@ -419,6 +421,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       }
       */
       goto end;
+
     case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
       intid = (offset - GICD_ISENABLER(0)) / sizeof(u32) * 32;
       for(int i = 0; i < 32; i++) {
@@ -428,6 +431,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         }
       }
       goto end;
+
     case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3:
       intid = (offset - GICD_ICENABLER(0)) / sizeof(u32) * 32;
       for(int i = 0; i < 32; i++) {
