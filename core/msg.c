@@ -27,6 +27,8 @@ extern struct pocv2_msg_handler_data __pocv2_msg_handler_data_end[];
 
 static struct pocv2_msg_data msg_data[NUM_MSG];
 
+static spinlock_t connectlock = SPINLOCK_INIT;
+
 static enum msgtype reqrep[NUM_MSG] = {
   [MSG_INIT]          MSG_INIT_ACK,
   [MSG_CPU_WAKEUP]    MSG_CPU_WAKEUP_ACK,
@@ -153,6 +155,7 @@ restart:
       panic("msg %d", type);
 
     if(msg_data[type].recv_handler) {
+      vmm_log("msg handle %p %s %p\n", m, msmap[type], m->hdr->connectionid);
       msg_data[type].recv_handler(m);
 
       free_recv_msg(m);
@@ -197,6 +200,7 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
 
   msg->data = buf->head;
 
+  vmm_log("msg recv intr %p\n", msg->hdr->connectionid);
   pocv2_msg_enqueue(&mycpu->recv_waitq, msg);
 
   return rc;
@@ -206,7 +210,8 @@ void send_msg(struct pocv2_msg *msg) {
   if(memcmp(pocv2_msg_dst_mac(msg), localnode.nic->mac, 6) == 0)
     panic("send msg to me %m %m", pocv2_msg_dst_mac(msg), cluster_me()->mac);
 
-  vmm_log("send msg to %m\n", pocv2_msg_dst_mac(msg));
+  vmm_log("send msg to %m %s %p\n", pocv2_msg_dst_mac(msg),
+            msmap[msg->hdr->type], msg->hdr->connectionid);
 
   struct iobuf *buf = alloc_iobuf(64);
 
@@ -259,6 +264,20 @@ struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
   return reply;
 }
 
+static u32 new_connection() {
+  static u32 conid = 0;
+  u32 c;
+  u64 flags;
+
+  spin_lock_irqsave(&connectlock, flags);
+
+  c = conid++;
+
+  spin_unlock_irqrestore(&connectlock, flags);
+
+  return c;
+}
+
 void _pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
                                 struct pocv2_msg_header *hdr, void *body, int body_len) {
   _pocv2_msg_init(msg, broadcast_mac, type, hdr, body, body_len);
@@ -278,6 +297,7 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
 
   hdr->src_nodeid = local_nodeid();
   hdr->type = type;
+  hdr->connectionid = new_connection();
 
   msg->hdr = hdr;
   msg->mac = dst_mac;

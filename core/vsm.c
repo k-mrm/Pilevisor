@@ -111,7 +111,7 @@ struct invalidate_ack_hdr {
  */
 static inline int page_trylock(struct page_desc *page) {
   u8 *lock = &page->lock;
-  u8 r, l = 1;
+  u8 r, l = cpuid() + 1;
 
   vmm_log("%p page trylock\n", page_desc_addr(page));
 
@@ -126,19 +126,31 @@ static inline int page_trylock(struct page_desc *page) {
   return r;
 }
 
-static inline int page_locked(struct page_desc *page) {
-  return page->lock;
+static inline bool page_locked(struct page_desc *page) {
+  return !!page->lock;
 }
 
 static inline void page_spinlock(struct page_desc *page) {
-  spin_lock(&page->lock);
+  u8 *lock = &page->lock;
+  u8 r, l = cpuid() + 1;
+
+  asm volatile(
+    "sevl\n"
+    "1: wfe\n"
+    "2: ldaxrb %w0, [%1]\n"
+    "cbnz   %w0, 1b\n"
+    "stxrb  %w0, %w2, [%1]\n"
+    "cbnz   %w0, 2b\n"
+    : "=&r"(r) : "r"(lock), "r"(l) : "memory"
+  );
+
   vmm_log("%p page spinlock\n", page_desc_addr(page));
 }
 
 /*
  *  cpu that locked page and cpu that unlocked page must be the same
  */
-static inline int page_unlock(struct page_desc *page) {
+static inline void page_unlock(struct page_desc *page) {
   u16 *l = &page->ll;
 
   asm volatile("stlrh wzr, [%0]" :: "r"(l) : "memory");
@@ -149,7 +161,9 @@ static inline int page_unlock(struct page_desc *page) {
  *  lock page and vsm_waitqueue
  */
 static inline void page_vwq_lock(struct page_desc *page) {
-  u16 tmp, l = 0x0101;
+  u16 tmp, l = 0x0100 | ((cpuid() + 1) & 0xff);
+
+  vmm_log("page_vwq_lock %p %p\n", page_desc_addr(page), page->ll);
 
   asm volatile(
     "sevl\n"
@@ -157,13 +171,13 @@ static inline void page_vwq_lock(struct page_desc *page) {
     "2: ldaxrh %w0, [%1]\n"
     "cbnz   %w0, 1b\n"
     "stxrh  %w0, %w2, [%1]\n"
-    "cbnz   %w0, 1b\n"
-    : "=&r"(tmp) : "r"(&page->wqlock), "r"(l) : "memory"
+    "cbnz   %w0, 2b\n"
+    : "=&r"(tmp) : "r"(&page->ll), "r"(l) : "memory"
   );
 }
 
 /*
- *  lock vsm_waitqueue
+ *  lock vsm_waitqueue if page unlocked, re-lock page and return 1
  */
 static inline u8 vwq_lock(struct page_desc *page) {
   u8 tmp, l = 1;
@@ -174,7 +188,7 @@ static inline u8 vwq_lock(struct page_desc *page) {
     "2: ldaxrb %w0, [%1]\n"
     "cbnz   %w0, 1b\n"
     "stxrb  %w0, %w2, [%1]\n"
-    "cbnz   %w0, 1b\n"
+    "cbnz   %w0, 2b\n"
     : "=&r"(tmp) : "r"(&page->wqlock), "r"(l) : "memory"
   );
 
@@ -183,6 +197,10 @@ static inline u8 vwq_lock(struct page_desc *page) {
 
 static inline void vwq_unlock(struct page_desc *page) {
   asm volatile("stlrb wzr, [%0]" :: "r"(&page->wqlock) : "memory");
+}
+
+static inline bool vwq_locked(struct page_desc *page) {
+  return !!page->wqlock;
 }
 
 static inline void vwqinit(struct vsm_waitqueue *wq) {
@@ -254,11 +272,17 @@ static bool vsm_enqueue_proc(struct vsm_server_proc *p) {
 static void vsm_process_wq_core(struct page_desc *page) {
   struct vsm_server_proc *p, *p_next, *head;
   assert(local_irq_disabled());
+  assert(vwq_locked(page));
 
+reprocess:
   head = page->wq->head;
 
   page->wq->head = NULL;
   page->wq->tail = NULL;
+
+  vwq_unlock(page);
+
+  local_irq_enable();
 
   for(p = head; p; p = p_next) {
     vmm_log("processing queue..... %p %p\n", p, page_desc_addr(page));
@@ -270,11 +294,15 @@ static void vsm_process_wq_core(struct page_desc *page) {
 
   vmm_log("processing doneeeeeeeee..... %p\n", page_desc_addr(page));
 
+  local_irq_disable();
+
+  vwq_lock(page);
+
   /*
    *  process enqueued processes during in this function
    */
   if(page->wq->head)
-    panic("restage");
+    goto reprocess;
 }
 
 /*
@@ -306,14 +334,12 @@ static void vsm_process_waitqueue_lock(struct page_desc *page) {
 
   irqsave(flags);
 
-  /* lock page lock and wqlock atomic */
   page_vwq_lock(page);
 
   if(page->wq && page->wq->head) {
     vsm_process_wq_core(page);
   }
 
-  /* unlock page lock and wqlock atomic */
   page_unlock(page);
 
   irqrestore(flags);
@@ -384,7 +410,6 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
 */
 
 static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
-  static int count = 0;
   u64 *vttbr = localvm.vttbr;
 
   vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
@@ -485,7 +510,6 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
   void *page_pa = NULL;
-  u64 far = read_sysreg(far_el2);
   int manager = -1;
   u64 page_ipa = page_desc_addr(page);
 
@@ -494,6 +518,8 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
     return NULL;
 
   page_spinlock(page);
+
+  vmm_log("read request occured: %p %p\n", page_ipa, read_sysreg(elr_el2));
 
   /*
    * may other cpu has readable page already
@@ -560,7 +586,6 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
   void *page_pa;
-  u64 far = read_sysreg(far_el2);
   int manager = -1;
   u64 page_ipa = page_desc_addr(page);
 
@@ -570,6 +595,8 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
 
   page_spinlock(page);
 
+  vmm_log("write request occured: %p %p\n", page_ipa, read_sysreg(elr_el2));
+
   /*
    * may other cpu has readable/writable page already
    */
@@ -578,8 +605,7 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
     goto end;
   }
 
-  if(!local_irq_enabled())
-    panic("bug: local irq disabled");
+  assert(local_irq_enabled());
 
   if((pte = page_ro_pte(vttbr, page_ipa)) != NULL) {
     if(s2pte_copyset(pte) != 0) {
@@ -805,8 +831,6 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
-  assert(!local_lazyirq_enabled());
-
   struct page_desc *page = ipa_to_desc(a->ipa);
 
   if(page_trylock(page)) {
@@ -825,8 +849,6 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
 static void recv_invalidate_intr(struct pocv2_msg *msg) {
   struct invalidate_hdr *h = (struct invalidate_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_inv_server_proc(h->ipa, h->from_nodeid, h->copyset);
-
-  assert(!local_lazyirq_enabled());
 
   struct page_desc *page = ipa_to_desc(h->ipa);
 

@@ -87,7 +87,7 @@ static inline void spin_lock(spinlock_t *lk) {
     "2: ldaxrb %w0, [%1]\n"
     "cbnz   %w0, 1b\n"
     "stxrb  %w0, %w2, [%1]\n"
-    "cbnz   %w0, 1b\n"
+    "cbnz   %w0, 2b\n"
     : "=&r"(tmp) : "r"(lk), "r"(l) : "memory"
   );
 #endif  /* SPINLOCK_DEBUG */

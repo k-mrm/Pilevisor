@@ -62,7 +62,8 @@ static void pl011_intr(__unused void *arg) {
       if(c < 0)
         break;
 
-      printf("uartintr\n");
+      if(c == 'p')
+        panic("syspanic");
     }
   }
 
@@ -102,7 +103,7 @@ static void pl011_dt_init(struct device_node *dev) {
   /* enable uart */
   pl011_write(CR, 0x301);   /* RXE, TXE, UARTEN */
 
-  // irq_register(33, pl011_intr, NULL);
+  irq_register(33, pl011_intr, NULL);
 
   localnode.uart = &pl011;
 

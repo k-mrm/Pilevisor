@@ -72,6 +72,9 @@ int handle_irq(u32 irqno) {
     irq->handler(irq->arg);
     irqret = 1;
 
+    if(irqno == 48)
+      vmm_log("netintr doneeeeeeeeeeeeeeeee\n");
+
     goto end;
   }
 

@@ -19,8 +19,10 @@ void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
   localvm.nvcpu = nvcpu;
   localvm.nalloc = nalloc;
 
+  if(localvm.nvcpu > NCPU_MAX)
+    panic("too vcpu");
   if(localvm.nalloc != MEM_PER_NODE)
-    panic("localvm.nalloc != NR_CACHE_PAGES %p", MEM_PER_NODE);
+    panic("localvm.nalloc != MEM_PER_NODE %p", MEM_PER_NODE);
 
   localvm.pmap = NULL;
   spinlock_init(&localvm.lock);

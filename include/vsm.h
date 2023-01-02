@@ -29,8 +29,8 @@ struct page_desc {
     u16 ll;
     struct {
       /* vsm waitqueue lock */
-      u8 wqlock;
       u8 lock;
+      u8 wqlock;
     };
   };
 };
