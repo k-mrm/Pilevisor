@@ -231,7 +231,7 @@ int printf(const char *fmt, ...) {
 
   spin_lock_irqsave(&prlock, flags);
 
-  putcf = level == 0 ? uart_putc : lputc;
+  putcf = level <= 1 ? uart_putc : lputc;
 
   if(level)
     levelprefix(level, putcf);

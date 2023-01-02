@@ -47,7 +47,7 @@ struct pcpu {
 
 extern struct pcpu pcpus[NCPU_MAX];
 
-void cpu_stop_local(void);
+void cpu_stop_local(void) __noreturn;
 void cpu_stop_all(void);
 
 int cpu_boot(int cpu, u64 entrypoint);

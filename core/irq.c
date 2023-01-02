@@ -72,14 +72,14 @@ int handle_irq(u32 irqno) {
     irq->handler(irq->arg);
     irqret = 1;
 
-    if(irqno == 48)
-      vmm_log("netintr doneeeeeeeeeeeeeeeee\n");
-
     goto end;
   }
 
   /* inject irq to guest */
   localnode.irqchip->guest_eoi(irqno);
+
+  if(irqno == 33)
+    printf("uartintr ");
 
   vgic_inject_virq(current, irqno);
 

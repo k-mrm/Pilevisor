@@ -8,7 +8,7 @@
 #define PHYSIZE     (512*1024*1024)     /* 512 MB */
 #define PHYEND      (VMMBASE+PHYSIZE)
 
-/* global vm memory size = 768 MB */
+/* global vm memory size = 512 MB */
 #define GVM_MEMORY            (512*1024*1024)
 
 /* 256 MiB per Node */

@@ -134,7 +134,7 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
 
     struct gic_sgi sgi = {
       .sgi_id = SGI_INJECT,
-      .targets = 1 << vcpu_localid(target),
+      .targets = 1u << vcpu_localid(target),
       .mode = ROUTE_TARGETS,
     };
 
@@ -170,7 +170,7 @@ static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
       int vcpuid = node->vcpus[i];
 
       /* TODO: consider Affinity */
-      if((1 << vcpuid) & targets) {
+      if((1u << vcpuid) & targets) {
         // vmm_log("vgic: sgi to vcpu%d\n", vcpuid);
         struct vcpu *vcpu = node_vcpu(vcpuid);
 
@@ -245,6 +245,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = val;
       goto end;
     }
+
     case GICD_TYPER: {
       /* ITLinesNumber */
       u32 val = ((vgic->nspis + 32) >> 5) - 1;
@@ -262,15 +263,18 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = val;
       goto end;
     }
+
     case GICD_IIDR:
       mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id */
                   vgic->archrev << GICD_IIDR_Revision_SHIFT |
                   0x43b;   /* ARM implementer */
       goto end;
+
     case GICD_TYPER2:
       /* linux's gicv3 driver accessed GICD_TYPER2 (offset 0xc) */
       mmio->val = 0;
       goto end;
+
     case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3: {
       u32 igrp = 0;
 
@@ -283,6 +287,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = igrp;
       goto end;
     }
+
     case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
     case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3: {
       u32 iser = 0;
@@ -296,12 +301,17 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = iser;
       goto end;
     }
+
     case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
     case GICD_ICPENDR(0) ... GICD_ICPENDR(31)+3:
-      goto unimplemented;
+      mmio->val = 0;
+      goto end;
+
     case GICD_ISACTIVER(0) ... GICD_ISACTIVER(31)+3:
     case GICD_ICACTIVER(0) ... GICD_ICACTIVER(31)+3:
-      goto unimplemented;
+      mmio->val = 0;
+      goto end;
+
     case GICD_IPRIORITYR(0) ... GICD_IPRIORITYR(254)+3: {
       u32 ipr = 0;
 
@@ -314,27 +324,41 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = ipr;
       goto end;
     }
+
     case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3: {
       u32 itar = 0;
-
+      /*
       intid = offset - GICD_ITARGETSR(0);
       for(int i = 0; i < 4; i++) {
-        /*
         irq = vgic_get_irq(vcpu, intid+i);
         u32 t = irq->target->vmpidr;
         itar |= (u32)t << (i * 8);
-        */
       }
+      */
 
       mmio->val = itar;
       goto end;
     }
-    case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
-      goto unimplemented;
+
+    case GICD_ICFGR(0) ... GICD_ICFGR(63)+3: {
+      u32 icfg = 0;
+      intid = (offset - GICD_ICFGR(0)) / sizeof(u32) * 16;
+      for(int i = 0; i < 16; i++) {
+        irq = vgic_get_irq(vcpu, intid + i);
+
+        if(irq->cfg == CONFIG_EDGE)
+          icfg |= 0x2u << (i * 2);
+      }
+
+      mmio->val = icfg;
+      goto end;
+    }
+
     case GICD_IROUTER(0) ... GICD_IROUTER(31)+3:
       goto reserved;
     case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3:
       goto unimplemented;
+
     case GICD_PIDR2:
       mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
       goto end;
@@ -351,7 +375,7 @@ reserved:
   goto end;
 
 unimplemented:
-  vmm_warn("vgicd_mmio_read: unimplemented %p\n", offset);
+  vmm_warn("vgicd_mmio_read: unimplemented %p %p\n", offset, read_sysreg(elr_el2));
   mmio->val = 0;
   goto end;
 
@@ -377,11 +401,10 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   switch(offset) {
     case GICD_CTLR:
-      if(mmio->val & GICD_CTLR_SS_ENGRP1) {
+      if(mmio->val & GICD_CTLR_SS_ENGRP1)
         vgic->enabled = true;
-      } else {
+      else
         vgic->enabled = false;
-      }
 
       goto end;
     case GICD_IIDR:
@@ -416,12 +439,15 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         }
       }
       goto end;
+
     case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
     case GICD_ICPENDR(0) ... GICD_ICPENDR(31)+3:
     case GICD_ISACTIVER(0) ... GICD_ISACTIVER(31)+3:
       goto unimplemented;
+
     case GICD_ICACTIVER(0) ... GICD_ICACTIVER(31)+3:
       goto end;
+
     case GICD_IPRIORITYR(0) ... GICD_IPRIORITYR(254)+3:
       intid = (offset - GICD_IPRIORITYR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
@@ -429,6 +455,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         irq->priority = (val >> (i * 8)) & 0xff;
       }
       goto end;
+
     case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3:
       intid = (offset - GICD_ITARGETSR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
@@ -442,12 +469,27 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
         */
       }
       goto end;
-    case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
-      goto unimplemented;
+
+    case GICD_ICFGR(0) ... GICD_ICFGR(63)+3: {
+      intid = (offset - GICD_ICFGR(0)) / sizeof(u32) * 16;
+      for(int i = 0; i < 16; i++) {
+        irq = vgic_get_irq(vcpu, intid + i);
+        u8 c = (val >> (i * 2)) & 0x3;
+
+        if(c >> 1 == CONFIG_LEVEL)
+          irq->cfg = CONFIG_LEVEL;
+        else
+          irq->cfg = CONFIG_EDGE;
+      }
+      goto end;
+    }
+
     case GICD_IROUTER(0) ... GICD_IROUTER(31)+3:
       goto reserved;
+
     case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3:
       goto unimplemented;
+
     case GICD_PIDR2:
       goto readonly;
   }
@@ -491,11 +533,13 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       /* no op */
       mmio->val = 0;
       return 0;
+
     case GICR_IIDR:
       mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id */
                   vgic->archrev << GICD_IIDR_Revision_SHIFT |
                   0x43b;   /* ARM implementer */
       return 0;
+
     case GICR_TYPER: {
       u64 typer;
 
@@ -503,7 +547,6 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
         goto badwidth;
 
       typer = gicr_typer_affinity(vcpu->vmpidr);
-
       typer |= GICR_TYPER_PROC_NUM(vcpu->vcpuid);
 
       if(vcpu->last)
@@ -513,9 +556,11 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
       return 0;
     }
+
     case GICR_PIDR2:
       mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
       return 0;
+
     case GICR_ISENABLER0:
     case GICR_ICENABLER0: {
       u32 iser = 0; 
@@ -528,16 +573,18 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = iser;
       return 0;
     }
+
     case GICR_ICPENDR0:
       mmio->val = 0;
       return 0;
+
     case GICR_ISACTIVER0:
     case GICR_ICACTIVER0:
       mmio->val = 0;
       return 0;
+
     case GICR_IPRIORITYR(0) ... GICR_IPRIORITYR(7): {
       u32 ipr = 0;
-
       intid = (offset - GICR_IPRIORITYR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
@@ -547,8 +594,21 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = ipr;
       return 0;
     }
-    case GICR_ICFGR0:
-    case GICR_ICFGR1:
+
+    case GICR_ICFGR0 ... GICR_ICFGR1: {
+      u32 icfg = 0;
+      intid = (offset - GICR_ICFGR0) / sizeof(u32) * 16;
+      for(int i = 0; i < 16; i++) {
+        irq = vgic_get_irq(vcpu, intid + i);
+
+        if(irq->cfg == CONFIG_EDGE)
+          icfg |= 0x2u << (i * 2);
+      }
+
+      mmio->val = icfg;
+      return 0;
+    }
+
     case GICR_IGRPMODR0:
       mmio->val = 0;
       return 0;
@@ -560,10 +620,7 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 badwidth:
   vmm_warn("bad width: %d %p", mmio->accsize*8, offset);
   mmio->val = 0;
-  goto end;
-
-end:
-  return 0;
+  return -1;
 }
 
 static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
@@ -583,9 +640,11 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICR_IGROUPR0:
       /* no op */
       return 0;
+
     case GICR_TYPER:
     case GICR_PIDR2:
       goto readonly;
+
     case GICR_ISENABLER0:
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
@@ -593,22 +652,50 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
           vgic_enable_irq(vcpu, irq);
         }
       }
+
       return 0;
+
     case GICR_ICENABLER0:
+      for(int i = 0; i < 32; i++) {
+        irq = vgic_get_irq(vcpu, i);
+        if((val >> i) & 0x1) {
+          vgic_disable_irq(vcpu, irq);
+        }
+      }
+
+      return 0;
+
     case GICR_ICPENDR0:
       goto unimplemented;
+
     case GICR_ISACTIVER0:
     case GICR_ICACTIVER0:
       goto unimplemented;
+
     case GICR_IPRIORITYR(0) ... GICR_IPRIORITYR(7):
       intid = (offset - GICR_IPRIORITYR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
         irq->priority = (val >> (i * 8)) & 0xff;
       }
+
       return 0;
-    case GICR_ICFGR0:
-    case GICR_ICFGR1:
+
+    case GICR_ICFGR0 ... GICR_ICFGR1: {
+      intid = (offset - GICR_ICFGR0) / sizeof(u32) * 16;
+      for(int i = 0; i < 16; i++) {
+        irq = vgic_get_irq(vcpu, intid + i);
+        u8 c = (val >> (i * 2)) & 0x3;
+
+        if(c >> 1 == CONFIG_LEVEL)
+          irq->cfg = CONFIG_LEVEL;
+        else
+          irq->cfg = CONFIG_EDGE;
+      }
+
+      return 0;
+    }
+
     case GICR_IGRPMODR0:
       /* no op */
       return 0;
@@ -620,8 +707,8 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 unimplemented:
   vmm_warn("vgicr_mmio_write: unimplemented %p %p\n", offset, val);
   return 0;
+
 readonly:
-  vmm_warn("vgicr_mmio_write: readonly %p\n", offset);
   return 0;
 }
 

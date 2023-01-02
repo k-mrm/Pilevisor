@@ -3,7 +3,7 @@
 
 #include "printf.h"
 
-// #define NDEBUG
+#define NDEBUG
 
 #define WARN      "\001" "1"
 #define LOG       "\001" "2"

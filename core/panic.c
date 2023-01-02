@@ -33,11 +33,11 @@ void panic(const char *fmt, ...) {
   isb();
   dsb(sy);
 
+  local_irq_disable();
+
   panicked_context = 1;
 
   // node_panic_signal();
-
-  local_irq_disable();
 
   cpu_stop_all();
 
@@ -71,8 +71,5 @@ void panic(const char *fmt, ...) {
 
   logflush();
 
-  for(;;) {
-    wfi();
-    wfe();
-  }
+  cpu_stop_local();
 }

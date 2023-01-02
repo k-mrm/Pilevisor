@@ -8,11 +8,17 @@
 
 struct vcpu;
 
+enum {
+  CONFIG_LEVEL  = 0,
+  CONFIG_EDGE   = 1,
+};
+
 struct vgic_irq {
   u16 intid;
   u8 priority;  /* ipriorityr */
   bool enabled: 1;
   u8 igroup: 1;
+  u8 cfg;
 };
 
 struct vgic {
