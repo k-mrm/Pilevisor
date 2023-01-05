@@ -18,7 +18,7 @@ struct vgic_irq {
   u8 priority;  /* ipriorityr */
   bool enabled: 1;
   u8 igroup: 1;
-  u8 cfg;
+  u8 cfg: 1;
 };
 
 struct vgic {

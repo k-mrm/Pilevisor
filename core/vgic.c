@@ -66,8 +66,8 @@ static void vgic_set_target(struct vcpu *vcpu, int vintid, u8 target) {
 }
 
 void vgic_inject_pending_irqs() {
-  struct vcpu *vcpu = current;
   u64 flags;
+  struct vcpu *vcpu = current;
 
   spin_lock_irqsave(&vcpu->pending.lock, flags);
 
@@ -356,8 +356,10 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
     case GICD_IROUTER(0) ... GICD_IROUTER(31)+3:
       goto reserved;
-    case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3:
-      goto unimplemented;
+
+    case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3: {
+
+    }
 
     case GICD_PIDR2:
       mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
@@ -756,7 +758,7 @@ static int vgits_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   return -1;
 }
 
-static void load_new_vgic(void) {
+void vgic_init(void) {
   struct vgic *vgic = &vgic_dist;
 
   vgic->nspis = localnode.irqchip->nirqs - 32;
@@ -799,10 +801,6 @@ void vgic_cpu_init(struct vcpu *vcpu) {
     irq->enabled = false;
     irq->cfg = CONFIG_LEVEL;
   }
-}
-
-void vgic_init() {
-  load_new_vgic();
 }
 
 DEFINE_POCV2_MSG(MSG_SGI, struct sgi_msg_hdr, recv_sgi_msg_intr);

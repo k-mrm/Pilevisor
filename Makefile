@@ -15,15 +15,15 @@ GIC_VERSION = 3
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 
 ifndef NCPU
-NCPU = 4
+NCPU = 2
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 8
+GUEST_NCPU = 2
 endif
 
 ifndef GUEST_MEMORY
-GUEST_MEMORY = 512
+GUEST_MEMORY = 256
 endif
 
 # directory
