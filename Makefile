@@ -176,11 +176,11 @@ linux: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0" -m $(GUEST_MEMORY)
 
 dts:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m $(GUEST_MEMORY)
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0" -m $(GUEST_MEMORY)
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
 
 qemu-version:
 	$(QEMU) -version

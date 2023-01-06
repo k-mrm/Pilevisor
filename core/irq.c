@@ -78,10 +78,8 @@ int handle_irq(u32 irqno) {
   /* inject irq to guest */
   localnode.irqchip->guest_eoi(irqno);
 
-  /*
   if(irqno == 27)
-    printf("cpu%d timerintr ", cpuid());
-    */
+    printf("cpu%d tintr", cpuid());
 
   vgic_inject_virq(current, irqno);
 

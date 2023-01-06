@@ -37,6 +37,8 @@ static void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
   irq->enabled = 1;
   u32 intid = irq->intid;
 
+  vmm_warn("vcpu %d enable irq %d\n", vcpu->vcpuid, intid);
+
   if(valid_intid(intid))
     localnode.irqchip->enable_irq(intid);
   else
@@ -49,6 +51,8 @@ static void vgic_disable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
 
   irq->enabled = 0;
   u32 intid = irq->intid;
+
+  vmm_warn("vcpu %d disable irq %d\n", vcpu->vcpuid, intid);
 
   if(valid_intid(intid))
     localnode.irqchip->disable_irq(intid);
@@ -103,7 +107,7 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
 
   if(is_sgi(virqno)) {
     pendirq->pirq = NULL;
-    pendirq->req_cpu = 0;   // TODO
+    pendirq->req_cpu = 0;   /* TODO */
   } else {
     /* virq == pirq */
     pendirq->pirq = irq_get(virqno);
@@ -111,7 +115,7 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
 
   if(target == current) {
     if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
-      ;   /* TODO: do nothing? */
+      panic("busy");   /* TODO: do nothing? */
     free(pendirq);
   } else {
     u64 flags = 0;
@@ -358,7 +362,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto reserved;
 
     case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3: {
-
+      break;
     }
 
     case GICD_PIDR2:
