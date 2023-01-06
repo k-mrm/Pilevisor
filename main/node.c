@@ -95,8 +95,6 @@ static void node0_start() {
 
   printf("cpu%d: entry to vcpu %d\n", cpu, now_cycles());
 
-  current->vmm_boot_clk = now_cycles();
-
   vcpu_entry();
 }
 

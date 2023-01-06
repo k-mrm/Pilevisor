@@ -36,8 +36,6 @@ struct vcpu {
 
   struct cpu_features features;
 
-  u64 vmm_boot_clk;
-
   u64 sctlr_el1;
 
   struct vgic_cpu vgic;

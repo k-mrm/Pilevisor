@@ -49,6 +49,8 @@ struct localnode {
   struct device_node *device_tree;
   /* my node in the cluster */
   struct cluster_node *node;
+  /* boot clock */
+  u64 boot_clk;
 };
 
 extern struct localnode localnode;

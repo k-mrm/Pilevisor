@@ -13,6 +13,8 @@
 #include "tlb.h"
 #include "arch-timer.h"
 
+static struct vcpu *vcpu0;
+
 /*
 static void vcpu_features_init(struct vcpu *vcpu) {
   u64 pfr0 = read_sysreg(ID_PFR0_EL1);
@@ -58,8 +60,11 @@ void vcpu_entry() {
   u64 vpidr = read_sysreg(midr_el1);
   write_sysreg(vpidr_el2, vpidr);
 
-  printf("vmm_boot_clk: %d\n", current->vmm_boot_clk);
-  write_sysreg(cntvoff_el2, current->vmm_boot_clk);
+  if(current == vcpu0)
+    localnode.boot_clk = now_cycles();
+
+  printf("vmm_boot_clk: %d\n", localnode.boot_clk);
+  write_sysreg(cntvoff_el2, localnode.boot_clk);
 
   write_sysreg(vtcr_el2, localvm.vtcr);
 
@@ -78,11 +83,16 @@ void vcpu_entry() {
 }
 
 void vcpu_init_core() {
-  struct vcpu *vcpu = node_vcpu_by_localid(cpuid());
+  int cpu = cpuid();
+
+  struct vcpu *vcpu = node_vcpu_by_localid(cpu);
 
   set_current_vcpu(vcpu);
 
   /* current = vcpu */
+
+  if(cpu == 0)
+    vcpu0 = vcpu;
 
   vgic_cpu_init(vcpu);
 
