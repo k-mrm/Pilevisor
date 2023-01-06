@@ -60,9 +60,6 @@ void vcpu_entry() {
   u64 vpidr = read_sysreg(midr_el1);
   write_sysreg(vpidr_el2, vpidr);
 
-  if(current == vcpu0)
-    localnode.boot_clk = now_cycles();
-
   printf("vmm_boot_clk: %d\n", localnode.boot_clk);
   write_sysreg(cntvoff_el2, localnode.boot_clk);
 
@@ -107,7 +104,8 @@ void vcpu_shutdown(struct vcpu *vcpu) {
 }
 
 void wait_for_current_vcpu_online() {
-  vmm_log("cpu%d: current online: %d\n", cpuid(), current->online);
+  if(current == vcpu0)
+    localnode.boot_clk = now_cycles();
 
   while(!current->online)
     wfi();
