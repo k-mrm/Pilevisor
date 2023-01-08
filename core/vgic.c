@@ -463,6 +463,9 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICD_ISENABLER(0)) / sizeof(u32) * 32;
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
+        if(!irq)
+          goto end;
+
         if((val >> i) & 0x1) {
           vgic_enable_irq(vcpu, irq);
         }
@@ -473,6 +476,9 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICD_ICENABLER(0)) / sizeof(u32) * 32;
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
+        if(!irq)
+          goto end;
+
         if((val >> i) & 0x1) {
           if(irq->enabled) {
             vgic_disable_irq(vcpu, irq);
@@ -493,6 +499,9 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICD_IPRIORITYR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
+        if(!irq)
+          goto end;
+
         irq->priority = (val >> (i * 8)) & 0xff;
       }
       goto end;
@@ -514,6 +523,9 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICD_ICFGR(0)) / sizeof(u32) * 16;
       for(int i = 0; i < 16; i++) {
         irq = vgic_get_irq(vcpu, intid + i);
+        if(!irq)
+          goto end;
+
         u8 c = (val >> (i * 2)) & 0x3;
 
         if(c >> 1 == CONFIG_LEVEL)
@@ -616,6 +628,9 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
+        if(!irq)
+          return 0;
+
         iser |= irq->enabled << i;
       }
 
@@ -637,6 +652,9 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICR_IPRIORITYR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
+        if(!irq)
+          return 0;
+
         ipr |= irq->priority << (i * 8);
       }
 
@@ -649,6 +667,8 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICR_ICFGR0) / sizeof(u32) * 16;
       for(int i = 0; i < 16; i++) {
         irq = vgic_get_irq(vcpu, intid + i);
+        if(!irq)
+          return 0;
 
         if(irq->cfg == CONFIG_EDGE)
           icfg |= 0x2u << (i * 2);
@@ -697,6 +717,9 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICR_ISENABLER0:
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
+        if(!irq)
+          return 0;
+
         if((val >> i) & 0x1) {
           vgic_enable_irq(vcpu, irq);
         }
@@ -707,6 +730,9 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICR_ICENABLER0:
       for(int i = 0; i < 32; i++) {
         irq = vgic_get_irq(vcpu, i);
+        if(!irq)
+          return 0;
+
         if((val >> i) & 0x1) {
           vgic_disable_irq(vcpu, irq);
         }
@@ -725,6 +751,9 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       intid = (offset - GICR_IPRIORITYR(0)) / sizeof(u32) * 4;
       for(int i = 0; i < 4; i++) {
         irq = vgic_get_irq(vcpu, intid+i);
+        if(!irq)
+          return 0;
+
         irq->priority = (val >> (i * 8)) & 0xff;
       }
 
@@ -809,7 +838,7 @@ void vgic_init(void) {
 
   vgic->nspis = localnode.irqchip->nirqs - 32;
   vgic->enabled = false;
-  vgic->spis = (struct vgic_irq *)alloc_page();
+  vgic->spis = (struct vgic_irq *)alloc_pages(1);   // allocate 8192 byte
   if(!vgic->spis)
     panic("nomem");
 
