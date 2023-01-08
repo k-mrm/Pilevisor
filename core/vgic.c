@@ -86,27 +86,11 @@ void vgic_inject_pending_irqs() {
   dsb(ish);
 }
 
-int vgic_inject_virq(struct vcpu *target, u32 virqno) {
-  struct vgic_irq *irq = vgic_get_irq(target, virqno);
-  if(!irq || !irq->enabled)
-    return -1;
-
-  struct gic_pending_irq *pendirq = malloc(sizeof(*pendirq));
-
-  pendirq->virq = virqno;
-  pendirq->group = 1;
-  pendirq->priority = irq->priority;
-
-  if(is_sgi(virqno)) {
-    pendirq->pirq = NULL;
-  } else {
-    /* virq == pirq */
-    pendirq->pirq = irq_get(virqno);
-  }
-
+static int vgic_inject_virq_local(struct vcpu *target, struct gic_pending_irq *pendirq) {
   if(target == current) {
     if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
       panic("busy");   /* TODO: do nothing? */
+
     free(pendirq);
   } else {
     u64 flags = 0;
@@ -137,6 +121,54 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   }
 
   return 0;
+}
+
+static int vgic_inject_virq_remote(struct vgic_irq *irq, struct gic_pending_irq *pendirq) {
+  u64 vcpuid = irq->vcpuid;
+  int nodeid = vcpuid_to_nodeid(vcpuid);
+  if(nodeid < 0)
+    return -1;
+
+  panic("inject remote Node %d", nodeid);
+
+  return 0;
+}
+
+int vgic_inject_virq(struct vcpu *target, u32 virqno) {
+  int rc;
+  struct vgic_irq *irq = vgic_get_irq(target, virqno);
+  if(!irq || !irq->enabled)
+    return -1;
+
+  struct gic_pending_irq *pendirq = malloc(sizeof(*pendirq));
+
+  pendirq->virq = virqno;
+  pendirq->group = 1;   /* irq->igroup */
+  pendirq->priority = irq->priority;
+
+  if(is_sgi(virqno)) {
+    pendirq->pirq = NULL;
+  } else if(is_ppi(virqno)) {
+    /* virq == pirq */
+    pendirq->pirq = irq_get(virqno);
+  } else if(is_spi(virqno)) {
+    pendirq->pirq = irq_get(virqno);
+    target = irq->target;
+  } else {
+    vmm_warn("virq%d not exist\n", virqno);
+    free(pendirq);
+    return -1;
+  }
+
+  if(target)
+    rc = vgic_inject_virq_local(target, pendirq);
+  else
+    rc = vgic_inject_virq_remote(irq, pendirq);
+
+  if(rc < 0)
+    free(pendirq);
+
+  return rc;
 }
 
 static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid) {
@@ -196,10 +228,10 @@ static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
 static void recv_sgi_msg_intr(struct pocv2_msg *msg) {
   struct sgi_msg_hdr *h = (struct sgi_msg_hdr *)msg->hdr;
   struct vcpu *target = node_vcpu(h->target);
+  int virq = h->sgi_id;
+
   if(!target)
     panic("oi");
-
-  int virq = h->sgi_id;
 
   if(!is_sgi(virq))
     panic("invalid sgi");
