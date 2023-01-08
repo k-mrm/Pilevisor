@@ -15,11 +15,11 @@ GIC_VERSION = 3
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 
 ifndef NCPU
-NCPU = 2
+NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 4
+GUEST_NCPU = 8
 endif
 
 ifndef GUEST_MEMORY

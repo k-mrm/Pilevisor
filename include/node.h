@@ -91,7 +91,12 @@ static inline struct cluster_node *macaddr_to_node(u8 *mac) {
 }
 
 static inline int vcpuid_to_nodeid(int vcpuid) {
-  return vcpuid_to_node(vcpuid)->nodeid;
+  struct cluster_node *node = vcpuid_to_node(vcpuid);
+
+  if(node)
+    return node->nodeid;
+  else
+    return -1;
 }
 
 static inline struct cluster_node *cluster_node(int nodeid) {

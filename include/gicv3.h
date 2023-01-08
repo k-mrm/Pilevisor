@@ -16,6 +16,8 @@
 #define GICD_CTLR_SS_ARE        (1 << 4)
 #define GICD_CTLR_DS            (1 << 6)
 
+#define GICD_IROUTER_IRM        (1u << 31)
+
 #define ich_hcr_el2   arm_sysreg(4, c12, c11, 0)
 #define ich_vtr_el2   arm_sysreg(4, c12, c11, 1)
 #define ich_elsr_el2  arm_sysreg(4, c12, c11, 5)

@@ -336,7 +336,7 @@ static void gicv3_irq_handler(int from_guest) {
     if(irq == 1023)    /* spurious interrupt */
       break;
 
-    if(is_ppi_spi(irq)) {
+    if(likely(is_ppi_spi(irq))) {
       isb();
 
       local_irq_enable();

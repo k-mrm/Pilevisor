@@ -82,7 +82,7 @@ void vcpu_entry() {
 void vcpu_init_core() {
   int cpu = cpuid();
 
-  struct vcpu *vcpu = node_vcpu_by_localid(cpu);
+  struct vcpu *vcpu = local_vcpu(cpu);
 
   set_current_vcpu(vcpu);
 
@@ -104,6 +104,8 @@ void vcpu_shutdown(struct vcpu *vcpu) {
 }
 
 void wait_for_current_vcpu_online() {
+  vmm_log("cpu%d: current online: %d\n", cpuid(), current->online);
+
   if(current == vcpu0)
     localnode.boot_clk = now_cycles();
 

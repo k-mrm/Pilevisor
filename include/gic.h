@@ -4,10 +4,10 @@
 #include "types.h"
 #include "aarch64.h"
 
-#define GIC_NSGI          16
-#define GIC_SGI_MAX       15
-#define GIC_NPPI          16
-#define GIC_PPI_MAX       31
+#define GIC_NSGI            16
+#define GIC_SGI_MAX         15
+#define GIC_NPPI            16
+#define GIC_PPI_MAX         31
 
 #define is_sgi(intid)       (0 <= (intid) && (intid) < 16)
 #define is_ppi(intid)       (16 <= (intid) && (intid) < 32)
@@ -22,10 +22,11 @@
 #define LR_PENDACT          3L
 #define LR_MASK             3L
 
-#define GICD_CTLR           (0x0)
-#define GICD_TYPER          (0x4)
-#define GICD_IIDR           (0x8)
-#define GICD_TYPER2         (0xc)
+#define GICD_CTLR           0x0
+#define GICD_TYPER          0x4
+#define GICD_IIDR           0x8
+#define GICD_TYPER2         0xc
+#define GICD_STATUSR        0x10
 #define GICD_IGROUPR(n)     (0x080 + (u64)(n) * 4)
 #define GICD_ISENABLER(n)   (0x100 + (u64)(n) * 4)
 #define GICD_ICENABLER(n)   (0x180 + (u64)(n) * 4)
@@ -36,9 +37,9 @@
 #define GICD_IPRIORITYR(n)  (0x400 + (u64)(n) * 4)
 #define GICD_ITARGETSR(n)   (0x800 + (u64)(n) * 4)
 #define GICD_ICFGR(n)       (0xc00 + (u64)(n) * 4)
-#define GICD_SGIR           (0xf00)
+#define GICD_SGIR           0xf00
 #define GICD_IROUTER(n)     (0x6000 + (u64)(n) * 8)
-#define GICD_PIDR2          (0xffe8)
+#define GICD_PIDR2          0xffe8
 
 #define GICD_TYPER_CPUNum_SHIFT   5
 #define GICD_TYPER_IDbits_SHIFT   19
