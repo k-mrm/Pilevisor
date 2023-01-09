@@ -129,6 +129,7 @@ static int vgic_inject_virq_remote(struct vgic_irq *irq, struct gic_pending_irq 
   if(nodeid < 0)
     return -1;
 
+  // unimpl
   panic("inject remote Node %d", nodeid);
 
   return 0;
@@ -154,6 +155,7 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   } else if(is_spi(virqno)) {
     pendirq->pirq = irq_get(virqno);
     target = irq->target;
+    vmm_warn("virq %d targetid %d\n", virqno, irq->vcpuid);
   } else {
     vmm_warn("virq%d not exist\n", virqno);
     free(pendirq);

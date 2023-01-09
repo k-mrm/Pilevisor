@@ -61,6 +61,9 @@ static int cpu_init_enable_method(int cpu, struct device_node *cpudev) {
   const char *enable_method = dt_node_props(cpudev, "enable-method");
   struct pcpu *c = get_cpu(cpu);
 
+  if(!enable_method)
+    return -1;
+
   if(strcmp(enable_method, "spin-table") == 0) {
     c->enable_method = &spin_table;
   } else if(strcmp(enable_method, "psci") == 0) {

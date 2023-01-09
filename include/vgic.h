@@ -15,7 +15,7 @@ enum {
 
 struct vgic_irq {
   struct vcpu *target;  /* target vcpu: if NULL, target in remote node */
-  u64 vcpuid;           /* target vcpuid: now Aff0 only */
+  u64 vcpuid;           /* target vcpuid */
   u16 intid;
   u8 priority;
   bool enabled: 1;
