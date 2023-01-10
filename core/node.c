@@ -161,6 +161,9 @@ void __node0 cluster_init() {
 
 /* 5: called from main/node.c */
 void __node0 broadcast_boot_signal() {
+  if(current != vcpu0)
+    return;
+
   struct pocv2_msg msg;
   struct boot_sig_hdr hdr;
 

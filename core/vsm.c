@@ -347,7 +347,7 @@ static inline int page_manager(u64 ipa) {
 }
 
 static inline u64 *vsm_wait_for_recv_timeout(u64 *vttbr, u64 page_ipa) {
-  int timeout_us = 30000000;   // wait for 3s
+  int timeout_us = 3000000;   // wait for 3s
   u64 *pte;
 
   while(!(pte = page_accessible_pte(vttbr, page_ipa)) && timeout_us--) {

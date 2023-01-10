@@ -78,9 +78,6 @@ int handle_irq(u32 irqno) {
   /* inject irq to guest */
   localnode.irqchip->guest_eoi(irqno);
 
-  if(irqno == 33)
-    printf("u ");
-
   vgic_inject_virq(current, irqno);
 
 end:

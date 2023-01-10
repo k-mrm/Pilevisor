@@ -176,13 +176,11 @@ static int gicv3_inject_guest_irq(struct gic_pending_irq *irq) {
     }
 
     if((u32)gicv3_read_lr(i) == virq)
-      panic("busy");
-      // return -1;    // busy
+      return -1;
   }
 
   if(freelr < 0)
-    panic("no entry");
-    // return -1;   // no entry
+    panic("busy");
 
   lr = gicv3_pending_lr(irq);
 
@@ -321,6 +319,21 @@ void gic_save_state(struct gic_state *gic) {
   gic_save_lr(gic);
 }
 */
+
+static bool gicv3_guest_irq_pending(u32 virq) {
+  for(int i = 0; i <= gicv3_irqchip.max_lr; i++) {
+    u64 lr = gicv3_read_lr(i);
+
+    if((u32)lr == virq) {
+      if(lr_is_pending(lr))
+        return true;
+      else
+        return false;
+    }
+  }
+
+  return false;
+}
 
 static void gicv3_setup_irq(u32 irq) {
   if(is_spi(irq))
@@ -482,19 +495,20 @@ static void gicv3_dt_init(struct device_node *dev) {
 static struct gic_irqchip gicv3_irqchip = {
   .version = 3,
 
-  .initcore         = gicv3_init_cpu,
-  .inject_guest_irq = gicv3_inject_guest_irq,
-  .irq_pending      = gicv3_irq_pending,
-  .host_eoi         = gicv3_host_eoi,
-  .guest_eoi        = gicv3_guest_eoi,
-  .deactive_irq     = gicv3_deactive_irq,
-  .send_sgi         = gicv3_send_sgi,
-  .irq_enabled      = gicv3_irq_enabled,
-  .enable_irq       = gicv3_enable_irq,
-  .disable_irq      = gicv3_disable_irq,
-  .setup_irq        = gicv3_setup_irq,
-  .set_target       = gicv3_set_target,
-  .irq_handler      = gicv3_irq_handler,
+  .initcore           = gicv3_init_cpu,
+  .inject_guest_irq   = gicv3_inject_guest_irq,
+  .irq_pending        = gicv3_irq_pending,
+  .guest_irq_pending  = gicv3_guest_irq_pending,
+  .host_eoi           = gicv3_host_eoi,
+  .guest_eoi          = gicv3_guest_eoi,
+  .deactive_irq       = gicv3_deactive_irq,
+  .send_sgi           = gicv3_send_sgi,
+  .irq_enabled        = gicv3_irq_enabled,
+  .enable_irq         = gicv3_enable_irq,
+  .disable_irq        = gicv3_disable_irq,
+  .setup_irq          = gicv3_setup_irq,
+  .set_target         = gicv3_set_target,
+  .irq_handler        = gicv3_irq_handler,
 };
 
 static struct dt_compatible gicv3_compat[] = {

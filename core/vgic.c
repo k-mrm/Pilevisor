@@ -86,10 +86,16 @@ void vgic_inject_pending_irqs() {
   dsb(ish);
 }
 
+static bool vgic_irq_pending(struct vgic_irq *irq) {
+  u32 intid = irq->intid;
+
+  return localnode.irqchip->guest_irq_pending(intid);
+}
+
 static int vgic_inject_virq_local(struct vcpu *target, struct gic_pending_irq *pendirq) {
   if(target == current) {
     if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
-      panic("busy");   /* TODO: do nothing? */
+      ;   /* do nothing */
 
     free(pendirq);
   } else {
@@ -155,7 +161,6 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   } else if(is_spi(virqno)) {
     pendirq->pirq = irq_get(virqno);
     target = irq->target;
-    vmm_warn("virq %d targetid %d\n", virqno, irq->vcpuid);
   } else {
     vmm_warn("virq%d not exist\n", virqno);
     free(pendirq);
@@ -346,8 +351,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto end;
     }
 
-    case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
-    case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3: {
+    case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3: {
       u32 iser = 0;
 
       intid = (offset - GICD_ISENABLER(0)) / sizeof(u32) * 32;
@@ -363,10 +367,54 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto end;
     }
 
-    case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
-    case GICD_ICPENDR(0) ... GICD_ICPENDR(31)+3:
-      mmio->val = 0;
+    case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3: {
+      u32 iser = 0;
+
+      intid = (offset - GICD_ICENABLER(0)) / sizeof(u32) * 32;
+      for(int i = 0; i < 32; i++) {
+        irq = vgic_get_irq(vcpu, intid+i);
+        if(!irq)
+          goto end;
+
+        iser |= (u32)irq->enabled << i;
+      }
+
+      mmio->val = iser;
       goto end;
+    }
+
+    case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3: {
+      u32 pendr = 0;
+
+      intid = (offset - GICD_ISPENDR(0)) / sizeof(u32) * 32;
+      for(int i = 0; i < 32; i++) {
+        irq = vgic_get_irq(vcpu, intid + i);
+        if(!irq)
+          goto end;
+
+        pendr |= (u32)vgic_irq_pending(irq) << i;
+      }
+
+      printf("vgic ispendr read %p %p\n", offset, pendr);
+      mmio->val = pendr;
+      goto end;
+    }
+
+    case GICD_ICPENDR(0) ... GICD_ICPENDR(31)+3: {
+      u32 pendr = 0;
+
+      intid = (offset - GICD_ICPENDR(0)) / sizeof(u32) * 32;
+      for(int i = 0; i < 32; i++) {
+        irq = vgic_get_irq(vcpu, intid + i);
+        if(!irq)
+          goto end;
+        
+        pendr |= (u32)vgic_irq_pending(irq) << i;
+      }
+
+      mmio->val = pendr;
+      goto end;
+    }
 
     case GICD_ISACTIVER(0) ... GICD_ISACTIVER(31)+3:
     case GICD_ICACTIVER(0) ... GICD_ICACTIVER(31)+3:
@@ -378,7 +426,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
       intid = offset - GICD_IPRIORITYR(0);
       for(int i = 0; i < 4; i++) {
-        irq = vgic_get_irq(vcpu, intid+i);
+        irq = vgic_get_irq(vcpu, intid + i);
         if(!irq)
           goto end;
 
@@ -672,8 +720,12 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
     }
 
+    case GICR_ISPENDR0:
+      panic("pa");
+      return 0;
+
     case GICR_ICPENDR0:
-      mmio->val = 0;
+      panic("pa");
       return 0;
 
     case GICR_ISACTIVER0:

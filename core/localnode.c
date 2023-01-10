@@ -23,6 +23,8 @@ void setup_node0_bootclock() {
 void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
   printf("this node vCPU: %d total RAM: %p byte\n", nvcpu, nalloc);
 
+  localnode.bootclk = 0;
+
   localvm.nvcpu = nvcpu;
   localvm.nalloc = nalloc;
 
