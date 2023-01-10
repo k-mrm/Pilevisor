@@ -72,7 +72,7 @@ void vgic_inject_pending_irqs() {
   while(head != vcpu->pending.tail) {
     struct gic_pending_irq *pendirq = vcpu->pending.irqs[head];
     if(localnode.irqchip->inject_guest_irq(pendirq) < 0)
-      panic("inject pending irqs");
+      ;   /* do nothing */
 
     head = (head + 1) % 4;
 
