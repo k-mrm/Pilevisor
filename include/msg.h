@@ -26,6 +26,7 @@ enum msgtype {
   MSG_GIC_CONFIG      = 0xf,
   MSG_SGI             = 0x10,
   MSG_PANIC           = 0x11,
+  MSG_BOOT_SIG        = 0x12,
   NUM_MSG,
 };
 

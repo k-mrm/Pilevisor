@@ -222,4 +222,10 @@ struct panic_hdr {
 
 void node_panic_signal(void);
 
+struct boot_sig_hdr {
+  POCV2_MSG_HDR_STRUCT;
+};
+
+void __node0 broadcast_boot_signal(void);
+
 #endif

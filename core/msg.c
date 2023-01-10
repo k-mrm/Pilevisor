@@ -56,6 +56,7 @@ static char *msmap[NUM_MSG] = {
   [MSG_GIC_CONFIG]      "msg:gic_config",
   [MSG_SGI]             "msg:sgi",
   [MSG_PANIC]           "msg:panic",
+  [MSG_BOOT_SIG]        "msg:boot_sig",
 };
 
 /* msg ring queue */

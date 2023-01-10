@@ -691,7 +691,14 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
   hdr.ipa = ipa;
   hdr.wnr = 0;
   hdr.copyset = 0;
-  
+
+  /*
+  if(ipa == 0x406c2000) {
+    printf("rsend;; %p ", read_sysreg(cntvct_el0));
+    bin_dump((u8 *)page + 0x350, 0x40);
+  }
+  */
+
   pocv2_msg_init2(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
 
   send_msg(&msg);
@@ -704,6 +711,13 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
   hdr.ipa = ipa;
   hdr.wnr = 1;
   hdr.copyset = copyset;
+
+  /*
+  if(ipa == 0x406c2000) {
+    printf("wsend;; %p ", read_sysreg(cntvct_el0));
+    bin_dump((u8 *)page + 0x350, 0x40);
+  }
+  */
 
   pocv2_msg_init2(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
 
@@ -853,6 +867,16 @@ static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
   struct fetch_reply_hdr *a = (struct fetch_reply_hdr *)msg->hdr;
   struct fetch_reply_body *b = msg->body;
   // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
+  //
+
+  /*
+  if(a->ipa == 0x406c2000) {
+    u64 c = read_sysreg(cntvct_el0);
+    // bin_dump((u8 *)b->page + 0x350, 0x40);
+    u64 cy = *(u64 *)((u8 *)b->page + 0x360);
+    printf("recv;; %p %p\n", cy, c);
+  }
+  */
 
   vsm_set_cache_fast(a->ipa, b->page, a->copyset);
 }

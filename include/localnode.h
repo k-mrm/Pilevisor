@@ -50,7 +50,7 @@ struct localnode {
   /* my node in the cluster */
   struct cluster_node *node;
   /* boot clock */
-  u64 boot_clk;
+  u64 bootclk;
 };
 
 extern struct localnode localnode;
@@ -61,6 +61,8 @@ extern struct localnode localnode;
 
 void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt);
 void localvm_initcore(void);
+
+void setup_node0_bootclock(void);
 
 static inline struct vcpu *node_vcpu(int vcpuid) {
   for(struct vcpu *v = localvm.vcpus; v < &localvm.vcpus[localvm.nvcpu]; v++) {

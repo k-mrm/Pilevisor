@@ -12,6 +12,7 @@
 #include "pcpu.h"
 #include "spinlock.h"
 #include "panic.h"
+#include "assert.h"
 
 void _start(void);
 
@@ -58,6 +59,7 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
   struct pocv2_msg msg;
   struct pocv2_msg *reply;
   struct cpu_wakeup_msg_hdr hdr;
+  struct cpu_wakeup_ack_hdr *ack;
 
   hdr.vcpuid = target_cpuid;
   hdr.entrypoint = ep_addr;
@@ -72,10 +74,7 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 
   reply = pocv2_recv_reply(&msg);
 
-  struct cpu_wakeup_ack_hdr *ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
-
-  vmm_log("get ack!!!!!!!!!! %p\n", ack);
-
+  ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
   int ret = ack->ret;
 
   vmm_log("remote vcpu wakeup status: %d(=%s)\n", ret, psci_status_map(ret));
@@ -127,19 +126,19 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
 }
 
 static void cpu_wakeup_recv_intr(struct pocv2_msg *msg) {
-  struct cpu_wakeup_msg_hdr *hdr = (struct cpu_wakeup_msg_hdr *)msg->hdr;
-
-  int vcpuid = hdr->vcpuid;
-  u64 ep = hdr->entrypoint;
-
-  struct vcpu *target = node_vcpu(vcpuid);
-
-  int ret = vpsci_vcpu_wakeup_local(target, ep);
-
-  /* reply ack */
   struct pocv2_msg ack;
   struct cpu_wakeup_ack_hdr ackhdr;
+  int ret;
+  struct cpu_wakeup_msg_hdr *hdr = (struct cpu_wakeup_msg_hdr *)msg->hdr;
+  int vcpuid = hdr->vcpuid;
+  u64 ep = hdr->entrypoint;
+  struct vcpu *target = node_vcpu(vcpuid);
 
+  assert(target);
+
+  ret = vpsci_vcpu_wakeup_local(target, ep);
+
+  /* reply ack */
   ackhdr.ret = ret;
 
   pocv2_msg_init(&ack, pocv2_msg_src_mac(msg), MSG_CPU_WAKEUP_ACK, &ackhdr, NULL, 0);

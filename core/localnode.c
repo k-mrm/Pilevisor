@@ -6,11 +6,18 @@
 #include "node.h"
 #include "s2mm.h"
 #include "param.h"
+#include "vcpu.h"
+#include "arch-timer.h"
 
 struct localnode localnode;    /* me */
 
 void localvm_initcore() {
   vcpu_init_core();
+}
+
+void setup_node0_bootclock() {
+  if(current == vcpu0)
+    localnode.bootclk = now_cycles();
 }
 
 void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
