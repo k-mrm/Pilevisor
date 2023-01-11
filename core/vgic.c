@@ -9,6 +9,7 @@
 #include "log.h"
 #include "param.h"
 #include "vcpu.h"
+#include "pcpu.h"
 #include "mmio.h"
 #include "vmmio.h"
 #include "allocpage.h"
@@ -117,13 +118,7 @@ static int vgic_inject_virq_local(struct vcpu *target, struct gic_pending_irq *p
 
     dsb(ish);
 
-    struct gic_sgi sgi = {
-      .sgi_id = SGI_INJECT,
-      .targets = 1u << vcpu_localid(target),
-      .mode = ROUTE_TARGETS,
-    };
-
-    localnode.irqchip->send_sgi(&sgi);
+    cpu_send_inject_sgi(vcpu_localid(target));
   }
 
   return 0;
@@ -678,7 +673,7 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
 
     case GICR_IIDR:
-      mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id */
+      mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id = 0x19 */
                   vgic->archrev << GICD_IIDR_Revision_SHIFT |
                   0x43b;   /* ARM implementer */
       return 0;

@@ -66,11 +66,12 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
   hdr.contextid = contextid;
 
   int nodeid = vcpuid_to_nodeid(target_cpuid);
-  vmm_log("wakeup vcpu%d@node%d %p\n", target_cpuid, nodeid, read_sysreg(daif));
 
   pocv2_msg_init2(&msg, nodeid, MSG_CPU_WAKEUP, &hdr, NULL, 0);
 
   send_msg(&msg);
+
+  printf("wakeup vcpu%d@node%d\n", target_cpuid, nodeid);
 
   reply = pocv2_recv_reply(&msg);
 
@@ -126,7 +127,6 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
 }
 
 static void cpu_wakeup_recv_intr(struct pocv2_msg *msg) {
-  struct pocv2_msg ack;
   struct cpu_wakeup_ack_hdr ackhdr;
   int ret;
   struct cpu_wakeup_msg_hdr *hdr = (struct cpu_wakeup_msg_hdr *)msg->hdr;
@@ -141,9 +141,7 @@ static void cpu_wakeup_recv_intr(struct pocv2_msg *msg) {
   /* reply ack */
   ackhdr.ret = ret;
 
-  pocv2_msg_init(&ack, pocv2_msg_src_mac(msg), MSG_CPU_WAKEUP_ACK, &ackhdr, NULL, 0);
-
-  send_msg(&ack);
+  pocv2_msg_reply(msg, MSG_CPU_WAKEUP_ACK, (struct pocv2_msg_header *)&ackhdr, NULL, 0);
 }
 
 static i32 vpsci_cpu_on(struct vcpu *vcpu, struct vpsci_argv *argv) {

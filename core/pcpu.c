@@ -16,6 +16,12 @@ static int nr_online_pcpus;
 extern const struct cpu_enable_method psci;
 extern const struct cpu_enable_method spin_table;
 
+enum sgi_id {
+  SGI_INJECT,
+  SGI_STOP,
+  SGI_DO_RECVQ,
+};
+
 void cpu_stop_all() {
   struct gic_sgi sgi = {
     .sgi_id = SGI_STOP,
@@ -32,6 +38,43 @@ void cpu_stop_local() {
     wfi();
 }
 
+void cpu_send_inject_sgi(int cpu) {
+  struct gic_sgi sgi = {
+    .sgi_id = SGI_INJECT,
+    .targets = 1u << cpu,
+    .mode = ROUTE_TARGETS,
+  };
+
+  localnode.irqchip->send_sgi(&sgi);
+}
+
+void cpu_send_do_recvq_sgi(int cpu) {
+  struct gic_sgi sgi = {
+    .sgi_id = SGI_DO_RECVQ,
+    .targets = 1u << cpu,
+    .mode = ROUTE_TARGETS,
+  };
+
+  localnode.irqchip->send_sgi(&sgi);
+}
+
+void cpu_sgi_handler(int sgi_id) {
+  switch(sgi_id) {
+    case SGI_INJECT:  /* inject guest pending interrupt */
+      vgic_inject_pending_irqs();
+      break;
+    case SGI_STOP:
+      printf("\ncpu%d: sgi stop received %p\n", cpuid(), read_sysreg(elr_el2));
+      cpu_stop_local();
+      break;
+    case SGI_DO_RECVQ:
+      /* do_recv_waitqueue called when tail of interrupt handler in irq_entry() */
+      break;
+    default:
+      panic("unknown sgi %d", sgi_id);
+  }
+}
+
 void pcpu_init_core() {
   if(!mycpu->online)
     panic("offline cpu?");
@@ -40,6 +83,7 @@ void pcpu_init_core() {
   mycpu->mpidr = cpuid();    /* affinity? */
   mycpu->wakeup = true;
   pocv2_msg_queue_init(&mycpu->recv_waitq);
+  mycpu->waiting_reply = NULL;
   mycpu->irq_depth = 0;
   mycpu->lazyirq_depth = 0;
   mycpu->lazyirq_enabled = true;

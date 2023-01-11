@@ -50,11 +50,6 @@
 #define GICD_PIDR2_ArchRev(pidr2)   (((pidr2)>>4) & 0xf)
 #define GICD_PIDR2_ArchRev_SHIFT    4
 
-enum gic_sgi_id {
-  SGI_INJECT,
-  SGI_STOP,
-};
-
 enum sgi_mode {
   ROUTE_TARGETS = 0,
   ROUTE_BROADCAST = 1,
@@ -62,7 +57,7 @@ enum sgi_mode {
 };
 
 struct gic_sgi {
-  enum gic_sgi_id sgi_id;
+  int sgi_id;
   /* TODO: Affinity? */
   u16 targets;
   enum sgi_mode mode;
@@ -107,6 +102,5 @@ struct gic_state {
 
 void irqchip_init(void);
 void irqchip_init_core(void);
-void gic_sgi_handler(enum gic_sgi_id sgi_id);
 
 #endif

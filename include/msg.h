@@ -32,16 +32,16 @@ enum msgtype {
 
 /*
  *  pocv2-msg protocol via Ethernet (64 - 4160 byte)
- *  +-------------+-------------------------+------------------+
- *  | etherheader | src | type |    argv    |      (body)      |
- *  +-------------+-------------------------+------------------+
- *     (14 byte)           (50 byte)          (up to 4096 byte)
+ *  +-------------+---------------------------+------------------+
+ *  | etherheader | src | type | conid | argv |      (body)      |
+ *  +-------------+---------------------------+------------------+
+ *     (14 byte)            (50 byte)           (up to 4096 byte)
  */
 
 struct pocv2_msg_header {
   u16 src_nodeid;     /* me */
   u16 type;           /* enum msgtype */
-  u32 connectionid;
+  u32 connectionid;   /* lower 3 bit is cpuid */
 } __aligned(8);
 
 #define POCV2_MSG_HDR_STRUCT      struct pocv2_msg_header hdr
@@ -51,8 +51,12 @@ struct pocv2_msg_header {
 struct pocv2_msg {
   u8 *mac;                /* dst or src */
   struct pocv2_msg_header *hdr;   /* must be 8 byte alignment */
+
   void *body;
   u32 body_len;
+
+  volatile struct pocv2_msg *reply;
+
   /* private */
   struct pocv2_msg *next; /* pocv2_msg_queue */
   void *data;             /* iobuf->head */
@@ -63,6 +67,8 @@ struct pocv2_msg {
 
 #define pocv2_msg_src_nodeid(msg) ((msg)->hdr->src_nodeid)
 #define pocv2_msg_type(msg)       ((msg)->hdr->type)
+
+#define pocv2_msg_cpu(msg)        ((msg)->hdr->connectionid & 0x7)
 
 #define POCV2_MSG_ETH_PROTO       0x0019
 
@@ -157,7 +163,9 @@ void msg_sysinit(void);
 
 struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg);
 void free_recv_msg(struct pocv2_msg *msg);
+void pocv2_msg_reply(struct pocv2_msg *msg, enum msgtype type,
+                     struct pocv2_msg_header *hdr, void *body, int body_len);
 
-void handle_recv_waitqueue(void);
+void do_recv_waitqueue(void);
 
 #endif

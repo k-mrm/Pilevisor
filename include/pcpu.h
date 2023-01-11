@@ -29,6 +29,7 @@ struct pcpu {
   const struct cpu_enable_method *enable_method;
   
   struct pocv2_msg_queue recv_waitq;
+  volatile struct pocv2_msg *waiting_reply;
 
   int irq_depth;
   bool lazyirq_enabled;
@@ -49,6 +50,9 @@ extern struct pcpu pcpus[NCPU_MAX];
 
 void cpu_stop_local(void) __noreturn;
 void cpu_stop_all(void);
+void cpu_send_inject_sgi(int cpu);
+void cpu_send_do_recvq_sgi(int cpu);
+void cpu_sgi_handler(int sgi_id);
 
 int cpu_boot(int cpu, u64 entrypoint);
 
@@ -80,10 +84,10 @@ static inline struct pcpu *get_cpu(int cpu) {
     mycpu->lazyirq_depth++;     \
   } while(0);
 
-#define lazyirq_exit()        \
-  do {                        \
-    local_lazyirq_enable();   \
-    mycpu->lazyirq_depth--;   \
+#define lazyirq_exit()          \
+  do {                          \
+    local_lazyirq_enable();     \
+    mycpu->lazyirq_depth--;     \
   } while(0);
 
 #define in_lazyirq()      (mycpu->lazyirq_depth != 0)

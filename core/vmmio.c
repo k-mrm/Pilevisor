@@ -62,11 +62,12 @@ int vmmio_reg_handler(u64 ipa, u64 size,
 }
 
 int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
-  int target_nodeid = vcpuid_to_nodeid(target_vcpuid);
-
   struct pocv2_msg msg;
   struct pocv2_msg *reply;
   struct mmio_req_hdr hdr;
+  int status;
+
+  int target_nodeid = vcpuid_to_nodeid(target_vcpuid);
 
   hdr.vcpuid = target_vcpuid;
   memcpy(&hdr.mmio, mmio, sizeof(*mmio));
@@ -80,36 +81,23 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
   reply = pocv2_recv_reply(&msg);
   struct mmio_reply_hdr *rep = (struct mmio_reply_hdr *)reply->hdr;
 
-  vmm_log("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
+  printf("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
 
   if(mmio->ipa != rep->addr)
     panic("vmmio? %p %p", mmio->ipa, rep->addr);
 
   mmio->val = rep->val;
-
-  int status = rep->status;
+  status = rep->status;
 
   free_recv_msg(reply);
 
   return status;
 }
 
-static void vmmio_reply(u8 *dst_mac, enum vmmio_status status, u64 addr, u64 val) {
-  struct pocv2_msg msg;
-  struct mmio_reply_hdr hdr;
-
-  hdr.addr = addr;
-  hdr.val = val;
-  hdr.status = status;
-
-  pocv2_msg_init(&msg, dst_mac, MSG_MMIO_REPLY, &hdr, NULL, 0);
-
-  send_msg(&msg);
-}
-
 static void vmmio_req_recv_intr(struct pocv2_msg *msg) {
   struct mmio_req_hdr *hdr = (struct mmio_req_hdr *)msg->hdr;
   enum vmmio_status status = VMMIO_OK;
+  struct mmio_reply_hdr rephdr;
 
   struct vcpu *vcpu = node_vcpu(hdr->vcpuid);
   if(!vcpu)
@@ -121,7 +109,11 @@ static void vmmio_req_recv_intr(struct pocv2_msg *msg) {
   printf("mmio access %s %p %p\n",
           hdr->mmio.wnr ? "write" : "read", hdr->mmio.ipa, hdr->mmio.val);
 
-  vmmio_reply(pocv2_msg_src_mac(msg), status, hdr->mmio.ipa, hdr->mmio.val);
+  rephdr.addr = hdr->mmio.ipa;
+  rephdr.val = hdr->mmio.val;
+  rephdr.status = status;
+
+  pocv2_msg_reply(msg, MSG_MMIO_REPLY, (struct pocv2_msg_header *)&rephdr, NULL, 0);
 }
 
 void vmmio_init() {

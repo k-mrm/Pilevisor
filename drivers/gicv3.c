@@ -9,6 +9,7 @@
 #include "param.h"
 #include "irq.h"
 #include "vcpu.h"
+#include "pcpu.h"
 #include "localnode.h"
 #include "mm.h"
 #include "compiler.h"
@@ -361,7 +362,7 @@ static void gicv3_irq_handler(int from_guest) {
       if(handled)
         gicv3_host_eoi(irq);
     } else if(is_sgi(irq)) {
-      gic_sgi_handler(irq);
+      cpu_sgi_handler(irq);
 
       gicv3_host_eoi(irq);
     } else {

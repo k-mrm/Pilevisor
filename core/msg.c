@@ -19,6 +19,8 @@
 
 #define USE_SCATTER_GATHER
 
+static int msg_reply_rx(struct pocv2_msg *msg);
+
 extern struct pocv2_msg_size_data __pocv2_msg_size_data_start[];
 extern struct pocv2_msg_size_data __pocv2_msg_size_data_end[];
 
@@ -28,14 +30,6 @@ extern struct pocv2_msg_handler_data __pocv2_msg_handler_data_end[];
 static struct pocv2_msg_data msg_data[NUM_MSG];
 
 static spinlock_t connectlock = SPINLOCK_INIT;
-
-static enum msgtype reqrep[NUM_MSG] = {
-  [MSG_INIT]          MSG_INIT_ACK,
-  [MSG_CPU_WAKEUP]    MSG_CPU_WAKEUP_ACK,
-  [MSG_FETCH]         MSG_FETCH_REPLY,
-  [MSG_INVALIDATE]    MSG_INVALIDATE_ACK,
-  [MSG_MMIO_REQUEST]  MSG_MMIO_REPLY,
-};
 
 static char *msmap[NUM_MSG] = {
   [MSG_NONE]            "msg:none",
@@ -59,16 +53,22 @@ static char *msmap[NUM_MSG] = {
   [MSG_BOOT_SIG]        "msg:boot_sig",
 };
 
-/* msg ring queue */
-static struct pocv2_msg_queue replyq[NUM_MSG];
-
-static void replyq_enqueue(struct pocv2_msg *msg);
-
-static u32 msg_hdr_size(struct pocv2_msg *msg) {
+static inline u32 msg_hdr_size(struct pocv2_msg *msg) {
   if(msg->hdr->type < NUM_MSG)
     return msg_data[msg->hdr->type].msg_hdr_size;
   else
     panic("msg_hdr_size");
+}
+
+static inline bool msg_type_is_reply(struct pocv2_msg *msg) {
+  switch(msg->hdr->type) {
+    case MSG_CPU_WAKEUP_ACK:
+    case MSG_FETCH_REPLY:
+    case MSG_MMIO_REPLY:
+      return true;
+    default:
+      return false;
+  }
 }
 
 void pocv2_msg_queue_init(struct pocv2_msg_queue *q) {
@@ -98,10 +98,8 @@ void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg) {
 struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
   u64 flags;
 
-  while(pocv2_msg_queue_empty(q)) {
-    ;
-    // wfi();
-  }
+  while(pocv2_msg_queue_empty(q))
+    wfi();
 
   spin_lock_irqsave(&q->lock, flags); 
 
@@ -121,7 +119,7 @@ void free_recv_msg(struct pocv2_msg *msg) {
   free(msg);
 }
 
-void handle_recv_waitqueue() {
+void do_recv_waitqueue() {
   struct pocv2_msg *m, *m_next, *head;
 
   struct pocv2_msg_queue *recvq = &mycpu->recv_waitq;
@@ -161,8 +159,11 @@ restart:
 
       free_recv_msg(m);
     } else {
-      /* enqueue msg to replyq */
-      replyq_enqueue(m);
+      /* register reply msg for msg waiting for reply */
+      int rc = msg_reply_rx(m);
+
+      if(rc < 0)
+        free_recv_msg(m);
     }
   }
 
@@ -201,10 +202,33 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
 
   msg->data = buf->head;
 
-  vmm_log("msg recv intr %p\n", msg->hdr->connectionid);
-  pocv2_msg_enqueue(&mycpu->recv_waitq, msg);
+  if(msg_type_is_reply(msg)) {
+    int id = pocv2_msg_cpu(msg);
+    struct pcpu *cpu = get_cpu(id);
+
+    pocv2_msg_enqueue(&cpu->recv_waitq, msg);
+
+    if(cpu != mycpu) {
+      cpu_send_do_recvq_sgi(id);
+    }
+  } else {
+    pocv2_msg_enqueue(&mycpu->recv_waitq, msg);
+  }
 
   return rc;
+}
+
+static int msg_reply_rx(struct pocv2_msg *msg) {
+  if(likely(mycpu->waiting_reply)) {
+    mycpu->waiting_reply->reply = msg;
+
+    mycpu->waiting_reply = NULL;
+
+    return 0;
+  }
+
+  assert(0);
+  return -1;
 }
 
 void send_msg(struct pocv2_msg *msg) {
@@ -232,37 +256,31 @@ void send_msg(struct pocv2_msg *msg) {
   localnode.nic->ops->xmit(localnode.nic, buf);
 }
 
-static void replyq_enqueue(struct pocv2_msg *msg) {
-  struct pocv2_msg_queue *q = &replyq[msg->hdr->type];
-
-  printf("enqueueueeu %p %p %p\n", q, msg, msg->next);
-
-  pocv2_msg_enqueue(q, msg);
-}
-
-static struct pocv2_msg *replyq_dequeue(enum msgtype type) {
-  struct pocv2_msg_queue *q = &replyq[type];
-
-  struct pocv2_msg *rep = pocv2_msg_dequeue(q);
-
-  printf("dequeueueeu %p %p %p\n", q, rep, rep->next);
-
-  return rep;
-}
-
 struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
   struct pocv2_msg *reply;
-  enum msgtype reptype = reqrep[msg->hdr->type];
-  if(reptype == 0)
-    return NULL;
 
-  printf("%d waiting recv %s........... (%p)\n", cpuid(), msmap[reptype], read_sysreg(daif));
-
-  reply = replyq_dequeue(reptype);
-
-  printf("recv %s(%p)!!!!!!!!!!!!!!!!!\n", msmap[reptype], reply);
+  // printf("wating reply getttt...\n");
+  while((reply = msg->reply) == NULL)
+    wfi();
 
   return reply;
+}
+
+void pocv2_msg_reply(struct pocv2_msg *msg, enum msgtype type,
+                     struct pocv2_msg_header *hdr, void *body, int body_len) {
+  struct pocv2_msg reply;
+
+  hdr->src_nodeid = local_nodeid();
+  hdr->type = type;
+  hdr->connectionid = msg->hdr->connectionid;
+
+  reply.hdr = hdr;
+  reply.mac = pocv2_msg_src_mac(msg);
+  reply.body = body;
+  reply.body_len = body_len;
+  reply.reply = NULL;
+
+  send_msg(&reply);
 }
 
 static u32 new_connection() {
@@ -276,25 +294,25 @@ static u32 new_connection() {
 
   spin_unlock_irqrestore(&connectlock, flags);
 
-  return c;
+  return c << 3 | (cpuid() & 0x7);
 }
 
 void _pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
-                                struct pocv2_msg_header *hdr, void *body, int body_len) {
+                               struct pocv2_msg_header *hdr, void *body, int body_len) {
   _pocv2_msg_init(msg, broadcast_mac, type, hdr, body, body_len);
 }
 
 void _pocv2_msg_init2(struct pocv2_msg *msg, int dst_nodeid, enum msgtype type,
-                       struct pocv2_msg_header *hdr, void *body, int body_len) {
+                      struct pocv2_msg_header *hdr, void *body, int body_len) {
   struct cluster_node *node = cluster_node(dst_nodeid);
-  vmm_bug_on(!node, "uninit cluster");
+  assert(node);
 
   _pocv2_msg_init(msg, node->mac, type, hdr, body, body_len);
 }
 
 void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
-                      struct pocv2_msg_header *hdr, void *body, int body_len) {
-  vmm_bug_on(!hdr, "hdr");
+                     struct pocv2_msg_header *hdr, void *body, int body_len) {
+  assert(hdr);
 
   hdr->src_nodeid = local_nodeid();
   hdr->type = type;
@@ -304,6 +322,9 @@ void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
   msg->mac = dst_mac;
   msg->body = body;
   msg->body_len = body_len;
+  msg->reply = NULL;
+
+  mycpu->waiting_reply = msg;
 }
 
 void msg_sysinit() {
@@ -318,9 +339,5 @@ void msg_sysinit() {
 
   for(hd = __pocv2_msg_handler_data_start; hd < __pocv2_msg_handler_data_end; hd++) {
     msg_data[hd->type].recv_handler = hd->recv_handler;
-  }
-
-  for(struct pocv2_msg_queue *q = replyq; q < &replyq[NUM_MSG]; q++) {
-    pocv2_msg_queue_init(q);
   }
 }

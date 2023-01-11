@@ -9,6 +9,7 @@
 #include "param.h"
 #include "irq.h"
 #include "vcpu.h"
+#include "pcpu.h"
 #include "localnode.h"
 #include "compiler.h"
 #include "panic.h"
@@ -200,7 +201,7 @@ static void gicv2_irq_handler(int from_guest) {
       if(handled)
         gicv2_host_eoi(iar);
     } else if(is_sgi(irq)) {
-      gic_sgi_handler(irq);
+      cpu_sgi_handler(irq);
 
       gicv2_host_eoi(iar);
     } else {
