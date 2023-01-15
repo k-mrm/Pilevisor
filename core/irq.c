@@ -42,7 +42,7 @@ void irq_entry(int from_guest) {
 
   irq_exit();
 
-  if(!pocv2_msg_queue_empty(&mycpu->recv_waitq) && !in_interrupt() && local_lazyirq_enabled()) {
+  if(!msg_queue_empty(&mycpu->recv_waitq) && !in_interrupt() && local_lazyirq_enabled()) {
     do_recv_waitqueue();
   }
 }

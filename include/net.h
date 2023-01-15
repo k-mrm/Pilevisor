@@ -5,6 +5,7 @@
 
 struct nic;
 struct iobuf;
+struct etherheader;
 
 struct nic_ops {
   void (*xmit)(struct nic *, struct iobuf *);
@@ -25,6 +26,9 @@ struct nic {
 struct iobuf {
   void *head;
   void *data;
+
+  struct etherheader *eth;
+
   /* page */
   void *body;
   u32 len;

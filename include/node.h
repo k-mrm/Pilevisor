@@ -39,7 +39,9 @@ struct nodeconfig {
 struct cluster_node {
   int nodeid;
   u8 mac[6];
+
   struct memrange mem;
+
   u32 vcpus[VCPU_PER_NODE_MAX];
   int nvcpu;
 };

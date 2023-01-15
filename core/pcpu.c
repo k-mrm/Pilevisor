@@ -68,7 +68,7 @@ void cpu_sgi_handler(int sgi_id) {
       cpu_stop_local();
       break;
     case SGI_DO_RECVQ:
-      /* do_recv_waitqueue called when tail of interrupt handler in irq_entry() */
+      /* do_recv_waitqueue will be called when tail of interrupt handler in irq_entry() */
       break;
     default:
       panic("unknown sgi %d", sgi_id);
@@ -82,7 +82,7 @@ void pcpu_init_core() {
   mycpu->stackbase = _stack + PAGESIZE * (cpuid() + 1);
   mycpu->mpidr = cpuid();    /* affinity? */
   mycpu->wakeup = true;
-  pocv2_msg_queue_init(&mycpu->recv_waitq);
+  msg_queue_init(&mycpu->recv_waitq);
   mycpu->waiting_reply = NULL;
   mycpu->irq_depth = 0;
   mycpu->lazyirq_depth = 0;

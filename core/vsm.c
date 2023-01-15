@@ -411,7 +411,7 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
   if(copyset == 0)
     return;
 
-  struct pocv2_msg msg;
+  struct msg msg;
   struct invalidate_hdr hdr;
 
   hdr.ipa = ipa;
@@ -423,7 +423,7 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
     if((copyset & 1) && (node != local_nodeid())) {
       vmm_log("invalidate request %p %d -> %d\n", ipa, local_nodeid(), node);
  
-      pocv2_msg_init2(&msg, node, MSG_INVALIDATE, &hdr, NULL, 0);
+      msg_init(&msg, node, MSG_INVALIDATE, &hdr, NULL, 0, 0);
 
       send_msg(&msg);
     }
@@ -434,13 +434,13 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
 }
 
 static void send_invalidate_ack(int from_nodeid, u64 ipa) {
-  struct pocv2_msg msg;
+  struct msg msg;
   struct invalidate_ack_hdr hdr;
 
   hdr.ipa = ipa;
   hdr.from_nodeid = from_nodeid;
 
-  pocv2_msg_init2(&msg, from_nodeid, MSG_INVALIDATE_ACK, &hdr, NULL, 0);
+  msg_init(&msg, from_nodeid, MSG_INVALIDATE_ACK, &hdr, NULL, 0, 0);
 
   send_msg(&msg);
 }
@@ -672,20 +672,20 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
  *  @dst: fetch request destination
  */
 static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr) {
-  struct pocv2_msg msg;
+  struct msg msg;
   struct fetch_req_hdr hdr;
 
   hdr.ipa = ipa;
   hdr.req_nodeid = req;
   hdr.wnr = wnr;
 
-  pocv2_msg_init2(&msg, dst, MSG_FETCH, &hdr, NULL, 0);
+  msg_init(&msg, dst, MSG_FETCH, &hdr, NULL, 0, 0);
 
   send_msg(&msg);
 }
 
 static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
-  struct pocv2_msg msg;
+  struct msg msg;
   struct fetch_reply_hdr hdr;
 
   hdr.ipa = ipa;
@@ -699,13 +699,13 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
   }
   */
 
-  pocv2_msg_init2(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
+  msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, 0);
 
   send_msg(&msg);
 }
 
 static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copyset) {
-  struct pocv2_msg msg;
+  struct msg msg;
   struct fetch_reply_hdr hdr;
 
   hdr.ipa = ipa;
@@ -719,7 +719,7 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
   }
   */
 
-  pocv2_msg_init2(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
+  msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, 0);
 
   send_msg(&msg);
 }
@@ -825,7 +825,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
   }
 }
 
-static void recv_fetch_request_intr(struct pocv2_msg *msg) {
+static void recv_fetch_request_intr(struct msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
 
@@ -844,7 +844,7 @@ static void recv_fetch_request_intr(struct pocv2_msg *msg) {
   vsm_process_waitqueue(page);
 }
 
-static void recv_invalidate_intr(struct pocv2_msg *msg) {
+static void recv_invalidate_intr(struct msg *msg) {
   struct invalidate_hdr *h = (struct invalidate_hdr *)msg->hdr;
   struct vsm_server_proc *p = new_vsm_inv_server_proc(h->ipa, h->from_nodeid, h->copyset);
 
@@ -863,7 +863,7 @@ static void recv_invalidate_intr(struct pocv2_msg *msg) {
   vsm_process_waitqueue(page);
 }
 
-static void recv_fetch_reply_intr(struct pocv2_msg *msg) {
+static void recv_fetch_reply_intr(struct msg *msg) {
   struct fetch_reply_hdr *a = (struct fetch_reply_hdr *)msg->hdr;
   struct fetch_reply_body *b = msg->body;
   // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);

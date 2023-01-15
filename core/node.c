@@ -24,12 +24,12 @@
 
 static void __node0 broadcast_init_request();
 static void __node0 broadcast_cluster_info();
-static void __node0 recv_init_ack_intr(struct pocv2_msg *msg);
-static void __node0 recv_sub_setup_done_notify_intr(struct pocv2_msg *msg);
+static void __node0 recv_init_ack_intr(struct msg *msg);
+static void __node0 recv_sub_setup_done_notify_intr(struct msg *msg);
 static void __subnode init_ack(u8 *node0_mac, int nvcpu, u64 allocated);
-static void __subnode recv_init_request_intr(struct pocv2_msg *msg);
+static void __subnode recv_init_request_intr(struct msg *msg);
 static void __subnode send_setup_done_notify(u8 status);
-static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg);
+static void __subnode recv_cluster_info_intr(struct msg *msg);
 
 static int cluster_node_me_setup();
 
@@ -164,10 +164,10 @@ void __node0 broadcast_boot_signal() {
   if(current != vcpu0)
     return;
 
-  struct pocv2_msg msg;
+  struct msg msg;
   struct boot_sig_hdr hdr;
 
-  pocv2_broadcast_msg_init(&msg, MSG_BOOT_SIG, &hdr, NULL, 0);
+  msg_init(&msg, 0, MSG_BOOT_SIG, &hdr, NULL, 0, M_BCAST);
 
   send_msg(&msg);
 }
@@ -270,20 +270,12 @@ void node_cluster_dump() {
   }
 }
 
-void node_send_msg(int dst_id, struct pocv2_msg *msg) {
-  ;
-}
-
-void node_broadcast_msg(struct pocv2_msg *msg) {
-  ;
-}
-
 static void __node0 broadcast_init_request() {
   printf("broadcast init request");
-  struct pocv2_msg msg;
+  struct msg msg;
   struct init_req_hdr hdr;
 
-  pocv2_broadcast_msg_init(&msg, MSG_INIT, &hdr, NULL, 0);
+  msg_init(&msg, 0, MSG_INIT, &hdr, NULL, 0, M_BCAST);
 
   send_msg(&msg);
 }
@@ -292,50 +284,54 @@ static void __node0 broadcast_cluster_info() {
   vmm_log("broadcast cluster info from Node0\n");
   node_cluster_dump();
 
-  struct pocv2_msg msg;
+  struct msg msg;
   struct cluster_info_hdr hdr;
 
   hdr.nnodes = nr_cluster_nodes;
   hdr.nvcpus = nr_cluster_vcpus;
 
-  pocv2_broadcast_msg_init(&msg, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster));
+  msg_init(&msg, 0, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster), M_BCAST);
 
   send_msg(&msg);
 }
 
 static void __subnode send_setup_done_notify(u8 status) {
-  struct pocv2_msg msg;
+  struct msg msg;
   struct setup_done_hdr hdr;
 
   hdr.status = status;
 
-  pocv2_msg_init2(&msg, 0, MSG_SETUP_DONE, &hdr, NULL, 0);
+  msg_init(&msg, 0, MSG_SETUP_DONE, &hdr, NULL, 0, 0);
 
   send_msg(&msg);
 }
 
 static void __subnode init_ack(u8 *node0_mac, int nvcpu, u64 allocated) {
-  struct pocv2_msg msg;
+  struct msg msg;
   struct init_ack_hdr hdr;
+
+  memcpy(cluster_node(0)->mac, node0_mac, 6);
 
   hdr.nvcpu = nvcpu;
   hdr.allocated = allocated;
 
-  pocv2_msg_init(&msg, node0_mac, MSG_INIT_ACK, &hdr, NULL, 0);
+  msg_init(&msg, 0, MSG_INIT_ACK, &hdr, NULL, 0, 0);
 
   send_msg(&msg);
 }
 
-static void __node0 recv_init_ack_intr(struct pocv2_msg *msg) {
+static void __node0 recv_init_ack_intr(struct msg *msg) {
   struct init_ack_hdr *i = (struct init_ack_hdr *)msg->hdr;
+  u8 *src_mac = msg_eth(msg)->src;
 
-  node0_ack_node(pocv2_msg_src_mac(msg), i->nvcpu, i->allocated);
+  node0_ack_node(src_mac, i->nvcpu, i->allocated);
+
   vmm_log("Node 1: %d vcpus %p bytes\n", i->nvcpu, i->allocated);
 }
 
-static void __node0 recv_sub_setup_done_notify_intr(struct pocv2_msg *msg) {
+static void __node0 recv_sub_setup_done_notify_intr(struct msg *msg) {
   struct setup_done_hdr *s = (struct setup_done_hdr *)msg->hdr;
-  int src_nodeid = pocv2_msg_src_nodeid(msg);
+  int src_nodeid = msg->hdr->src_id;
 
   if(s->status == 0)
     vmm_log("Node %d: setup ran successfully\n", src_nodeid);
@@ -347,8 +343,9 @@ static void __node0 recv_sub_setup_done_notify_intr(struct pocv2_msg *msg) {
   vmm_log("node %d READY!\n", src_nodeid);
 }
 
-static void __subnode recv_init_request_intr(struct pocv2_msg *msg) {
-  u8 *node0_mac = pocv2_msg_src_mac(msg);
+static void __subnode recv_init_request_intr(struct msg *msg) {
+  u8 *node0_mac = msg_eth(msg)->src;
+
   vmm_log("node0 mac address: %m\n", node0_mac);
   vmm_log("me mac address: %m\n", localnode.nic->mac);
   vmm_log("sub: %d vcpu %p byte RAM\n", localvm.nvcpu, localvm.nalloc);
@@ -356,7 +353,7 @@ static void __subnode recv_init_request_intr(struct pocv2_msg *msg) {
   init_ack(node0_mac, localvm.nvcpu, localvm.nalloc);
 }
 
-static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg) {
+static void __subnode recv_cluster_info_intr(struct msg *msg) {
   struct cluster_info_hdr *h = (struct cluster_info_hdr *)msg->hdr;
   struct cluster_info_body *b = msg->body;
 
@@ -364,24 +361,24 @@ static void __subnode recv_cluster_info_intr(struct pocv2_msg *msg) {
 }
 
 void node_panic_signal(void) {
-  struct pocv2_msg msg;
+  struct msg msg;
   struct panic_hdr hdr;
 
-  pocv2_broadcast_msg_init(&msg, MSG_PANIC, &hdr, NULL, 0);
+  msg_init(&msg, 0, MSG_PANIC, &hdr, NULL, 0, M_BCAST);
 
   send_msg(&msg);
 }
 
-static void recv_boot_sig_intr(struct pocv2_msg *msg) {
+static void recv_boot_sig_intr(struct msg *msg) {
   assert(!localnode.bootclk);
 
   localnode.bootclk = now_cycles();
 }
 
-static void recv_panic_intr(struct pocv2_msg *msg) {
+static void recv_panic_intr(struct msg *msg) {
   local_irq_disable();
 
-  printf("recv panic signal from Node%d (%m)\n", msg->hdr->src_nodeid, pocv2_msg_src_mac(msg));
+  printf("recv panic signal from Node%d (%m)\n", msg->hdr->src_id, msg_eth(msg)->src);
   printf("system aborted\n");
 
   cpu_stop_all();

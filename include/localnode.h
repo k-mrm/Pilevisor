@@ -33,8 +33,6 @@ struct vm {
 struct localnode {
   /* localvm */
   struct vm vm;
-  /* Node id in the cluster */
-  int nodeid;
   /* Am I recognized by cluster? */
   bool acked;
   /* network interface card */
@@ -49,6 +47,7 @@ struct localnode {
   struct device_node *device_tree;
   /* my node in the cluster */
   struct cluster_node *node;
+  int nodeid;
   /* boot clock */
   u64 bootclk;
 };

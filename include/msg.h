@@ -38,133 +38,126 @@ enum msgtype {
  *     (14 byte)            (50 byte)           (up to 4096 byte)
  */
 
-struct pocv2_msg_header {
-  u16 src_nodeid;     /* me */
+struct msg_header {
+  u16 src_id;         /* msg src */
   u16 type;           /* enum msgtype */
   u32 connectionid;   /* lower 3 bit is cpuid */
 } __aligned(8);
 
-#define POCV2_MSG_HDR_STRUCT      struct pocv2_msg_header hdr
+#define POCV2_MSG_HDR_STRUCT      struct msg_header hdr
 
 #define ETH_POCV2_MSG_HDR_SIZE    64
 
-struct pocv2_msg {
-  u8 *mac;                /* dst or src */
-  struct pocv2_msg_header *hdr;   /* must be 8 byte alignment */
+struct msg {
+  u16 dst_id;
+  struct msg_header *hdr;   /* must be 8 byte alignment */
 
   void *body;
   u32 body_len;
 
-  volatile struct pocv2_msg *reply;
+  int flags;
 
   /* private */
-  struct pocv2_msg *next; /* pocv2_msg_queue */
-  void *data;             /* iobuf->head */
+  struct msg *next;       /* msg_queue */
+  struct iobuf *data;     /* raw data */
 };
 
-#define pocv2_msg_src_mac(msg)    ((msg)->mac)
-#define pocv2_msg_dst_mac(msg)    ((msg)->mac)
+#define M_BCAST             (1 << 0)    /* broadcast msg */
+#define M_WAITREPLY         (1 << 1)    /* blocking to receive reply */
 
-#define pocv2_msg_src_nodeid(msg) ((msg)->hdr->src_nodeid)
-#define pocv2_msg_type(msg)       ((msg)->hdr->type)
-
-#define pocv2_msg_cpu(msg)        ((msg)->hdr->connectionid & 0x7)
+#define msg_cpu(msg)        ((msg)->hdr->connectionid & 0x7)
 
 #define POCV2_MSG_ETH_PROTO       0x0019
 
-struct pocv2_msg_queue {
-  struct pocv2_msg *head;
-  struct pocv2_msg *tail;
+#define msg_eth(msg)        ((msg)->data->eth)
+
+struct msg_queue {
+  struct msg *head;
+  struct msg *tail;
   spinlock_t lock;
 };
 
-void pocv2_msg_queue_init(struct pocv2_msg_queue *q);
+void msg_queue_init(struct msg_queue *q);
 
-void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg);
-struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q);
+void msg_enqueue(struct msg_queue *q, struct msg *msg);
+struct msg *msg_dequeue(struct msg_queue *q);
 
-static inline bool pocv2_msg_queue_empty(struct pocv2_msg_queue *q) {
+static inline bool msg_queue_empty(struct msg_queue *q) {
   return q->head == NULL;
 }
 
-struct pocv2_msg_size_data {
+struct msg_size_data {
   enum msgtype type;
   u32 msg_hdr_size;
 } __aligned(16);
 
-struct pocv2_msg_handler_data {
+struct msg_handler_data {
   enum msgtype type;
-  void (*recv_handler)(struct pocv2_msg *);
+  void (*recv_handler)(struct msg *);
 } __aligned(16);
 
-struct pocv2_msg_data {
+struct msg_data {
   enum msgtype type;
   u32 msg_hdr_size;
-  void (*recv_handler)(struct pocv2_msg *);
+  void (*recv_handler)(struct msg *);
 };
 
 #define DEFINE_POCV2_MSG(ty, hdr_struct, handler)       \
-  static struct pocv2_msg_size_data _msdata_##ty        \
-  __used __section(".rodata.pocv2_msg") = {             \
+  static struct msg_size_data _msdata_##ty        \
+  __used __section(".rodata.msg") = {             \
     .type = (ty),                                       \
     .msg_hdr_size = sizeof(hdr_struct),                 \
   };                                                    \
-  static struct pocv2_msg_handler_data _mhdata_##ty     \
-  __used __section(".rodata.pocv2_msg.common") = {      \
+  static struct msg_handler_data _mhdata_##ty     \
+  __used __section(".rodata.msg.common") = {      \
     .type = (ty),                                       \
     .recv_handler = handler,                            \
   };
 
 #define DEFINE_POCV2_MSG_RECV_NODE0(ty, hdr_struct, handler)  \
-  static struct pocv2_msg_size_data _msdata_##ty              \
-  __used __section(".rodata.pocv2_msg") = {                   \
+  static struct msg_size_data _msdata_##ty              \
+  __used __section(".rodata.msg") = {                   \
     .type = (ty),                                             \
     .msg_hdr_size = sizeof(hdr_struct),                       \
   };                                                          \
-  static struct pocv2_msg_handler_data _mhdata_##ty           \
-  __used __section(".rodata.pocv2_msg.node0") = {             \
+  static struct msg_handler_data _mhdata_##ty           \
+  __used __section(".rodata.msg.node0") = {             \
     .type = (ty),                                             \
     .recv_handler = handler,                                  \
   };
 
 #define DEFINE_POCV2_MSG_RECV_SUBNODE(ty, hdr_struct, handler)  \
-  static struct pocv2_msg_size_data _msdata_##ty                \
-  __used __section(".rodata.pocv2_msg") = {                     \
+  static struct msg_size_data _msdata_##ty                \
+  __used __section(".rodata.msg") = {                     \
     .type = (ty),                                               \
     .msg_hdr_size = sizeof(hdr_struct),                         \
   };                                                            \
-  static struct pocv2_msg_handler_data _mhdata_##ty             \
-  __used __section(".rodata.pocv2_msg.subnode") = {             \
+  static struct msg_handler_data _mhdata_##ty             \
+  __used __section(".rodata.msg.subnode") = {             \
     .type = (ty),                                               \
     .recv_handler = handler,                                    \
   };
 
-void send_msg(struct pocv2_msg *msg);
+struct msg *send_msg(struct msg *msg);
 
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf);
 
-#define pocv2_broadcast_msg_init(msg, type, hdr, body, body_len)   \
-  _pocv2_broadcast_msg_init(msg, type, (struct pocv2_msg_header *)hdr, body, body_len)
+#define msg_init(msg, dst_id, type, hdr, body, body_len, flags)   \
+  __msg_init(msg, dst_id, type, (struct msg_header *)hdr, body, body_len, flags)
 
-#define pocv2_msg_init2(msg, dst_nodeid, type, hdr, body, body_len)   \
-  _pocv2_msg_init2(msg, dst_nodeid, type, (struct pocv2_msg_header *)hdr, body, body_len)
+void __msg_init(struct msg *msg, u16 dst_id, enum msgtype type,
+                struct msg_header *hdr, void *body, int body_len, int flags);
 
-#define pocv2_msg_init(msg, dst_mac, type, hdr, body, body_len)   \
-  _pocv2_msg_init(msg, dst_mac, type, (struct pocv2_msg_header *)hdr, body, body_len)
+#define msg_reply(msg, type, hdr, body, body_len)   \
+  __msg_reply(msg, type, (struct msg_header *)hdr, body, body_len)
 
-void _pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
-                               struct pocv2_msg_header *hdr, void *body, int body_len);
-void _pocv2_msg_init2(struct pocv2_msg *msg, int dst_nodeid, enum msgtype type,
-                       struct pocv2_msg_header *hdr, void *body, int body_len);
-void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
-                      struct pocv2_msg_header *hdr, void *body, int body_len);
+void __msg_reply(struct msg *msg, enum msgtype type,
+                 struct msg_header *hdr, void *body, int body_len);
 
 void msg_sysinit(void);
 
-struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg);
-void free_recv_msg(struct pocv2_msg *msg);
-void pocv2_msg_reply(struct pocv2_msg *msg, enum msgtype type,
-                     struct pocv2_msg_header *hdr, void *body, int body_len);
+struct msg *pocv2_recv_reply(struct msg *msg);
+void free_recv_msg(struct msg *msg);
 
 void do_recv_waitqueue(void);
 

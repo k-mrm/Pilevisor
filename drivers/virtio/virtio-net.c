@@ -70,8 +70,6 @@ static void txintr(struct virtq *txq) {
     struct iobuf *iobuf = hdr->packet;
 
     free(hdr);
-    if(iobuf->body)
-      free_page(iobuf->body);
     free_iobuf(iobuf);
   }
 
@@ -109,8 +107,6 @@ static void rxintr(struct virtq *rxq) {
     dev->n_rxbuf--;
 
     netdev_recv(iobuf);
-
-    free_iobuf(iobuf);
   }
 
   fill_recv_queue(rxq);

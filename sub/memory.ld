@@ -28,14 +28,14 @@ SECTIONS {
       *(.rodata) 
 
       . = ALIGN(16);
-      __pocv2_msg_size_data_start = .;
-      *(.rodata.pocv2_msg)
-      __pocv2_msg_size_data_end = .;
+      __msg_size_data_start = .;
+      *(.rodata.msg)
+      __msg_size_data_end = .;
       . = ALIGN(16);
-      __pocv2_msg_handler_data_start = .;
-      *(.rodata.pocv2_msg.common)
-      *(.rodata.pocv2_msg.subnode)
-      __pocv2_msg_handler_data_end = .;
+      __msg_handler_data_start = .;
+      *(.rodata.msg.common)
+      *(.rodata.msg.subnode)
+      __msg_handler_data_end = .;
 
       __rodata_end = .;
     }

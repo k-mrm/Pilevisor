@@ -211,12 +211,12 @@ static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
             panic("sgi failed");
         } else {
           vmm_log("vgic: route sgi(%d) to remote vcpu%d@%d (%p)\n", intid, vcpuid, node->nodeid, current->reg.elr);
-          struct pocv2_msg msg;
+          struct msg msg;
           struct sgi_msg_hdr hdr;
           hdr.target = vcpuid;
           hdr.sgi_id = intid;
 
-          pocv2_msg_init2(&msg, node->nodeid, MSG_SGI, &hdr, NULL, 0);
+          msg_init(&msg, node->nodeid, MSG_SGI, &hdr, NULL, 0, 0);
 
           send_msg(&msg);
         }
@@ -227,7 +227,7 @@ static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
   return 0;
 }
 
-static void recv_sgi_msg_intr(struct pocv2_msg *msg) {
+static void recv_sgi_msg_intr(struct msg *msg) {
   struct sgi_msg_hdr *h = (struct sgi_msg_hdr *)msg->hdr;
   struct vcpu *target = node_vcpu(h->target);
   int virq = h->sgi_id;

@@ -19,17 +19,15 @@
 
 #define USE_SCATTER_GATHER
 
-static int msg_reply_rx(struct pocv2_msg *msg);
+static int msg_reply_rx(struct msg *msg);
 
-extern struct pocv2_msg_size_data __pocv2_msg_size_data_start[];
-extern struct pocv2_msg_size_data __pocv2_msg_size_data_end[];
+extern struct msg_size_data __msg_size_data_start[];
+extern struct msg_size_data __msg_size_data_end[];
 
-extern struct pocv2_msg_handler_data __pocv2_msg_handler_data_start[];
-extern struct pocv2_msg_handler_data __pocv2_msg_handler_data_end[];
+extern struct msg_handler_data __msg_handler_data_start[];
+extern struct msg_handler_data __msg_handler_data_end[];
 
-static struct pocv2_msg_data msg_data[NUM_MSG];
-
-static spinlock_t connectlock = SPINLOCK_INIT;
+static struct msg_data msg_data[NUM_MSG];
 
 static char *msmap[NUM_MSG] = {
   [MSG_NONE]            "msg:none",
@@ -53,14 +51,14 @@ static char *msmap[NUM_MSG] = {
   [MSG_BOOT_SIG]        "msg:boot_sig",
 };
 
-static inline u32 msg_hdr_size(struct pocv2_msg *msg) {
+static inline u32 msg_hdr_size(struct msg *msg) {
   if(msg->hdr->type < NUM_MSG)
     return msg_data[msg->hdr->type].msg_hdr_size;
   else
     panic("msg_hdr_size");
 }
 
-static inline bool msg_type_is_reply(struct pocv2_msg *msg) {
+static inline bool msg_type_is_reply(struct msg *msg) {
   switch(msg->hdr->type) {
     case MSG_CPU_WAKEUP_ACK:
     case MSG_FETCH_REPLY:
@@ -71,13 +69,13 @@ static inline bool msg_type_is_reply(struct pocv2_msg *msg) {
   }
 }
 
-void pocv2_msg_queue_init(struct pocv2_msg_queue *q) {
+void msg_queue_init(struct msg_queue *q) {
   q->head = NULL;
   q->tail = NULL;
   spinlock_init(&q->lock);
 }
 
-void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg) {
+void msg_enqueue(struct msg_queue *q, struct msg *msg) {
   u64 flags;
 
   msg->next = NULL;
@@ -95,15 +93,15 @@ void pocv2_msg_enqueue(struct pocv2_msg_queue *q, struct pocv2_msg *msg) {
   spin_unlock_irqrestore(&q->lock, flags); 
 }
 
-struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
+struct msg *msg_dequeue(struct msg_queue *q) {
   u64 flags;
 
-  while(pocv2_msg_queue_empty(q))
+  while(msg_queue_empty(q))
     wfi();
 
   spin_lock_irqsave(&q->lock, flags); 
 
-  struct pocv2_msg *msg = q->head;
+  struct msg *msg = q->head;
   q->head = q->head->next;
 
   if(!q->head)
@@ -114,15 +112,15 @@ struct pocv2_msg *pocv2_msg_dequeue(struct pocv2_msg_queue *q) {
   return msg;
 }
 
-void free_recv_msg(struct pocv2_msg *msg) {
+void free_recv_msg(struct msg *msg) {
   free(msg->data);
   free(msg);
 }
 
 void do_recv_waitqueue() {
-  struct pocv2_msg *m, *m_next, *head;
+  struct msg *m, *m_next, *head;
 
-  struct pocv2_msg_queue *recvq = &mycpu->recv_waitq;
+  struct msg_queue *recvq = &mycpu->recv_waitq;
 
   if(in_lazyirq())
     panic("nest lazyirq");
@@ -172,20 +170,21 @@ restart:
   /*
    *  handle enqueued msg during in this function
    */
-  if(!pocv2_msg_queue_empty(recvq))
+  if(!msg_queue_empty(recvq))
     goto restart;
 
   lazyirq_exit();
 }
 
+/* called by hardware rx irq */
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
-  struct pocv2_msg *msg = malloc(sizeof(*msg));
+  struct msg *msg = malloc(sizeof(*msg));
   int rc = 1;
 
   /* Packet 1 */
-  struct pocv2_msg_header *hdr = buf->data;
-  msg->mac = src_mac;
+  struct msg_header *hdr = buf->data;
   msg->hdr = hdr;
+  msg->data = buf;
 
   /* Packet 2 */
   if(buf->body_len != 0) {
@@ -200,48 +199,89 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
 #endif  /* USE_SCATTER_GATHER */
   }
 
-  msg->data = buf->head;
-
   if(msg_type_is_reply(msg)) {
-    int id = pocv2_msg_cpu(msg);
+    int id = msg_cpu(msg);
     struct pcpu *cpu = get_cpu(id);
 
-    pocv2_msg_enqueue(&cpu->recv_waitq, msg);
+    msg_enqueue(&cpu->recv_waitq, msg);
 
     if(cpu != mycpu) {
       cpu_send_do_recvq_sgi(id);
     }
   } else {
-    pocv2_msg_enqueue(&mycpu->recv_waitq, msg);
+    msg_enqueue(&mycpu->recv_waitq, msg);
   }
 
   return rc;
 }
 
-static int msg_reply_rx(struct pocv2_msg *msg) {
-  if(likely(mycpu->waiting_reply)) {
-    mycpu->waiting_reply->reply = msg;
-
-    mycpu->waiting_reply = NULL;
-
-    return 0;
-  }
-
-  assert(0);
+static int msg_reply_rx(struct msg *msg) {
+  panic("!");
   return -1;
 }
 
-void send_msg(struct pocv2_msg *msg) {
-  if(memcmp(pocv2_msg_dst_mac(msg), localnode.nic->mac, 6) == 0)
-    panic("send msg to me %m %m", pocv2_msg_dst_mac(msg), cluster_me()->mac);
+struct msg *pocv2_recv_reply(struct msg *msg) {
+  return msg;
+}
 
-  vmm_log("send msg to %m %s %p\n", pocv2_msg_dst_mac(msg),
-            msmap[msg->hdr->type], msg->hdr->connectionid);
+static u32 new_connection() {
+  static u32 conid = 0;
+  u32 c;
+  u64 flags;
+
+  irqsave(flags);
+
+  c = conid++;
+
+  irqrestore(flags);
+
+  return c << 3 | (cpuid() & 0x7);
+}
+
+static inline void __msginit(struct msg *msg, u16 dst_id, enum msgtype type,
+                             struct msg_header *hdr, void *body, int body_len, int cid, int flags) {
+  assert(msg);
+  assert(hdr);
+
+  hdr->src_id = local_nodeid();
+  hdr->type = type;
+  hdr->connectionid = cid;
+
+  msg->hdr = hdr;
+  msg->dst_id = dst_id;
+  msg->body = body;
+  msg->body_len = body_len;
+  msg->flags = flags;
+}
+
+void __msg_init(struct msg *msg, u16 dst_id, enum msgtype type,
+                struct msg_header *hdr, void *body, int body_len, int flags) {
+  __msginit(msg, dst_id, type, hdr, body, body_len, new_connection(), flags);
+}
+
+void __msg_reply(struct msg *msg, enum msgtype type,
+                 struct msg_header *hdr, void *body, int body_len) {
+  struct msg reply;
+
+  __msginit(&reply, msg->hdr->src_id, type, hdr, body, body_len, msg->hdr->connectionid, 0);
+
+  send_msg(&reply);
+}
+
+struct msg *send_msg(struct msg *msg) {
+  u8 *dst_mac;
+
+  if(msg->flags & M_BCAST) {
+    dst_mac = bcast_mac;
+  } else {
+    dst_mac = node_macaddr(msg->dst_id);
+    assert(msg->dst_id != msg->hdr->src_id);
+  }
 
   struct iobuf *buf = alloc_iobuf(64);
 
   struct etherheader *eth = (struct etherheader *)buf->data;
-  memcpy(eth->dst, pocv2_msg_dst_mac(msg), 6);
+  memcpy(eth->dst, dst_mac, 6);
   memcpy(eth->src, localnode.nic->mac, 6);
   eth->type = POCV2_MSG_ETH_PROTO | (msg->hdr->type << 8);
 
@@ -254,90 +294,22 @@ void send_msg(struct pocv2_msg *msg) {
   }
 
   localnode.nic->ops->xmit(localnode.nic, buf);
-}
 
-struct pocv2_msg *pocv2_recv_reply(struct pocv2_msg *msg) {
-  struct pocv2_msg *reply;
-
-  // printf("wating reply getttt...\n");
-  while((reply = msg->reply) == NULL)
-    wfi();
-
-  return reply;
-}
-
-void pocv2_msg_reply(struct pocv2_msg *msg, enum msgtype type,
-                     struct pocv2_msg_header *hdr, void *body, int body_len) {
-  struct pocv2_msg reply;
-
-  hdr->src_nodeid = local_nodeid();
-  hdr->type = type;
-  hdr->connectionid = msg->hdr->connectionid;
-
-  reply.hdr = hdr;
-  reply.mac = pocv2_msg_src_mac(msg);
-  reply.body = body;
-  reply.body_len = body_len;
-  reply.reply = NULL;
-
-  send_msg(&reply);
-}
-
-static u32 new_connection() {
-  static u32 conid = 0;
-  u32 c;
-  u64 flags;
-
-  spin_lock_irqsave(&connectlock, flags);
-
-  c = conid++;
-
-  spin_unlock_irqrestore(&connectlock, flags);
-
-  return c << 3 | (cpuid() & 0x7);
-}
-
-void _pocv2_broadcast_msg_init(struct pocv2_msg *msg, enum msgtype type,
-                               struct pocv2_msg_header *hdr, void *body, int body_len) {
-  _pocv2_msg_init(msg, broadcast_mac, type, hdr, body, body_len);
-}
-
-void _pocv2_msg_init2(struct pocv2_msg *msg, int dst_nodeid, enum msgtype type,
-                      struct pocv2_msg_header *hdr, void *body, int body_len) {
-  struct cluster_node *node = cluster_node(dst_nodeid);
-  assert(node);
-
-  _pocv2_msg_init(msg, node->mac, type, hdr, body, body_len);
-}
-
-void _pocv2_msg_init(struct pocv2_msg *msg, u8 *dst_mac, enum msgtype type,
-                     struct pocv2_msg_header *hdr, void *body, int body_len) {
-  assert(hdr);
-
-  hdr->src_nodeid = local_nodeid();
-  hdr->type = type;
-  hdr->connectionid = new_connection();
-
-  msg->hdr = hdr;
-  msg->mac = dst_mac;
-  msg->body = body;
-  msg->body_len = body_len;
-  msg->reply = NULL;
-
-  mycpu->waiting_reply = msg;
+  /* TODO: return with reply */
+  return NULL;
 }
 
 void msg_sysinit() {
-  struct pocv2_msg_size_data *sd;
-  struct pocv2_msg_handler_data *hd;
+  struct msg_size_data *sd;
+  struct msg_handler_data *hd;
 
-  for(sd = __pocv2_msg_size_data_start; sd < __pocv2_msg_size_data_end; sd++) {
+  for(sd = __msg_size_data_start; sd < __msg_size_data_end; sd++) {
     printf("pocv2-msg found: %s(%d) sizeof %d\n", msmap[sd->type], sd->type, sd->msg_hdr_size);
     msg_data[sd->type].type = sd->type;
     msg_data[sd->type].msg_hdr_size = sd->msg_hdr_size;
   }
 
-  for(hd = __pocv2_msg_handler_data_start; hd < __pocv2_msg_handler_data_end; hd++) {
+  for(hd = __msg_handler_data_start; hd < __msg_handler_data_end; hd++) {
     msg_data[hd->type].recv_handler = hd->recv_handler;
   }
 }

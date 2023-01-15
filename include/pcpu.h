@@ -28,8 +28,8 @@ struct pcpu {
 
   const struct cpu_enable_method *enable_method;
   
-  struct pocv2_msg_queue recv_waitq;
-  volatile struct pocv2_msg *waiting_reply;
+  struct msg_queue recv_waitq;
+  volatile struct msg *waiting_reply;
 
   int irq_depth;
   bool lazyirq_enabled;

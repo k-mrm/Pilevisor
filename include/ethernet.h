@@ -16,6 +16,6 @@ void ethernet_recv_intr(struct nic *nic, struct iobuf *iobuf);
 
 #define ETHER_PACKET_LENGTH_MIN    64
 
-extern u8 broadcast_mac[6];
+extern u8 bcast_mac[6];
 
 #endif
