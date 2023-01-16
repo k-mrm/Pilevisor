@@ -45,7 +45,6 @@ static char *msmap[NUM_MSG] = {
   [MSG_INTERRUPT]       "msg:interrupt",
   [MSG_MMIO_REQUEST]    "msg:mmio_request",
   [MSG_MMIO_REPLY]      "msg:mmio_reply",
-  [MSG_GIC_CONFIG]      "msg:gic_config",
   [MSG_SGI]             "msg:sgi",
   [MSG_PANIC]           "msg:panic",
   [MSG_BOOT_SIG]        "msg:boot_sig",
@@ -113,7 +112,9 @@ struct msg *msg_dequeue(struct msg_queue *q) {
 }
 
 void free_recv_msg(struct msg *msg) {
-  free(msg->data);
+  assert(msg);
+
+  free_iobuf(msg->data);
   free(msg);
 }
 
@@ -179,7 +180,7 @@ restart:
 /* called by hardware rx irq */
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
   struct msg *msg = malloc(sizeof(*msg));
-  int rc = 1;
+  int rc = 0;
 
   /* Packet 1 */
   struct msg_header *hdr = buf->data;
@@ -192,7 +193,7 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
 
 #ifdef USE_SCATTER_GATHER
     msg->body = buf->body;
-    rc = 0;
+    buf->body = NULL;
 #else   /* !USE_SCATTER_GATHER */
     msg->body = alloc_page();
     memcpy(msg->body, buf->body, msg->body_len);
@@ -221,6 +222,7 @@ static int msg_reply_rx(struct msg *msg) {
 }
 
 struct msg *pocv2_recv_reply(struct msg *msg) {
+  panic("oi!w");
   return msg;
 }
 
@@ -275,7 +277,6 @@ struct msg *send_msg(struct msg *msg) {
     dst_mac = bcast_mac;
   } else {
     dst_mac = node_macaddr(msg->dst_id);
-    assert(msg->dst_id != msg->hdr->src_id);
   }
 
   struct iobuf *buf = alloc_iobuf(64);
@@ -284,6 +285,8 @@ struct msg *send_msg(struct msg *msg) {
   memcpy(eth->dst, dst_mac, 6);
   memcpy(eth->src, localnode.nic->mac, 6);
   eth->type = POCV2_MSG_ETH_PROTO | (msg->hdr->type << 8);
+
+  buf->eth = eth;
 
   memcpy((u8 *)buf->data + sizeof(struct etherheader), msg->hdr, msg_hdr_size(msg));
 

@@ -7,6 +7,7 @@
 #include "panic.h"
 #include "allocpage.h"
 #include "malloc.h"
+#include "assert.h"
 
 static struct nic netdev;
 
@@ -38,6 +39,8 @@ struct iobuf *alloc_iobuf(u32 size) {
 }
 
 void free_iobuf(struct iobuf *buf) {
+  assert(buf);
+
   free(buf->head);
   if(buf->body)
     free_page(buf->body);

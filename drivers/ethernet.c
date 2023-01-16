@@ -20,20 +20,11 @@ void ethernet_recv_intr(struct nic *nic, struct iobuf *iobuf) {
 
   if(memcmp(eth->dst, bcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
     if((eth->type & 0xff) == 0x19) {
-      need_free_body = msg_recv_intr(eth->src, iobuf);
+      msg_recv_intr(eth->src, iobuf);
 
-      if(need_free_body)
-        goto free_body;
-      else
-        return;   /* no need to free iobuf */
+      return;
     }
   }
 
   free_iobuf(iobuf);
-
-  return;
-
-free_body:
-  free_page(iobuf->body);
-  iobuf->body = NULL;
 }
