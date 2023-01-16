@@ -29,7 +29,6 @@ struct pcpu {
   const struct cpu_enable_method *enable_method;
   
   struct msg_queue recv_waitq;
-  volatile struct msg *waiting_reply;
 
   int irq_depth;
   bool lazyirq_enabled;

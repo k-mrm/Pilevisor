@@ -1,5 +1,5 @@
-#ifndef MVMM_VCPU_H
-#define MVMM_VCPU_H
+#ifndef VCPU_H
+#define VCPU_H
 
 #include "types.h"
 #include "param.h"
@@ -20,7 +20,8 @@ struct pending_queue {
   spinlock_t lock;
 };
 
-struct vm;
+struct msg;
+
 struct vcpu {
   /* !!! MUST be first field !!! */
   struct {
@@ -35,6 +36,8 @@ struct vcpu {
   u64 vmpidr;
 
   struct cpu_features features;
+
+  struct msg *volatile reply_buf;
 
   u64 sctlr_el1;
 

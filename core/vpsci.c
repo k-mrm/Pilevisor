@@ -69,11 +69,9 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 
   msg_init(&msg, nodeid, MSG_CPU_WAKEUP, &hdr, NULL, 0, M_WAITREPLY);
 
-  send_msg(&msg);
-
   printf("wakeup vcpu%d@node%d\n", target_cpuid, nodeid);
 
-  reply = pocv2_recv_reply(&msg);
+  reply = send_msg(&msg);
 
   ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
   int ret = ack->ret;

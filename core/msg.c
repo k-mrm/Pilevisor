@@ -217,13 +217,11 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
 }
 
 static int msg_reply_rx(struct msg *msg) {
-  panic("!");
-  return -1;
-}
+  assert(!current->reply_buf);
 
-struct msg *pocv2_recv_reply(struct msg *msg) {
-  panic("oi!w");
-  return msg;
+  current->reply_buf = msg;
+
+  return 0;
 }
 
 static u32 new_connection() {
@@ -298,7 +296,22 @@ struct msg *send_msg(struct msg *msg) {
 
   localnode.nic->ops->xmit(localnode.nic, buf);
 
-  /* TODO: return with reply */
+  if(msg->flags & M_WAITREPLY) {
+    struct msg *reply;
+    
+    printf("waiting reply....\n");
+    if(current->reply_buf)
+      panic("!");
+
+    while((reply = current->reply_buf) == NULL) {
+      wfi();
+    }
+
+    current->reply_buf = NULL;
+
+    return reply;
+  }
+
   return NULL;
 }
 

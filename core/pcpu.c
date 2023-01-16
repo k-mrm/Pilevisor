@@ -83,7 +83,6 @@ void pcpu_init_core() {
   mycpu->mpidr = cpuid();    /* affinity? */
   mycpu->wakeup = true;
   msg_queue_init(&mycpu->recv_waitq);
-  mycpu->waiting_reply = NULL;
   mycpu->irq_depth = 0;
   mycpu->lazyirq_depth = 0;
   mycpu->lazyirq_enabled = true;

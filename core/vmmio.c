@@ -74,11 +74,10 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
 
   printf("vmmio forwarding to vcpu%d %p\n", target_vcpuid, mmio->ipa);
 
-  msg_init(&msg, target_nodeid, MSG_MMIO_REQUEST, &hdr, NULL, 0, 0);
+  msg_init(&msg, target_nodeid, MSG_MMIO_REQUEST, &hdr, NULL, 0, M_WAITREPLY);
 
-  send_msg(&msg);
+  reply = send_msg(&msg);
 
-  reply = pocv2_recv_reply(&msg);
   struct mmio_reply_hdr *rep = (struct mmio_reply_hdr *)reply->hdr;
 
   printf("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
