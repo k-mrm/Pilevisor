@@ -4,6 +4,7 @@ LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
 CPU = cortex-a72
+QCPU = cortex-a72
 
 CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
 CFLAGS += -I ./include/
@@ -75,7 +76,7 @@ guest/hello.img: guest/hello/Makefile
 guest/vsmtest.img: guest/vsmtest/Makefile
 	make -C guest/vsmtest
 
-poc-main: $(MAINOBJS) $(M)/memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
+poc-main: $(MAINOBJS) $(M)/memory.ld dtb-numa $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
@@ -87,7 +88,7 @@ poc-main-vsm: $(MAINOBJS) $(M)/memory.ld guest/vsmtest.img
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) hello-img.o
 
-poc-sub: $(SUBOBJS) $(S)/memory.ld dtb
+poc-sub: $(SUBOBJS) $(S)/memory.ld dtb-numa
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o
 
@@ -172,15 +173,45 @@ gdb-sub: poc-sub
 linux-gdb: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0" -m 256 -S -gdb tcp::1234
 
-linux: $(KERNIMG)
-	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0" -m $(GUEST_MEMORY)
+linux:
+	$(QEMU) -M virt,gic-version=3 -smp cores=4,sockets=2 \
+	  -numa node,memdev=r0,cpus=0-3,nodeid=0 \
+	  -numa node,memdev=r1,cpus=4-7,nodeid=1 \
+	  -object memory-backend-ram,id=r0,size=256M \
+	  -object memory-backend-ram,id=r1,size=256M \
+	  -cpu cortex-a72 -kernel $(KERNIMG) \
+	  -initrd guest/linux/rootfs.img \
+	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
 
 dts:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
+	  -cpu $(QCPU) -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
+	  -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
 	dtc -I dtb -O dts -o virt.dts virt.dtb
+
+dts-numa:
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virtn.dtb -smp 8 \
+	  -cpu $(QCPU)	\
+	  -numa node,memdev=r0,cpus=0-3,nodeid=0 \
+	  -numa node,memdev=r1,cpus=4-7,nodeid=1 \
+	  -object memory-backend-ram,id=r0,size=256M \
+	  -object memory-backend-ram,id=r1,size=256M \
+	  -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
+	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
+	dtc -I dtb -O dts -o virtn.dts virtn.dtb
 
 dtb:
 	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
+
+dtb-numa:
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb \
+	  -smp cores=4,sockets=2 -cpu $(QCPU) \
+	  -numa node,memdev=r0,cpus=0-3,nodeid=0 \
+	  -numa node,memdev=r1,cpus=4-7,nodeid=1 \
+	  -object memory-backend-ram,id=r0,size=256M \
+	  -object memory-backend-ram,id=r1,size=256M \
+	  -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
+	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
 
 qemu-version:
 	$(QEMU) -version

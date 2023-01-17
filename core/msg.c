@@ -299,10 +299,6 @@ struct msg *send_msg(struct msg *msg) {
   if(msg->flags & M_WAITREPLY) {
     struct msg *reply;
     
-    printf("waiting reply....\n");
-    if(current->reply_buf)
-      panic("!");
-
     while((reply = current->reply_buf) == NULL) {
       wfi();
     }
