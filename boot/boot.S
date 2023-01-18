@@ -1,10 +1,14 @@
 #include "aarch64.h"
 #include "mm.h"
 
+#include "earlypl011-rpi.S.inc"
+
+.section ".text.head"
+
+_head:
+  b _start
+
 .section ".text.boot"
-
-#include "earlyconsole.S.inc"
-
 
 /*
  *  volatile x19, x20, x21
@@ -79,7 +83,7 @@ startupothers:
   ldr x30, =vmm_init_secondary
   b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
 
-.macro set_block, pgt, idx, addr, level, memtype
+.macro set_entry, pgt, idx, addr, level, memtype
   adrp x8, \pgt
   add x8, x8, \idx, lsl #3
   bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
@@ -115,7 +119,7 @@ setup_boot_pagetable:
   pgt_index x5, x2, 2     // x5 = PIDX(x2, 2)
 
 1:
-  set_block __boot_pgt_l2_1, x4, x1, 2, PTE_NORMAL
+  set_entry __boot_pgt_l2_1, x4, x1, 2, PTE_NORMAL
 
   add x4, x4, #1
   add x1, x1, #0x200000   // next block
@@ -132,7 +136,7 @@ setup_boot_pagetable:
   set_table __boot_pgt_l2_2, x3, __boot_pgt_l3
 
   pgt_index x4, x1, 3     // x4 = PIDX(x1, 3)
-  set_block __boot_pgt_l3, x4, x1, 3, PTE_DEVICE_nGnRE
+  set_entry __boot_pgt_l3, x4, x1, 3, PTE_DEVICE_nGnRE
 
   ret
 

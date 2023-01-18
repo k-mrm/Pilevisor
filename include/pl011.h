@@ -23,8 +23,6 @@
 #define LCRH_FEN        (1<<4)
 #define LCRH_WLEN_8BIT  (3<<5)
 
-#define UART_FREQ       48000000ull
-
-#define EARLY_PL011_BASE    0x09000000
+#define UART_FREQ           48000000ull
 
 #endif  /* DRIVER_PL011_H */

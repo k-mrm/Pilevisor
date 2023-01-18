@@ -3,6 +3,8 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
+RPI = 1
+
 CPU = cortex-a72
 QCPU = cortex-a72
 
@@ -10,10 +12,22 @@ CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu
 CFLAGS += -I ./include/
 LDFLAGS = -nostdlib #-nostartfiles
 
+TAP_NUM = $(shell date '+%s')
+
+MAC_H = $(shell date '+%H')
+MAC_M = $(shell date '+%M')
+MAC_S = $(shell date '+%S')
+
 QEMUPREFIX = ~/qemu/build/
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
+
 GIC_VERSION = 3
+
+ifdef RPI
+MACHINE = raspi3b
+else
 MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
+endif
 
 ifndef NCPU
 NCPU = 4
@@ -26,6 +40,15 @@ endif
 ifndef GUEST_MEMORY
 GUEST_MEMORY = 512
 endif
+
+QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
+QEMUOPTS += -global virtio-mmio.force-legacy=false
+QEMUOPTS += -nographic
+ifndef RPI
+QEMUOPTS += -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no
+QEMUOPTS += -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+endif
+QEMUOPTS += -kernel
 
 # directory
 B = boot
@@ -52,18 +75,7 @@ SUBOBJS = $(BOOTOBJS) $(COREOBJS) $(DRVOBJS) $(SOBJS)
 MAINDEP = $(MAINOBJS:.o=.d)
 SUBDEP = $(SUBOBJS:.o=.d)
 
-QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 512
-QEMUOPTS += -global virtio-mmio.force-legacy=false
-QEMUOPTS += -nographic -kernel
-
 KERNIMG = guest/linux/Image
-
-TAP_NUM = $(shell date '+%s')
-
-MAC_H = $(shell date '+%H')
-MAC_M = $(shell date '+%M')
-MAC_S = $(shell date '+%S')
-
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -75,6 +87,9 @@ guest/hello.img: guest/hello/Makefile
 
 guest/vsmtest.img: guest/vsmtest/Makefile
 	make -C guest/vsmtest
+
+kernel8.img: poc-sub
+	$(OBJCOPY) -O binary $^ $@
 
 poc-main: $(MAINOBJS) $(M)/memory.ld dtb-numa $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
@@ -104,12 +119,11 @@ dev-main: poc-main
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) $(QEMUOPTS) poc-main -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
-	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	$(QEMU) $(QEMUOPTS) poc-main
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
-dev-sub: poc-sub
+dev-sub: kernel8.img
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
 	sudo ifconfig br4poc mtu 4500
@@ -117,8 +131,7 @@ dev-sub: poc-sub
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) $(QEMUOPTS) poc-sub -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
-	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	$(QEMU) $(QEMUOPTS) kernel8.img
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
@@ -152,12 +165,11 @@ gdb-main: poc-main
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) -S -gdb tcp::1234 $(QEMUOPTS) poc-main -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
-	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	$(QEMU) -S -gdb tcp::1234 $(QEMUOPTS) poc-main
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
-gdb-sub: poc-sub
+gdb-sub: kernel8.img
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
 	sudo ifconfig br4poc mtu 4500
@@ -165,8 +177,7 @@ gdb-sub: poc-sub
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) -S -gdb tcp::5678 $(QEMUOPTS) poc-sub -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no \
-	  -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
+	$(QEMU) -S -gdb tcp::5678 $(QEMUOPTS) kernel8.img
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 

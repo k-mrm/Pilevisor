@@ -6,6 +6,11 @@ SECTIONS {
     PROVIDE(vmm_start = .);
 
     __text_start = .;
+
+    .text.head : {
+      KEEP(*(.text.head))
+    }
+
     .text.boot : {
       KEEP(*(.text.boot))
     }

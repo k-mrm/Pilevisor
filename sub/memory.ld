@@ -2,10 +2,15 @@ OUTPUT_ARCH("aarch64")
 ENTRY(_start)
 
 SECTIONS {
-    . = 0x40000000;
+    . = 0x80000;
     PROVIDE(vmm_start = .);
 
     __text_start = .;
+
+    .text.head : {
+      KEEP(*(.text.head))
+    }
+
     .text.boot : {
       KEEP(*(.text.boot))
     }
