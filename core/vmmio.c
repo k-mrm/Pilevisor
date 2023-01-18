@@ -4,7 +4,6 @@
 
 #include "types.h"
 #include "vmmio.h"
-#include "mmio.h"
 #include "vcpu.h"
 #include "msg.h"
 #include "node.h"

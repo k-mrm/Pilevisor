@@ -12,7 +12,6 @@
 #include "param.h"
 #include "printf.h"
 #include "log.h"
-#include "mmio.h"
 #include "localnode.h"
 #include "node.h"
 #include "vsm.h"

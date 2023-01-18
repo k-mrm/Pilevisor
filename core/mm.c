@@ -3,6 +3,7 @@
 #include "mm.h"
 #include "memory.h"
 #include "param.h"
+#include "memlayout.h"
 #include "panic.h"
 
 u64 *vmm_pagetable;
@@ -64,16 +65,16 @@ static inline int hugepage_level(u64 size) {
   return 0;
 }
 
-static void memmap_huge(u64 pa, u64 va, u64 memflags, u64 size) {
+static int memmap_huge(u64 pa, u64 va, u64 memflags, u64 size) {
   u64 *hugepte;
   u64 *pgt = vmm_pagetable;
 
   if(pa % size != 0 || va % size != 0)
-    panic("align");
+    return -1;
 
   int level = hugepage_level(size);
   if(!level)
-    return;
+    return -1;
 
   for(int lv = root_level; lv < level; lv++) {
     u64 *pte = &pgt[PIDX(lv, va)];
@@ -92,9 +93,11 @@ static void memmap_huge(u64 pa, u64 va, u64 memflags, u64 size) {
   hugepte = &pgt[PIDX(level, va)];
 
   if((*hugepte & PTE_TABLE) || (*hugepte & PTE_AF))
-    panic("already mapped: %p\n", va);
+    return -1;
 
   *hugepte |= PTE_PA(pa) | PTE_AF | PTE_VALID | memflags;
+
+  return 0;
 }
 
 /*
@@ -123,23 +126,36 @@ void *iomap(u64 pa, u64 size) {
   return (void *)va;
 }
 
-static void map_fdt_early(u64 fdt_base) {
+static void *map_fdt_early(u64 fdt_base) {
   u64 memflags = PTE_NORMAL | PTE_SH_INNER | PTE_RO | PTE_XN;
+  u64 offset;
+  int rc;
 
+  offset = fdt_base & (BLOCKSIZE_L2 - 1);
+  fdt_base = fdt_base & ~(BLOCKSIZE_L2 - 1);
   /* map 2MB */
-  memmap_huge(fdt_base, fdt_base, memflags, 0x200000);
+  rc = memmap_huge(fdt_base, FDT_SECTION_BASE, memflags, 0x200000);
+  if(rc < 0)
+    panic("mapping fdt failed");
+
+  return (void *)(FDT_SECTION_BASE + offset);
 }
 
-void setup_pagetable(u64 fdt_base) {
+void *setup_pagetable(u64 fdt_base) {
+  void *virt_fdt;
+
   root_level = 1;
 
   vmm_pagetable = alloc_page();
 
   u64 start = PAGE_ADDRESS(vmm_start);
-  u64 end = (u64)PHYEND;
+  u64 size = PHYSIZE;
   u64 memflags;
 
-  for(u64 p = start; p < end; p += PAGESIZE) {
+  for(u64 i = 0; i < size; i += PAGESIZE) {
+    u64 p = start + i;
+    u64 v = NORMAL_SECTION_BASE + i;
+
     memflags = PTE_NORMAL | PTE_SH_INNER;
 
     if(!is_vmm_text(p))
@@ -149,10 +165,12 @@ void setup_pagetable(u64 fdt_base) {
       memflags |= PTE_RO;
 
     /* make 1:1 map */
-    __pagemap(p, p, memflags);
+    __pagemap(p, v, memflags);
   }
 
-  map_fdt_early(fdt_base);
+  virt_fdt = map_fdt_early(fdt_base);
 
   set_ttbr0_el2(vmm_pagetable);
+
+  return virt_fdt;
 }

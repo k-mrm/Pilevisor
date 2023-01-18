@@ -6,6 +6,7 @@
 #include "localnode.h"
 #include "node.h"
 #include "memory.h"
+#include "memlayout.h"
 #include "irq.h"
 #include "vsm-log.h"
 

@@ -10,7 +10,6 @@
 #include "param.h"
 #include "vcpu.h"
 #include "pcpu.h"
-#include "mmio.h"
 #include "vmmio.h"
 #include "allocpage.h"
 #include "malloc.h"

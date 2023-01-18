@@ -5,7 +5,6 @@
 #include "msg.h"
 #include "vcpu.h"
 #include "memory.h"
-#include "mmio.h"
 
 struct mmio_access {
   u64 ipa;

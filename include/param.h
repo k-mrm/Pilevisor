@@ -1,12 +1,7 @@
 #ifndef CORE_PARAM_H
 #define CORE_PARAM_H
 
-#define VIRTIO0     0x0a000000
-
-#define VMMBASE     0x40000000
-
 #define PHYSIZE     (512*1024*1024)     /* 512 MB */
-#define PHYEND      (VMMBASE+PHYSIZE)
 
 /* global vm memory size = 512 MB */
 #define GVM_MEMORY          (512*1024*1024)

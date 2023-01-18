@@ -92,8 +92,30 @@ startupothers:
   str x9, [x8]
 .endm 
 
+.macro set_entry_r, xpgt, idx, addr, level, memtype
+  mov x8, \xpgt
+  add x8, x8, \idx, lsl #3
+  bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
+  mov x10, #(PTE_AF | PTE_VALID | \memtype)
+  orr x9, x9, x10
+  str x9, [x8]
+.endm
+
+.macro get_entry, pgt, idx, ent
+  adrp x8, \pgt
+  ldr \ent, [x8, \idx, lsl #3]
+.endm
+
 .macro set_table, pgt, idx, table
   adrp x8, \pgt
+  add x8, x8, \idx, lsl #3
+  adrp x9, \table
+  orr x9, x9, #(PTE_TABLE | PTE_VALID)
+  str x9, [x8]
+.endm
+
+.macro set_table_r, xpgt, idx, table
+  mov x8, \xpgt
   add x8, x8, \idx, lsl #3
   adrp x9, \table
   orr x9, x9, #(PTE_TABLE | PTE_VALID)
@@ -125,18 +147,24 @@ setup_boot_pagetable:
   add x1, x1, #0x200000   // next block
   cmp x4, x5
   b.ls 1b
- 
+
   /* map earlyconsole */
   ldr x1, =EARLY_PL011_BASE
 
   pgt_index x2, x1, 1     // x2 = PIDX(x1, 1)
+  get_entry __boot_pgt_l1, x2, x3     // x3 = __boot_pgt_l1[x2]
+  ubfx x3, x3, #PAGESHIFT, 36
+  cbnz x3, 2f
+ 
   set_table __boot_pgt_l1, x2, __boot_pgt_l2_2
+  adrp x3, __boot_pgt_l2_2
 
-  pgt_index x3, x1, 2     // x3 = PIDX(x1, 2)
-  set_table __boot_pgt_l2_2, x3, __boot_pgt_l3
+2:
+  pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
+  set_table_r x3, x4, __boot_pgt_l3
 
-  pgt_index x4, x1, 3     // x4 = PIDX(x1, 3)
-  set_entry __boot_pgt_l3, x4, x1, 3, PTE_DEVICE_nGnRE
+  pgt_index x5, x1, 3     // x5 = PIDX(x1, 3)
+  set_entry __boot_pgt_l3, x5, x1, 3, PTE_DEVICE_nGnRE
 
   ret
 
@@ -202,10 +230,8 @@ initcpu:
   mov x2, #(SCTLR_A | SCTLR_I | SCTLR_C)
   orr x1, x1, x2
   msr sctlr_el2, x1
-
-  b initsp    /* return to caller of initcpu */
-
-initsp:
+  
+  /* initsp */
   adrp x1, _stack
   mov x2, #4096
   mrs x3, mpidr_el1
@@ -251,9 +277,9 @@ early_vectable:
   ventry  .
 
 early_panic:
-  mrs x0, elr_el2
-  mrs x1, far_el2
-  mrs x2, esr_el2
+  mrs x12, elr_el2
+  mrs x13, far_el2
+  mrs x14, esr_el2
   b .
 
 .section ".text"

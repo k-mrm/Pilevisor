@@ -11,6 +11,7 @@
 #include "localnode.h"
 #include "allocpage.h"
 #include "memory.h"
+#include "memlayout.h"
 #include "device.h"
 #include "compiler.h"
 #include "panic.h"

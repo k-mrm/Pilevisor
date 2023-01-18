@@ -188,7 +188,7 @@ u64 faulting_ipa_page(void);
 
 void *iomap(u64 pa, u64 size);
 
-void setup_pagetable(u64 fdt_base);
+void *setup_pagetable(u64 fdt_base);
 
 #endif  /* __ASSEMBLER__ */
 

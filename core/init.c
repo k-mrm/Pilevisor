@@ -16,6 +16,7 @@
 #include "node.h"
 #include "virtio-mmio.h"
 #include "malloc.h"
+#include "iomem.h"
 #include "arch-timer.h"
 #include "panic.h"
 
@@ -64,10 +65,13 @@ int vmm_init_secondary() {
   panic("unreachable");
 }
 
-int vmm_init_cpu0(void *fdt) {
-  pagealloc_init_early();
+int vmm_init_cpu0(void *fdt_phys) {
+  void *fdt;
 
-  setup_pagetable((u64)fdt);
+  pagealloc_init_early();
+  iomem_init();
+
+  fdt = setup_pagetable((u64)fdt_phys);
 
   device_tree_init(fdt);
 

@@ -160,9 +160,12 @@ static void vtmmio_intr(void *arg) {
   }
 
   if(status & VIRTIO_MMIO_CONFIG_NOTIFY) {
-    /* ignored */;
+    /* ignored */
   }
 }
+
+/* FIXME */
+#define VIRTIO0     0x0a000000
 
 int virtio_mmio_init(void) {
   if(vtmmio_probe((void *)VIRTIO0, 48) < 0)
