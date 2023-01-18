@@ -183,6 +183,12 @@ linux:
 	  -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
 
+linux-rpi:
+	$(QEMU) -M raspi3b -smp cores=4 \
+	  -kernel guest/linux/Image5.4l \
+	  -initrd guest/linux/rootfs.img \
+	  -nographic -append "console=ttyAMA0 nokaslr" -m 1G
+
 dts:
 	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
 	  -cpu $(QCPU) -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
