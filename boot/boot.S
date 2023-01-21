@@ -301,7 +301,7 @@ initcpu:
   msr sctlr_el2, x1
   
   /* init sp */
-  adrp x1, _stack
+  ldr x1, =_stack
   mov x2, #4096
   mrs x3, mpidr_el1
   and x3, x3, #0xf

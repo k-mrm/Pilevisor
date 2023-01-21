@@ -17,6 +17,7 @@
 #include "vsysreg.h"
 #include "compiler.h"
 #include "panic.h"
+#include "memlayout.h"
 
 void vectable(void);
 
@@ -332,7 +333,7 @@ void vm_sync_handler() {
 }
 
 void trapinit() {
-  write_sysreg(vbar_el2, vectable);
+  write_sysreg(vbar_el2, V2P(vectable));
 
   isb();
 }

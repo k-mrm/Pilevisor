@@ -5,6 +5,7 @@
 #include "param.h"
 #include "memlayout.h"
 #include "panic.h"
+#include "lib.h"
 
 u64 *vmm_pagetable;
 static int root_level;
@@ -13,7 +14,7 @@ u64 pvoffset;
 
 extern char __boot_pgt_l1[];
 
-void set_ttbr0_el2(u64 *ttbr0_el2);
+void set_ttbr0_el2(u64 ttbr0_el2);
 
 u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   for(int level = root; level < 3; level++) {
