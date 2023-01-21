@@ -1,6 +1,5 @@
 #include "pl011.h"
-
-#define EARLY_PL011_BASE    0x3f201000
+#include "earlycon.h"
 
 /*
  *  early console pl011

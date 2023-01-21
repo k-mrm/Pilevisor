@@ -136,7 +136,7 @@ static void *map_fdt_early(u64 fdt_base) {
   /* map 2MB */
   rc = memmap_huge(fdt_base, FDT_SECTION_BASE, memflags, 0x200000);
   if(rc < 0)
-    panic("mapping fdt failed");
+    return NULL;
 
   return (void *)(FDT_SECTION_BASE + offset);
 }
@@ -154,14 +154,14 @@ void *setup_pagetable(u64 fdt_base) {
 
   for(u64 i = 0; i < size; i += PAGESIZE) {
     u64 p = start + i;
-    u64 v = NORMAL_SECTION_BASE + i;
+    u64 v = VMM_SECTION_BASE + i;
 
     memflags = PTE_NORMAL | PTE_SH_INNER;
 
-    if(!is_vmm_text(p))
+    if(!is_vmm_text(v))
       memflags |= PTE_XN;
 
-    if(is_vmm_text(p) || is_vmm_rodata(p))
+    if(is_vmm_text(v) || is_vmm_rodata(v))
       memflags |= PTE_RO;
 
     /* make 1:1 map */

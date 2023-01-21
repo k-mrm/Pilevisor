@@ -5,6 +5,8 @@ SECTIONS {
     . = 0x80000;
     PROVIDE(vmm_start = .);
 
+    ASSERT(vmm_start % 0x1000 == 0, "vmm misaligned")
+
     __text_start = .;
 
     .text.head : {
@@ -90,6 +92,8 @@ SECTIONS {
       . += 0x200000;
       __earlymem_end = .;
     }
+
+    ASSERT(__earlymem_end % 0x1000 == 0, "earlymem_end misaligned")
 
     /DISCARD/ : {
       *(.comment)

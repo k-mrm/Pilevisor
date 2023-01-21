@@ -1,5 +1,6 @@
 #include "aarch64.h"
 #include "mm.h"
+#include "memlayout.h"
 
 #include "earlypl011-rpi.S.inc"
 
@@ -61,11 +62,6 @@ prestartup:
 startup0:
   bl bss_clear
 
-  /*
-   *  make early 1:1 mapping vmm_start to __earlymem_end
-   */
-  ldr x1, =vmm_start
-  ldr x2, =__earlymem_end
   bl setup_boot_pagetable
 
   bl earlycon_init
@@ -83,43 +79,47 @@ startupothers:
   ldr x30, =vmm_init_secondary
   b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
 
-.macro set_entry, pgt, idx, addr, level, memtype
+.macro set_block, pgt, idx, addr, level, memtype
   adrp x8, \pgt
-  add x8, x8, \idx, lsl #3
   bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
   mov x10, #(PTE_AF | PTE_VALID | \memtype)
   orr x9, x9, x10
-  str x9, [x8]
-.endm 
-
-.macro set_entry_r, xpgt, idx, addr, level, memtype
-  mov x8, \xpgt
-  add x8, x8, \idx, lsl #3
-  bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
-  mov x10, #(PTE_AF | PTE_VALID | \memtype)
-  orr x9, x9, x10
-  str x9, [x8]
+  str x9, [x8, \idx, lsl #3]
 .endm
 
-.macro get_entry, pgt, idx, ent
+.macro set_entry, pgt, idx, addr, memtype
+  adrp x8, \pgt
+  bic x9, \addr, #((1 << (39 - 3 * 9)) - 1)
+  mov x10, #(PTE_AF | PTE_V | \memtype)
+  orr x9, x9, x10
+  str x9, [x8, \idx, lsl #3]
+.endm 
+
+.macro set_entry_r, xpgt, idx, addr, memtype
+  mov x8, \xpgt
+  bic x9, \addr, #((1 << (39 - 3 * 9)) - 1)
+  mov x10, #(PTE_AF | PTE_V | \memtype)
+  orr x9, x9, x10
+  str x9, [x8, \idx, lsl #3]
+.endm
+
+.macro get_slot, pgt, idx, ent
   adrp x8, \pgt
   ldr \ent, [x8, \idx, lsl #3]
 .endm
 
 .macro set_table, pgt, idx, table
   adrp x8, \pgt
-  add x8, x8, \idx, lsl #3
   adrp x9, \table
   orr x9, x9, #(PTE_TABLE | PTE_VALID)
-  str x9, [x8]
+  str x9, [x8, \idx, lsl #3]
 .endm
 
 .macro set_table_r, xpgt, idx, table
   mov x8, \xpgt
-  add x8, x8, \idx, lsl #3
   adrp x9, \table
   orr x9, x9, #(PTE_TABLE | PTE_VALID)
-  str x9, [x8]
+  str x9, [x8, \idx, lsl #3]
 .endm
 
 .macro pgt_index, idx, va, level
@@ -127,12 +127,13 @@ startupothers:
 .endm 
 
 /*
- *  make 1:1 mapping
- *  x1: start address
- *  x2: end address
+ *  make identity mapping pa(vmm_start) to pa(__earlymem_end)
+ *                        pa(EATLY_PL011_BASE)
  */
 setup_boot_pagetable:
-  /* map kernel */
+  adrp x1, vmm_start
+  adrp x2, __earlymem_end
+
   pgt_index x3, x1, 1     // x3 = PIDX(x1, 1)
 
   set_table __boot_pgt_l1, x3, __boot_pgt_l2_1
@@ -141,7 +142,7 @@ setup_boot_pagetable:
   pgt_index x5, x2, 2     // x5 = PIDX(x2, 2)
 
 1:
-  set_entry __boot_pgt_l2_1, x4, x1, 2, PTE_NORMAL
+  set_block __boot_pgt_l2_1, x4, x1, 2, PTE_NORMAL
 
   add x4, x4, #1
   add x1, x1, #0x200000   // next block
@@ -151,9 +152,10 @@ setup_boot_pagetable:
   /* map earlyconsole */
   ldr x1, =EARLY_PL011_BASE
 
-  pgt_index x2, x1, 1     // x2 = PIDX(x1, 1)
-  get_entry __boot_pgt_l1, x2, x3     // x3 = __boot_pgt_l1[x2]
+  pgt_index x2, x1, 1               // x2 = PIDX(x1, 1)
+  get_slot  __boot_pgt_l1, x2, x3   // x3 = __boot_pgt_l1[x2]
   ubfx x3, x3, #PAGESHIFT, 36
+  lsl x3, x3, #PAGESHIFT            // x3 = pte2pa(x3)
   cbnz x3, 2f
  
   set_table __boot_pgt_l1, x2, __boot_pgt_l2_2
@@ -164,11 +166,13 @@ setup_boot_pagetable:
   set_table_r x3, x4, __boot_pgt_l3
 
   pgt_index x5, x1, 3     // x5 = PIDX(x1, 3)
-  set_entry __boot_pgt_l3, x5, x1, 3, PTE_DEVICE_nGnRE
+  set_entry __boot_pgt_l3, x5, x1, PTE_DEVICE_nGnRE
 
   ret
 
 enable_boot_mmu:
+  earlyputs "enable boot mmu...\r\n"
+
   adrp x1, __boot_pgt_l1
   msr ttbr0_el2, x1
 
@@ -214,7 +218,7 @@ bss_clear:
 
 initcpu:
   /* setup vector table */
-  ldr x1, =early_vectable
+  adr x1, early_vectable
   msr vbar_el2, x1
 
   /* setup mair_el2 */

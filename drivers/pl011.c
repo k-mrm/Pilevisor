@@ -14,15 +14,15 @@
 
 static void *uartbase;
 
-static u32 pl011_read(unsigned int reg) {
+static inline u32 pl011_read(unsigned int reg) {
   return *(volatile u32 *)((u64)uartbase + reg);
 }
 
-static void pl011_write(unsigned int reg, u32 val) {
+static inline void pl011_write(unsigned int reg, u32 val) {
   *(volatile u32 *)((u64)uartbase + reg) = val;
 }
 
-static void pl011_putc(char c) {
+static inline void pl011_putc(char c) {
   while(pl011_read(FR) & FR_TXFF)
     ;
 

@@ -1,4 +1,5 @@
 #include "pl011.h"
+#include "earlycon.h"
 
 /*
  *  early console pl011
@@ -6,7 +7,7 @@
 
 .global earlycon_init
 earlycon_init:
-  mov x1, #EARLY_PL011_BASE
+  ldr x1, =EARLY_PL011_BASE
 
   /* disable UART */
   str wzr, [x1, #CR]
@@ -25,6 +26,6 @@ earlycon_init:
   ret
 
 .macro earlycon_tx, base, c
-  mov \base, #EARLY_PL011_BASE
+  ldr \base, =EARLY_PL011_BASE
   strb \c, [\base, #DR]
 .endm
