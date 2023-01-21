@@ -5,18 +5,6 @@
 #ifndef CORE_MEMLAYOUT_H
 #define CORE_MEMLAYOUT_H
 
-#ifndef __ASSEMBLER__
-
-extern char vmm_start[], vmm_end[];
-extern char __text_start[], __text_end[];
-extern char __rodata_start[], __rodata_end[];
-extern char __earlymem_start[], __earlymem_end[];
-
-#define is_vmm_text(addr)     ((u64)__text_start <= (addr) && (addr) < (u64)__text_end)
-#define is_vmm_rodata(addr)   ((u64)__rodata_start <= (addr) && (addr) < (u64)__rodata_end)
-
-#endif  /* __ASSEMBLER__ */
-
 /*
  *  memory layout
  *
@@ -32,5 +20,17 @@ extern char __earlymem_start[], __earlymem_end[];
 
 #define FDT_SECTION_SIZE      0x200000
 #define IOMEM_SECTION_SIZE    (VMM_SECTION_BASE - IOMEM_SECTION_BASE)
+
+#ifndef __ASSEMBLER__
+
+extern char vmm_start[], vmm_end[];
+extern char __text_start[], __text_end[];
+extern char __rodata_start[], __rodata_end[];
+extern char __earlymem_start[], __earlymem_end[];
+
+#define is_vmm_text(addr)     ((u64)__text_start <= (addr) && (addr) < (u64)__text_end)
+#define is_vmm_rodata(addr)   ((u64)__rodata_start <= (addr) && (addr) < (u64)__rodata_end)
+
+#endif  /* __ASSEMBLER__ */
 
 #endif

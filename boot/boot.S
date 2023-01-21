@@ -62,6 +62,7 @@ prestartup:
 startup0:
   bl bss_clear
 
+  bl setup_idmap_pagetable
   bl setup_boot_pagetable
 
   bl earlycon_init
@@ -79,12 +80,16 @@ startupothers:
   ldr x30, =vmm_init_secondary
   b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
 
-.macro set_block, pgt, idx, addr, level, memtype
-  adrp x8, \pgt
+.macro set_block_r, xpgt, idx, addr, level, memtype
   bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
   mov x10, #(PTE_AF | PTE_VALID | \memtype)
   orr x9, x9, x10
-  str x9, [x8, \idx, lsl #3]
+  str x9, [\xpgt, \idx, lsl #3]
+.endm
+
+.macro set_block, pgt, idx, addr, level, memtype
+  adrp x8, \pgt
+  set_block_r x8, \idx, \addr, \level, \memtype
 .endm
 
 .macro set_entry, pgt, idx, addr, memtype
@@ -96,11 +101,10 @@ startupothers:
 .endm 
 
 .macro set_entry_r, xpgt, idx, addr, memtype
-  mov x8, \xpgt
   bic x9, \addr, #((1 << (39 - 3 * 9)) - 1)
   mov x10, #(PTE_AF | PTE_V | \memtype)
   orr x9, x9, x10
-  str x9, [x8, \idx, lsl #3]
+  str x9, [\xpgt, \idx, lsl #3]
 .endm
 
 .macro get_slot, pgt, idx, ent
@@ -108,18 +112,24 @@ startupothers:
   ldr \ent, [x8, \idx, lsl #3]
 .endm
 
-.macro set_table, pgt, idx, table
+.macro get_slot_nl, pgt, idx, nl
   adrp x8, \pgt
-  adrp x9, \table
-  orr x9, x9, #(PTE_TABLE | PTE_VALID)
-  str x9, [x8, \idx, lsl #3]
+  ldr \nl, [x8, \idx, lsl #3]
+  ubfx \nl, \nl, #PAGESHIFT, 36
+  lsl \nl, \nl, #PAGESHIFT
 .endm
 
-.macro set_table_r, xpgt, idx, table
-  mov x8, \xpgt
-  adrp x9, \table
-  orr x9, x9, #(PTE_TABLE | PTE_VALID)
-  str x9, [x8, \idx, lsl #3]
+.macro set_table_r, xpgt, idx, table, tmp
+  mov \tmp, \table
+  orr \tmp, \tmp, #(PTE_TABLE | PTE_VALID)
+  str \tmp, [\xpgt, \idx, lsl #3]
+.endm
+
+.macro set_table, pgt, idx, table, tmp1, tmp2
+  adrp \tmp1, \pgt
+  adrp \tmp2, \table
+  orr \tmp2, \tmp2, #(PTE_TABLE | PTE_VALID)
+  str \tmp2, [\tmp1, \idx, lsl #3]
 .endm
 
 .macro pgt_index, idx, va, level
@@ -130,19 +140,19 @@ startupothers:
  *  make identity mapping pa(vmm_start) to pa(__earlymem_end)
  *                        pa(EATLY_PL011_BASE)
  */
-setup_boot_pagetable:
+setup_idmap_pagetable:
   adrp x1, vmm_start
   adrp x2, __earlymem_end
 
   pgt_index x3, x1, 1     // x3 = PIDX(x1, 1)
 
-  set_table __boot_pgt_l1, x3, __boot_pgt_l2_1
+  set_table __boot_pgt_l1, x3, __idmap_pgt_l2_1, x9, x10
 
   pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
   pgt_index x5, x2, 2     // x5 = PIDX(x2, 2)
 
 1:
-  set_block __boot_pgt_l2_1, x4, x1, 2, PTE_NORMAL
+  set_block __idmap_pgt_l2_1, x4, x1, 2, PTE_NORMAL
 
   add x4, x4, #1
   add x1, x1, #0x200000   // next block
@@ -152,23 +162,78 @@ setup_boot_pagetable:
   /* map earlyconsole */
   ldr x1, =EARLY_PL011_BASE
 
-  pgt_index x2, x1, 1               // x2 = PIDX(x1, 1)
-  get_slot  __boot_pgt_l1, x2, x3   // x3 = __boot_pgt_l1[x2]
-  ubfx x3, x3, #PAGESHIFT, 36
-  lsl x3, x3, #PAGESHIFT            // x3 = pte2pa(x3)
+  pgt_index x2, x1, 1                   // x2 = PIDX(x1, 1)
+  get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
   cbnz x3, 2f
  
-  set_table __boot_pgt_l1, x2, __boot_pgt_l2_2
-  adrp x3, __boot_pgt_l2_2
+  set_table __boot_pgt_l1, x2, __idmap_pgt_l2_2, x9, x10
+  adrp x3, __idmap_pgt_l2_2
 
 2:
   pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
-  set_table_r x3, x4, __boot_pgt_l3
+
+  adrp x9, __idmap_pgt_l3
+  set_table_r x3, x4, x9, x10
 
   pgt_index x5, x1, 3     // x5 = PIDX(x1, 3)
-  set_entry __boot_pgt_l3, x5, x1, PTE_DEVICE_nGnRE
+  set_entry __idmap_pgt_l3, x5, x1, PTE_DEVICE_nGnRE
 
   ret
+
+/*
+ *  make linear mapping pa(vmm_start)-pa(vmm_end) to va(vmm_start)-va(vmm_end) 
+ */
+setup_boot_pagetable:
+  adrp x1, vmm_start        // x1 = pa(vmm_start)
+  ldr x2, =vmm_start        // x2 = va(vmm_start)
+  ldr x3, =vmm_end          // x3 = va(vmm_end)
+
+  pgt_index x4, x2, 1       // x4 = PIDX(x2, 1)
+
+  get_slot_nl __boot_pgt_l1, x4, x5    // x5 = next_level_addr(__boot_pgt_l1[x4])
+  cbnz x5, 1f
+
+  set_table __boot_pgt_l1, x4, __boot_pgt_l2, x9, x10
+  adrp x5, __boot_pgt_l2
+
+  /*
+   *  setup level 2 table
+   *  x5: level 2 page table address
+   */
+1:
+  pgt_index x6, x2, 2       // x6 = PIDX(x2, 2) 
+  pgt_index x7, x3, 2       // x7 = PIDX(x3, 2)
+
+  adrp x8, __boot_pgt_l3
+
+2:
+  set_table_r x5, x6, x8, x9
+  add x6, x6, 1
+  add x8, x8, #PAGESIZE
+  cmp x6, x7
+  b.ls 2b
+
+  /* setup level 3 table */
+  pgt_index x6, x2, 3       // x6 = PIDX(x2, 3)
+  pgt_index x7, x3, 3       // x7 = PIDX(x3, 3)
+
+3:
+  get_slot_nl  x5, x6, x8   // x8 = next_level_addr(pgtl2[x6])
+  cbz x8, pt_crashed        // error if x8 == 0
+
+  /* x8 - level 3 table */
+4:
+  set_entry_r x8, x6, x1, PTE_NORMAL;
+  add x6, x6, #1
+  add x1, x1, #PAGESIZE     // next page
+  cmp x6, x7
+  b.ls 4b
+
+  ret
+
+pt_crashed:
+  earlyputs "abort: crashed pagetable\r\n"
+  b .
 
 enable_boot_mmu:
   earlyputs "enable boot mmu...\r\n"
@@ -185,6 +250,8 @@ enable_boot_mmu:
   msr sctlr_el2, x1
 
   isb
+
+  earlyputs "go to C world\r\n"
 
   ret
 
@@ -281,6 +348,8 @@ early_vectable:
   ventry  .
 
 early_panic:
+  earlyputs "earlypanic!\r\n"
+
   mrs x12, elr_el2
   mrs x13, far_el2
   mrs x14, esr_el2

@@ -32,7 +32,4 @@
       panic(__VA_ARGS__);   \
   } while(0)
 
-#define build_bug_on(cond) \
-  (void)(sizeof(struct { int:-!!(cond); }))
-
 #endif  /* LOG_H */

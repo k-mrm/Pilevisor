@@ -141,6 +141,10 @@ static void *map_fdt_early(u64 fdt_base) {
   return (void *)(FDT_SECTION_BASE + offset);
 }
 
+static void clear_early_map() {
+  ;
+}
+
 void *setup_pagetable(u64 fdt_base) {
   void *virt_fdt;
 

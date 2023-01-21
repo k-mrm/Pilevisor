@@ -12,4 +12,7 @@
     }                                                   \
   } while(0)
 
+#define static_assert(cond) \
+  (void)(sizeof(struct { int:-!(cond); }))
+
 #endif

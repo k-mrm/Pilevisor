@@ -2,7 +2,7 @@ OUTPUT_ARCH("aarch64")
 ENTRY(_start)
 
 SECTIONS {
-    . = 0x80000;
+    . = 0x40000000;
     PROVIDE(vmm_start = .);
 
     ASSERT(vmm_start % 0x1000 == 0, "vmm misaligned")
@@ -64,12 +64,16 @@ SECTIONS {
     .boot_pagetable : {
       __boot_pgt_l1 = .;
       . += 4096;
-      __boot_pgt_l2_1 = .;
+      __idmap_pgt_l2_1 = .;
       . += 4096;
-      __boot_pgt_l2_2 = .;
+      __idmap_pgt_l2_2 = .;
+      . += 4096;
+      __idmap_pgt_l3 = .;
+      . += 4096;
+      __boot_pgt_l2 = .;
       . += 4096;
       __boot_pgt_l3 = .;
-      . += 4096;
+      . += 4096 * 4;
     }
 
     . = ALIGN(4096);
