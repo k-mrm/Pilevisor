@@ -75,6 +75,8 @@ startup0:
   b enable_boot_mmu   // return to x30: vmm_init_cpu0 (init.c)
 
 startupothers:
+  bl setup_idmap_pagetable
+
   bl initcpu
 
   ldr x30, =vmm_init_secondary
@@ -186,7 +188,7 @@ setup_idmap_pagetable:
 setup_boot_pagetable:
   adrp x1, vmm_start        // x1 = pa(vmm_start)
   ldr x2, =vmm_start        // x2 = va(vmm_start)
-  ldr x3, =vmm_end          // x3 = va(vmm_end)
+  ldr x3, =__earlymem_end   // x3 = va(__earlymem_end)
 
   pgt_index x4, x2, 1       // x4 = PIDX(x2, 1)
 
@@ -298,7 +300,7 @@ initcpu:
   orr x1, x1, x2
   msr sctlr_el2, x1
   
-  /* initsp */
+  /* init sp */
   adrp x1, _stack
   mov x2, #4096
   mrs x3, mpidr_el1

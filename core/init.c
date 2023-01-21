@@ -68,6 +68,8 @@ int vmm_init_secondary() {
 int vmm_init_cpu0(void *fdt_phys) {
   void *fdt;
 
+  earlycon_puts("vmm init cpu0\n");
+
   pagealloc_init_early();
   iomem_init();
 

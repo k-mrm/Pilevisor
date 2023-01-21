@@ -12,6 +12,7 @@
 #include "panic.h"
 #include "tlb.h"
 #include "arch-timer.h"
+#include "memlayout.h"
 
 struct vcpu *vcpu0;
 
@@ -65,7 +66,9 @@ void vcpu_entry() {
 
   write_sysreg(vtcr_el2, localvm.vtcr);
 
-  write_sysreg(vttbr_el2, localvm.vttbr);
+  u64 vttbr_phys = V2P(localvm.vttbr);
+
+  write_sysreg(vttbr_el2, vttbr_phys);
   tlb_s2_flush_all();
   dsb(sy);
 

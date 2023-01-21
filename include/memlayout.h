@@ -31,6 +31,10 @@ extern char __earlymem_start[], __earlymem_end[];
 #define is_vmm_text(addr)     ((u64)__text_start <= (addr) && (addr) < (u64)__text_end)
 #define is_vmm_rodata(addr)   ((u64)__rodata_start <= (addr) && (addr) < (u64)__rodata_end)
 
+extern u64 pvoffset;
+
+#define V2P(va)               ((u64)(va) - pvoffset)
+
 #endif  /* __ASSEMBLER__ */
 
 #endif

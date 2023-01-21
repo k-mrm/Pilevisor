@@ -9,6 +9,10 @@
 u64 *vmm_pagetable;
 static int root_level;
 
+u64 pvoffset;
+
+extern char __boot_pgt_l1[];
+
 void set_ttbr0_el2(u64 *ttbr0_el2);
 
 u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
@@ -22,7 +26,7 @@ u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
       if(!pgt)
         panic("nomem");
 
-      *pte = PTE_PA(pgt) | PTE_TABLE | PTE_VALID;
+      *pte = PTE_PA(V2P(pgt)) | PTE_TABLE | PTE_VALID;
     } else {
       /* unmapped */
       return NULL;
@@ -86,7 +90,7 @@ static int memmap_huge(u64 pa, u64 va, u64 memflags, u64 size) {
       if(!pgt)
         panic("nomem");
 
-      *pte = PTE_PA(pgt) | PTE_TABLE | PTE_VALID;
+      *pte = PTE_PA(V2P(pgt)) | PTE_TABLE | PTE_VALID;
     }
   }
 
@@ -141,23 +145,23 @@ static void *map_fdt_early(u64 fdt_base) {
   return (void *)(FDT_SECTION_BASE + offset);
 }
 
-static void clear_early_map() {
-  ;
+static u64 hva2pa(u64 *pgt, u64 hva) {
+  u64 *pte = pagewalk(pgt, hva, root_level, 0);
+  if(!pte)
+    return 0;
+
+  return PTE_PA(*pte);
 }
 
-void *setup_pagetable(u64 fdt_base) {
-  void *virt_fdt;
-
-  root_level = 1;
-
-  vmm_pagetable = alloc_page();
-
-  u64 start = PAGE_ADDRESS(vmm_start);
-  u64 size = PHYSIZE;
+static void remap_kernel() {
+  u64 start_phys = hva2pa((u64 *)__boot_pgt_l1, VMM_SECTION_BASE);
+  u64 size = (u64)__earlymem_end - (u64)vmm_start;
   u64 memflags;
 
+  pvoffset = VMM_SECTION_BASE - start_phys;
+
   for(u64 i = 0; i < size; i += PAGESIZE) {
-    u64 p = start + i;
+    u64 p = start_phys + i;
     u64 v = VMM_SECTION_BASE + i;
 
     memflags = PTE_NORMAL | PTE_SH_INNER;
@@ -168,13 +172,29 @@ void *setup_pagetable(u64 fdt_base) {
     if(is_vmm_text(v) || is_vmm_rodata(v))
       memflags |= PTE_RO;
 
-    /* make 1:1 map */
     __pagemap(p, v, memflags);
   }
+}
+
+static void map_memory(void *fdt) {
+  return;
+}
+
+void *setup_pagetable(u64 fdt_base) {
+  void *virt_fdt;
+
+  root_level = 1;
+
+  vmm_pagetable = alloc_page();
+  memset(vmm_pagetable, 0, PAGESIZE);
+
+  remap_kernel();
 
   virt_fdt = map_fdt_early(fdt_base);
 
-  set_ttbr0_el2(vmm_pagetable);
+  map_memory(virt_fdt);
+
+  set_ttbr0_el2(V2P(vmm_pagetable));
 
   return virt_fdt;
 }

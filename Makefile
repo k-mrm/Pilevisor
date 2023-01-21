@@ -44,6 +44,7 @@ endif
 QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic
+QEMUOPTS += -dtb ./guest/bcm2710-rpi-3-b.dtb
 ifndef RPI
 QEMUOPTS += -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no
 QEMUOPTS += -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0

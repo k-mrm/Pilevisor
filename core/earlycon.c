@@ -17,6 +17,19 @@ static inline void earlycon_putc(char c) {
   w(EARLY_PL011_BASE + DR, c);
 }
 
+void earlycon_putn(u64 n) {
+  char buf[sizeof(n) * 8 + 1];
+  char *end = buf + sizeof(buf), *cur = end - 1;
+  *cur = '\0';
+
+  do {
+    *--cur = "0123456789abcdef"[n % 16];
+  } while(n /= 16);
+
+  earlycon_puts(cur);
+  earlycon_putc('\n');
+}
+
 void earlycon_puts(const char *s) {
   char c;
 
