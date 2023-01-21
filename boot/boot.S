@@ -100,11 +100,11 @@ startupothers:
   str x9, [x8, \idx, lsl #3]
 .endm 
 
-.macro set_entry_r, xpgt, idx, addr, memtype
-  bic x9, \addr, #((1 << (39 - 3 * 9)) - 1)
-  mov x10, #(PTE_AF | PTE_V | \memtype)
-  orr x9, x9, x10
-  str x9, [\xpgt, \idx, lsl #3]
+.macro set_entry_r, xpgt, idx, addr, memtype, tmp1, tmp2
+  bic \tmp1, \addr, #((1 << (39 - 3 * 9)) - 1)
+  mov \tmp2, #(PTE_AF | PTE_V | \memtype)
+  orr \tmp1, \tmp1, \tmp2
+  str \tmp1, [\xpgt, \idx, lsl #3]
 .endm
 
 .macro get_slot, pgt, idx, ent
@@ -208,26 +208,22 @@ setup_boot_pagetable:
 
 2:
   set_table_r x5, x6, x8, x9
+
+  /* x8 - level 3 table */
+  pgt_index x9, x2, 3       // x9 = PIDX(x2, 3)
+
+3:
+  set_entry_r x8, x9, x1, PTE_NORMAL, x10, x11
+
+  add x9, x9, #1
+  add x1, x1, #PAGESIZE
+  cmp x9, 511
+  b.ls 3b
+
   add x6, x6, 1
   add x8, x8, #PAGESIZE
   cmp x6, x7
   b.ls 2b
-
-  /* setup level 3 table */
-  pgt_index x6, x2, 3       // x6 = PIDX(x2, 3)
-  pgt_index x7, x3, 3       // x7 = PIDX(x3, 3)
-
-3:
-  get_slot_nl  x5, x6, x8   // x8 = next_level_addr(pgtl2[x6])
-  cbz x8, pt_crashed        // error if x8 == 0
-
-  /* x8 - level 3 table */
-4:
-  set_entry_r x8, x6, x1, PTE_NORMAL;
-  add x6, x6, #1
-  add x1, x1, #PAGESIZE     // next page
-  cmp x6, x7
-  b.ls 4b
 
   ret
 
