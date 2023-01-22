@@ -9,8 +9,10 @@
 #include "spinlock.h"
 #include "device.h"
 #include "panic.h"
+#include "compiler.h"
 
-static const struct dt_device sentinel __used __section("__dt_irqchip_sentinel");
+static const struct dt_device sentinel
+__used __section("__dt_irqchip_sentinel") __aligned(_Alignof(struct dt_device)) = {0};
 
 static void gic_irqchip_check(struct gic_irqchip *irqchip) {
   int version = irqchip->version;

@@ -260,8 +260,6 @@ static void gicv2_dt_init(struct device_node *dev) {
   gich_base = iomap(GICHBASE, 0x10000);
   */
   
-  panic("gicv2_dt_init");
-
   gicv2_d_init();
   gicv2_h_init();
 

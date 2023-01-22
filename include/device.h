@@ -57,20 +57,20 @@ struct dt_device *dt_compatible_device(struct dt_device *table, struct device_no
 struct device_node *next_match_node(struct dt_device *table, struct dt_device **dev,
                                     struct device_node *prev);
 
-#define DT_IRQCHIP_INIT(name, comp, initfn)                     \
-  static const struct dt_device _dt_irqchip_ ## name            \
-    __used __section("__dt_irqchip_device") __aligned(8) = {    \
-    .dev_name = #name,                                          \
-    .compat = comp,                                             \
-    .init = initfn,                                             \
+#define DT_IRQCHIP_INIT(name, comp, initfn)                                             \
+  static const struct dt_device _dt_irqchip_ ## name                                    \
+    __used __section("__dt_irqchip_device") __aligned(_Alignof(struct dt_device)) = {   \
+    .dev_name = #name,                                                                  \
+    .compat = comp,                                                                     \
+    .init = initfn,                                                                     \
   };
 
-#define DT_SERIAL_INIT(name, comp, initfn)                     \
-  static const struct dt_device _dt_serial_ ## name            \
-    __used __section("__dt_serial_device") __aligned(8) = {    \
-    .dev_name = #name,                                         \
-    .compat = comp,                                            \
-    .init = initfn,                                            \
+#define DT_SERIAL_INIT(name, comp, initfn)                                              \
+  static const struct dt_device _dt_serial_ ## name                                     \
+    __used __section("__dt_serial_device") __aligned(_Alignof(struct dt_device)) = {    \
+    .dev_name = #name,                                                                  \
+    .compat = comp,                                                                     \
+    .init = initfn,                                                                     \
   };
 
 extern struct dt_device __dt_irqchip_device[];
