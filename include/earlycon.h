@@ -1,7 +1,7 @@
 #ifndef CORE_EARLYCON_H
 #define CORE_EARLYCON_H
 
-#define EARLY_PL011_BASE    0x3f201000
+#define EARLY_PL011_BASE    0xfe201000
 
 #ifndef __ASSEMBLER__
 

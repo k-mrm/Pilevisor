@@ -42,24 +42,28 @@ void irqchip_init_core() {
 void irqchip_init() {
   /* support only GICv2 or GICv3 */
   struct device_node *n;
+  struct dt_device *dev;
 
-  foreach_device_node_child(n, localnode.device_tree) {
-    if(!dt_node_propb(n, "interrupt-controller"))
+  for(n = next_match_node(__dt_irqchip_device, &dev, NULL); n;
+      n = next_match_node(__dt_irqchip_device, &dev, n)) {
+    if(!dt_node_propb(n, "interrupt-controller")) {
+      earlycon_puts("interrupt-controller?\n");
       continue;
+    }
 
-    const char *comp = dt_node_props(n, "compatible");
-    if(!comp)
+    if(!dev) {
+      earlycon_puts("dev?\n");
       continue;
+    }
 
-    vmm_log("intc: comp %s\n", comp);
-
-    int rc = compat_dt_device_init(__dt_irqchip_device, n, comp);
-    if(rc == 0)
+    if(dev->init) {
+      dev->init(n);
       break;
+    }
   }
 
   if(!n)
-    panic("no irqchip");
+    panic("no compatible irqchip");
 
   if(!localnode.irqchip)
     panic("no irqchip");

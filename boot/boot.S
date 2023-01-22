@@ -283,7 +283,7 @@ bss_clear:
 
 initcpu:
   /* setup vector table */
-  adr x1, early_vectable
+  ldr x1, =early_vectable
   msr vbar_el2, x1
 
   /* setup mair_el2 */

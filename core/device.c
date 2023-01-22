@@ -137,6 +137,57 @@ struct device_node *dt_find_node_path(struct device_node *node, const char *path
   return NULL;
 }
 
+static inline struct device_node *next_node(struct device_node *prev) {
+  if(!prev)
+    return localnode.device_tree;
+
+  if(prev->child)
+    return prev->child;
+
+  if(!prev->next) {
+    struct device_node *n = prev->parent;
+
+    while(n->parent && !n->next)
+      n = n->parent;
+
+    return n->next;
+  }
+
+  return prev->next;
+}
+
+struct device_node *next_match_node(struct dt_device *table, struct dt_device **dev,
+                                    struct device_node *prev) {
+  struct dt_device *d;
+
+  for(struct device_node *n = next_node(prev); n; n = next_node(n)) {
+    if((d = dt_compatible_device(table, n)) != NULL) {
+      if(dev)
+        *dev = d;
+
+      return n;
+    }
+  }
+
+  return NULL;
+}
+
+struct dt_device *dt_compatible_device(struct dt_device *table, struct device_node *node) {
+  const char *compat = dt_node_props(node, "compatible");
+
+  if(!compat)
+    return NULL;
+
+  for(struct dt_device *dev = table; dev->dev_name[0] || dev->compat; dev++) {
+    for(struct dt_compatible *c = dev->compat; c->comp; c++) {
+      if(strcmp(c->comp, compat) == 0)
+        return dev;
+    }
+  }
+
+  return NULL;
+}
+
 int compat_dt_device_init(struct dt_device *table, struct device_node *node,
                            const char *compat) {
   for(struct dt_device *dev = table; dev->dev_name[0] || dev->compat; dev++) {
@@ -160,11 +211,9 @@ void device_tree_init(void *fdt_base) {
 
   struct device_node *root = fdt_parse(&fdt);
 
-  /*
   const char *mach = dt_node_props(root, "compatible");
   if(mach)
-    printf("vmm boot on %s\n", mach);
-  */
+    earlycon_puts(mach);
 
   localnode.device_tree = root;
 }

@@ -53,6 +53,10 @@ struct device_node *dt_find_node_path(struct device_node *node, const char *path
 int compat_dt_device_init(struct dt_device *table, struct device_node *node,
                            const char *compat);
 
+struct dt_device *dt_compatible_device(struct dt_device *table, struct device_node *node);
+struct device_node *next_match_node(struct dt_device *table, struct dt_device **dev,
+                                    struct device_node *prev);
+
 #define DT_IRQCHIP_INIT(name, comp, initfn)                     \
   static struct dt_device _dt_irqchip_ ## name                  \
     __used __section("__dt_irqchip_device") __aligned(8) = {    \

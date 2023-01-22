@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "panic.h"
 #include "lib.h"
+#include "earlycon.h"
 
 u64 *vmm_pagetable;
 static int root_level;
@@ -177,6 +178,12 @@ static void remap_kernel() {
   }
 }
 
+static void remap_earlycon() {
+  u64 flags = PTE_DEVICE_nGnRE | PTE_XN;
+
+  __pagemap(EARLY_PL011_BASE, EARLY_PL011_BASE, flags);
+}
+
 static void map_memory(void *fdt) {
   return;
 }
@@ -190,6 +197,7 @@ void *setup_pagetable(u64 fdt_base) {
   memset(vmm_pagetable, 0, PAGESIZE);
 
   remap_kernel();
+  remap_earlycon();
 
   virt_fdt = map_fdt_early(fdt_base);
 
