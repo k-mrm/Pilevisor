@@ -333,7 +333,7 @@ void vm_sync_handler() {
 }
 
 void trapinit() {
-  write_sysreg(vbar_el2, V2P(vectable));
+  write_sysreg(vbar_el2, vectable);
 
   isb();
 }
