@@ -22,7 +22,7 @@ u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
     u64 *pte = &pgt[PIDX(level, va)];
 
     if((*pte & PTE_VALID) && (*pte & PTE_TABLE)) {
-      pgt = (u64 *)PTE_PA(*pte);
+      pgt = P2V(PTE_PA(*pte));
     } else if(create) {
       pgt = alloc_page();
       if(!pgt)

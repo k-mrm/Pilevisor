@@ -34,6 +34,7 @@ extern char __earlymem_start[], __earlymem_end[];
 extern u64 pvoffset;
 
 #define V2P(va)               ((u64)(va) - pvoffset)
+#define P2V(pa)               (void *)((u64)pa + pvoffset)
 
 #endif  /* __ASSEMBLER__ */
 

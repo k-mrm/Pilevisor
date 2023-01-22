@@ -68,4 +68,6 @@ void iomem_init() {
   area->start = (void *)IOMEM_SECTION_BASE;
   area->npages = IOMEM_NPAGES;
   area->next = NULL;
+
+  arealist = area;
 }

@@ -19,6 +19,7 @@ static struct gic_irqchip gicv2_irqchip;
 static void *gicc_base;
 static void *gicd_base;
 static void *gich_base;
+static void *gicv_base;
 
 static inline u32 gicd_read(u32 offset) {
   return *(volatile u32 *)((u64)gicd_base + offset);
@@ -77,6 +78,21 @@ static u32 gicv2_pending_lr(struct gic_pending_irq *irq) {
   }
 
   return lr;
+}
+
+static bool gicv2_guest_irq_pending(u32 virq) {
+  for(int i = 0; i <= gicv2_irqchip.max_lr; i++) {
+    u64 lr = gicv2_read_lr(i);
+
+    if((lr & 0x3ff) == virq) {
+      if(lr & (LR_PENDING << GICH_LR_State_SHIFT))
+        return true;
+      else
+        return false;
+    }
+  }
+
+  return false;
 }
 
 static int gicv2_inject_guest_irq(struct gic_pending_irq *irq) {
@@ -255,27 +271,40 @@ static void gicv2_init_cpu(void) {
 
 static int gicv2_dt_init(struct device_node *dev) {
   int rc;
-  u64 gicd_base, gicd_size, gicc_base, gicc_size, gich_base, gich_size, gicv_base, gicv_size;
+  u64 dbase, dsize, cbase, csize, hbase, hsize, vbase, vsize;
 
-  rc = dt_node_prop_addr(dev, 0, &gicd_base, &gicd_size);
+  rc = dt_node_prop_addr(dev, 0, &dbase, &dsize);
   if(rc < 0)
     return -1;
 
-  rc = dt_node_prop_addr(dev, 1, &gicc_base, &gicc_size);
+  rc = dt_node_prop_addr(dev, 1, &cbase, &csize);
   if(rc < 0)
     return -1;
 
-  rc = dt_node_prop_addr(dev, 2, &gich_base, &gich_size);
+  rc = dt_node_prop_addr(dev, 2, &hbase, &hsize);
   if(rc < 0)
     return -1;
 
-  rc = dt_node_prop_addr(dev, 3, &gicv_base, &gicv_size);
+  rc = dt_node_prop_addr(dev, 3, &vbase, &vsize);
   if(rc < 0)
     return -1;
 
-  earlycon_putn(gicd_base);
-  earlycon_putn(gicd_size);
-  
+  gicd_base = iomap(dbase, dsize);
+  if(!gicd_base)
+    return -1;
+
+  gicc_base = iomap(cbase, csize);
+  if(!gicc_base)
+    return -1;
+
+  gich_base = iomap(hbase, hsize);
+  if(!gich_base)
+    return -1;
+
+  gicv_base = iomap(vbase, vsize);
+  if(!gicv_base)
+    return -1;
+
   gicv2_d_init();
   gicv2_h_init();
 
@@ -285,25 +314,28 @@ static int gicv2_dt_init(struct device_node *dev) {
           "       cpu base %p\n"
           "       hyp base %p\n", gicd_base, gicc_base, gich_base);
 
+  localnode.irqchip = &gicv2_irqchip;
+
   return 0;
 }
 
 static struct gic_irqchip gicv2_irqchip = {
   .version = 2,
 
-  .initcore         = gicv2_init_cpu,
-  .inject_guest_irq = gicv2_inject_guest_irq,
-  .irq_pending      = gicv2_irq_pending,
-  .host_eoi         = gicv2_host_eoi,
-  .guest_eoi        = gicv2_guest_eoi,
-  .deactive_irq     = gicv2_deactive_irq,
-  .send_sgi         = gicv2_send_sgi,
-  .irq_enabled      = gicv2_irq_enabled,
-  .enable_irq       = gicv2_enable_irq,
-  .disable_irq      = gicv2_disable_irq,
-  .setup_irq        = gicv2_setup_irq,
-  .set_target       = gicv2_set_target,
-  .irq_handler      = gicv2_irq_handler,
+  .initcore           = gicv2_init_cpu,
+  .inject_guest_irq   = gicv2_inject_guest_irq,
+  .irq_pending        = gicv2_irq_pending,
+  .guest_irq_pending  = gicv2_guest_irq_pending,
+  .host_eoi           = gicv2_host_eoi,
+  .guest_eoi          = gicv2_guest_eoi,
+  .deactive_irq       = gicv2_deactive_irq,
+  .send_sgi           = gicv2_send_sgi,
+  .irq_enabled        = gicv2_irq_enabled,
+  .enable_irq         = gicv2_enable_irq,
+  .disable_irq        = gicv2_disable_irq,
+  .setup_irq          = gicv2_setup_irq,
+  .set_target         = gicv2_set_target,
+  .irq_handler        = gicv2_irq_handler,
 };
 
 static struct dt_compatible gicv2_compat[] = {
