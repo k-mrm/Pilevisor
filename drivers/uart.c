@@ -16,22 +16,23 @@ void uart_puts(char *s) {
 }
 
 void uart_init() {
-  struct device_node *chosen = dt_find_node_path(localnode.device_tree, "/chosen");
-  struct device_node *uart = NULL;
+  struct device_node *n;
+  struct dt_device *dev;
+  int rc;
 
-  if(chosen) {
-    const char *stdout = dt_node_props(chosen, "stdout-path");
-    uart = dt_find_node_path(localnode.device_tree, stdout);
+  for(n = next_match_node(__dt_serial_device, &dev, NULL); n;
+      n = next_match_node(__dt_serial_device, &dev, n)) {
+    if(!dev) {
+      earlycon_puts("uart: dev?\n");
+      continue;
+    }
+
+    if(dev->init) {
+      if(dev->init(n) == 0)
+        break;
+    }
   }
 
-  if(!uart)
-    panic("no uart?");
-
-  const char *comp = dt_node_props(uart, "compatible");
-  if(!comp)
-    panic("uart compatible");
-
-  int rc = compat_dt_device_init(__dt_serial_device, uart, comp);
-  if(rc < 0)
-    panic("no uart?");
+  if(!n)
+    panic("no serial device");
 }

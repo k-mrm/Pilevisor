@@ -270,23 +270,18 @@ static void gicv2_init_cpu(void) {
 }
 
 static int gicv2_dt_init(struct device_node *dev) {
-  int rc;
   u64 dbase, dsize, cbase, csize, hbase, hsize, vbase, vsize;
 
-  rc = dt_node_prop_addr(dev, 0, &dbase, &dsize);
-  if(rc < 0)
+  if(dt_node_prop_addr(dev, 0, &dbase, &dsize) < 0)
     return -1;
 
-  rc = dt_node_prop_addr(dev, 1, &cbase, &csize);
-  if(rc < 0)
+  if(dt_node_prop_addr(dev, 1, &cbase, &csize) < 0)
     return -1;
 
-  rc = dt_node_prop_addr(dev, 2, &hbase, &hsize);
-  if(rc < 0)
+  if(dt_node_prop_addr(dev, 2, &hbase, &hsize) < 0)
     return -1;
 
-  rc = dt_node_prop_addr(dev, 3, &vbase, &vsize);
-  if(rc < 0)
+  if(dt_node_prop_addr(dev, 3, &vbase, &vsize) < 0)
     return -1;
 
   gicd_base = iomap(dbase, dsize);

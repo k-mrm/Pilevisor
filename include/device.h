@@ -44,6 +44,8 @@ int dt_node_propa(struct device_node *node, const char *name, u32 *buf);
 int dt_node_propa64(struct device_node *node, const char *name, u64 *buf);
 const char *dt_node_props(struct device_node *node, const char *name);
 bool dt_node_propb(struct device_node *node, const char *name);
+int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size);
+bool dt_node_props_is(struct device_node *node, const char *name, const char *str);
 
 struct device_node *dt_find_node_type(struct device_node *node, const char *type);
 struct device_node *dt_find_node_type_cont(struct device_node *node, const char *type,
@@ -56,8 +58,6 @@ int compat_dt_device_init(struct dt_device *table, struct device_node *node,
 struct dt_device *dt_compatible_device(struct dt_device *table, struct device_node *node);
 struct device_node *next_match_node(struct dt_device *table, struct dt_device **dev,
                                     struct device_node *prev);
-
-int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size);
 
 #define DT_IRQCHIP_INIT(name, comp, initfn)                                             \
   static const struct dt_device _dt_irqchip_ ## name                                    \

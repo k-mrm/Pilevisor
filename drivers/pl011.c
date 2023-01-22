@@ -77,16 +77,18 @@ static struct uartchip pl011 = {
 };
 
 static int pl011_dt_init(struct device_node *dev) {
-  u64 reg[2];
+  u64 base, size;
 
-  int rc = dt_node_propa64(dev, "reg", reg);
-  if(rc < 0)
+  if(dt_node_props_is(dev, "status", "disabled"))
     return -1;
 
-  u64 uart_base = reg[0];
-  u64 uart_size = reg[1];
+  if(dt_node_prop_addr(dev, 0, &base, &size) < 0)
+    return -1;
 
-  uartbase = iomap(uart_base, uart_size);
+  uartbase = iomap(base, size);
+
+  earlycon_putn(base);
+  earlycon_putn(uartbase);
 
   /* disable uart */
   pl011_write(CR, 0);

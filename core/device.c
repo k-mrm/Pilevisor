@@ -120,6 +120,14 @@ const char *dt_node_props(struct device_node *node, const char *name) {
   return NULL;
 }
 
+bool dt_node_props_is(struct device_node *node, const char *name, const char *str) {
+  const char *s = dt_node_props(node, name);
+  if(!s)
+    return false;
+  
+  return !strcmp(s, str);
+}
+
 bool dt_node_propb(struct device_node *node, const char *name) {
   struct property *p = node->prop;
 
