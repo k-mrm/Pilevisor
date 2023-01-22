@@ -29,9 +29,18 @@ SECTIONS {
     __text_end = .;
 
     . = ALIGN(4096);
-    .rodata : {
-      __rodata_start = .;
+    __rodata_start = .;
 
+    .rodata.device : {
+      __dt_irqchip_device = .;
+      KEEP(*(__dt_irqchip_device));
+      KEEP(*(__dt_irqchip_sentinel));
+      __dt_serial_device = .;
+      KEEP(*(__dt_serial_device));
+      KEEP(*(__dt_serial_sentinel));
+    }
+
+    .rodata : {
       *(.rodata) 
 
       . = ALIGN(16);
@@ -44,16 +53,10 @@ SECTIONS {
       *(.rodata.msg.subnode)
       __msg_handler_data_end = .;
 
-      __rodata_end = .;
+      *(.rodata.*)
     }
 
-    . = ALIGN(4096);
-    .data.device : {
-      __dt_irqchip_device = .;
-      KEEP(*(__dt_irqchip_device));
-      __dt_serial_device = .;
-      KEEP(*(__dt_serial_device));
-    }
+    __rodata_end = .;
 
     . = ALIGN(16);
     .data : {

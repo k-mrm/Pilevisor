@@ -294,7 +294,7 @@ struct msg *send_msg(struct msg *msg) {
     buf->body_len = msg->body_len;
   }
 
-  localnode.nic->ops->xmit(localnode.nic, buf);
+  ether_send_packet(localnode.nic, buf);
 
   if(msg->flags & M_WAITREPLY) {
     struct msg *reply;

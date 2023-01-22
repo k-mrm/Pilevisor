@@ -10,6 +10,12 @@
 
 u8 bcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
+void ether_send_packet(struct nic *nic, struct iobuf *buf) {
+  iobuf_push(buf, sizeof(struct etherheader));
+
+  nic->ops->xmit(nic, buf);
+}
+
 void ethernet_recv_intr(struct nic *nic, struct iobuf *iobuf) {
   struct etherheader *eth = iobuf_pull(iobuf, sizeof(struct etherheader));
   int need_free_body = 1;

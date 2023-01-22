@@ -10,6 +10,8 @@
 #include "device.h"
 #include "panic.h"
 
+static const struct dt_device sentinel __used __section("__dt_irqchip_sentinel");
+
 static void gic_irqchip_check(struct gic_irqchip *irqchip) {
   int version = irqchip->version;
 

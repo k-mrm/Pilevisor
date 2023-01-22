@@ -58,7 +58,7 @@ struct device_node *next_match_node(struct dt_device *table, struct dt_device **
                                     struct device_node *prev);
 
 #define DT_IRQCHIP_INIT(name, comp, initfn)                     \
-  static struct dt_device _dt_irqchip_ ## name                  \
+  static const struct dt_device _dt_irqchip_ ## name            \
     __used __section("__dt_irqchip_device") __aligned(8) = {    \
     .dev_name = #name,                                          \
     .compat = comp,                                             \
@@ -66,7 +66,7 @@ struct device_node *next_match_node(struct dt_device *table, struct dt_device **
   };
 
 #define DT_SERIAL_INIT(name, comp, initfn)                     \
-  static struct dt_device _dt_serial_ ## name                  \
+  static const struct dt_device _dt_serial_ ## name            \
     __used __section("__dt_serial_device") __aligned(8) = {    \
     .dev_name = #name,                                         \
     .compat = comp,                                            \

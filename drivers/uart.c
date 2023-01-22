@@ -3,6 +3,8 @@
 #include "device.h"
 #include "localnode.h"
 
+static const struct dt_device sentinel __used __section("__dt_serial_sentinel");
+
 extern struct uartchip pl011;
 
 void uart_putc(char c) {
