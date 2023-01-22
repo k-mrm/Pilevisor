@@ -253,12 +253,28 @@ static void gicv2_init_cpu(void) {
   gicv2_h_init();
 }
 
-static void gicv2_dt_init(struct device_node *dev) {
-  /*
-  gicc_base = iomap(GICCBASE, 0x10000);
-  gicd_base = iomap(GICDBASE, 0x10000);
-  gich_base = iomap(GICHBASE, 0x10000);
-  */
+static int gicv2_dt_init(struct device_node *dev) {
+  int rc;
+  u64 gicd_base, gicd_size, gicc_base, gicc_size, gich_base, gich_size, gicv_base, gicv_size;
+
+  rc = dt_node_prop_addr(dev, 0, &gicd_base, &gicd_size);
+  if(rc < 0)
+    return -1;
+
+  rc = dt_node_prop_addr(dev, 1, &gicc_base, &gicc_size);
+  if(rc < 0)
+    return -1;
+
+  rc = dt_node_prop_addr(dev, 2, &gich_base, &gich_size);
+  if(rc < 0)
+    return -1;
+
+  rc = dt_node_prop_addr(dev, 3, &gicv_base, &gicv_size);
+  if(rc < 0)
+    return -1;
+
+  earlycon_putn(gicd_base);
+  earlycon_putn(gicd_size);
   
   gicv2_d_init();
   gicv2_h_init();
@@ -268,6 +284,8 @@ static void gicv2_dt_init(struct device_node *dev) {
   vmm_log("GICv2: dist base %p\n"
           "       cpu base %p\n"
           "       hyp base %p\n", gicd_base, gicc_base, gich_base);
+
+  return 0;
 }
 
 static struct gic_irqchip gicv2_irqchip = {

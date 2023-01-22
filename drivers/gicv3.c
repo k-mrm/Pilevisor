@@ -468,11 +468,11 @@ static void gicv3_init_cpu() {
   gicv3_h_init();
 }
 
-static void gicv3_dt_init(struct device_node *dev) {
+static int gicv3_dt_init(struct device_node *dev) {
   u64 reg[4];
   int rc = dt_node_propa64(dev, "reg", reg);
   if(rc < 0)
-    panic("gicv3 err");
+    return -1;
 
   u64 dist_base = reg[0];
   u64 dist_size = reg[1];
@@ -491,6 +491,8 @@ static void gicv3_dt_init(struct device_node *dev) {
           "       redist base %p\n", gicd_base, gicr_base);
 
   localnode.irqchip = &gicv3_irqchip;
+
+  return 0;
 }
 
 static struct gic_irqchip gicv3_irqchip = {

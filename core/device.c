@@ -5,6 +5,25 @@
 #include "lib.h"
 #include "fdt.h"
 
+static inline struct device_node *next_node(struct device_node *prev) {
+  if(!prev)
+    return localnode.device_tree;
+
+  if(prev->child)
+    return prev->child;
+
+  if(!prev->next) {
+    struct device_node *n = prev->parent;
+
+    while(n->parent && !n->next)
+      n = n->parent;
+
+    return n->next;
+  }
+
+  return prev->next;
+}
+
 struct device_node *dt_node_alloc(struct device_node *parent) {
   struct device_node *node = malloc(sizeof(*node));
   if(!node)
@@ -32,6 +51,20 @@ struct property *dt_prop_alloc(struct device_node *node) {
   node->prop = p;
 
   return p;
+}
+
+fdt32 *dt_node_prop_raw(struct device_node *node, const char *name, u32 *len) {
+  struct property *p;
+
+  for(p = node->prop; p; p = p->next) {
+    if(strcmp(p->name, name) == 0) {
+      if(len)
+        *len = p->data_len;
+      return p->data;
+    }
+  }
+
+  return NULL;
 }
 
 int dt_node_propa(struct device_node *node, const char *name, u32 *buf) {
@@ -98,6 +131,72 @@ bool dt_node_propb(struct device_node *node, const char *name) {
   return false;
 }
 
+static inline u64 prop_read_number(fdt32 *prop, int size) {
+  u64 n = 0;
+
+  while(size-- > 0) {
+    n = (n << 32) | fdt32_to_u32(*prop++);
+  }
+
+  return n;
+}
+
+static int dt_bus_ncells(struct device_node *bus, u32 *addr_cells, u32 *size_cells) {
+  u32 na, ns;
+  int rc;
+
+  rc = dt_node_propa(bus, "#address-cells", &na);
+  if(rc < 0)
+    return -1;
+
+  rc = dt_node_propa(bus, "#size-cells", &ns);
+  if(rc < 0)
+    return -1;
+
+  if(addr_cells)
+    *addr_cells = na;
+  if(size_cells)
+    *size_cells = ns;
+
+  return 0;
+}
+
+int dt_bus_addr_translate(struct device_node *bus_node, u64 local_addr, u64 *addr) {
+  ;
+}
+
+int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size) {
+  struct device_node *bus = node->parent;
+  fdt32 *regs;
+  u32 na, ns, len;
+  int rc, i;
+
+  rc = dt_bus_ncells(bus, &na, &ns);
+  if(rc < 0)
+    return -1;
+
+  regs = dt_node_prop_raw(node, "reg", &len);
+  if(!regs)
+    return -1;
+
+  len /= 4;
+
+  i = index * (na + ns);
+
+  if(i + na + ns > len)
+    return -1;
+
+  if(addr) {
+    *addr = prop_read_number(regs + i, na);
+  }
+
+  if(size) {
+    *size = prop_read_number(regs + i + na, ns);
+  }
+
+  return 0;
+}
+
 struct device_node *dt_find_node_type_cont(struct device_node *node, const char *type,
                                             struct device_node *cont) {
   if(!node || !type)
@@ -135,25 +234,6 @@ struct device_node *dt_find_node_path(struct device_node *node, const char *path
   }
 
   return NULL;
-}
-
-static inline struct device_node *next_node(struct device_node *prev) {
-  if(!prev)
-    return localnode.device_tree;
-
-  if(prev->child)
-    return prev->child;
-
-  if(!prev->next) {
-    struct device_node *n = prev->parent;
-
-    while(n->parent && !n->next)
-      n = n->parent;
-
-    return n->next;
-  }
-
-  return prev->next;
 }
 
 struct device_node *next_match_node(struct dt_device *table, struct dt_device **dev,

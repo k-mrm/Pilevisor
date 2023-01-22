@@ -29,7 +29,7 @@ struct dt_compatible {
 struct dt_device {
   char *dev_name;
   struct dt_compatible *compat;
-  void (*init)(struct device_node *);
+  int (*init)(struct device_node *);
 };
 
 #define foreach_device_node_child(n, node)   \
@@ -56,6 +56,8 @@ int compat_dt_device_init(struct dt_device *table, struct device_node *node,
 struct dt_device *dt_compatible_device(struct dt_device *table, struct device_node *node);
 struct device_node *next_match_node(struct dt_device *table, struct dt_device **dev,
                                     struct device_node *prev);
+
+int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size);
 
 #define DT_IRQCHIP_INIT(name, comp, initfn)                                             \
   static const struct dt_device _dt_irqchip_ ## name                                    \

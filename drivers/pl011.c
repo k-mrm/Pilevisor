@@ -76,12 +76,12 @@ static struct uartchip pl011 = {
   .puts = pl011_puts,
 };
 
-static void pl011_dt_init(struct device_node *dev) {
+static int pl011_dt_init(struct device_node *dev) {
   u64 reg[2];
 
   int rc = dt_node_propa64(dev, "reg", reg);
   if(rc < 0)
-    panic("?");
+    return -1;
 
   u64 uart_base = reg[0];
   u64 uart_size = reg[1];
@@ -108,6 +108,8 @@ static void pl011_dt_init(struct device_node *dev) {
   localnode.uart = &pl011;
 
   printf("pl011 detected: %p\n", uartbase);
+
+  return 0;
 }
 
 struct dt_compatible pl011_compat[] = {
