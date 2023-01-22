@@ -161,18 +161,51 @@ static int dt_bus_ncells(struct device_node *bus, u32 *addr_cells, u32 *size_cel
   return 0;
 }
 
-int dt_bus_addr_translate(struct device_node *bus_node, u64 local_addr, u64 *addr) {
-  ;
+/* ranges: <child_addr parent_addr size> */
+u64 dt_bus_addr_translate(struct device_node *bus_node, u64 child_addr) {
+  u32 len, na, ns, npa, noneroom;
+  fdt32 *ranges = dt_node_prop_raw(bus_node, "ranges", &len);
+  struct device_node *parent;
+  int nentry;
+
+  /* same address space */
+  if(!ranges || len == 0)
+    return child_addr;
+
+  if(dt_bus_ncells(bus_node, &na, &ns) < 0)
+    return 0;
+
+  parent = bus_node->parent;
+  if(!parent)
+    return 0;
+
+  if(dt_bus_ncells(parent, &npa, NULL) < 0)
+    return 0;
+
+  noneroom = na + ns + npa;
+  nentry = (len / 4) / noneroom;
+
+  for(int i = 0; i < nentry; i++) {
+    u64 c_start = prop_read_number(ranges + (i * noneroom), na);
+    u64 p_start = prop_read_number(ranges + (i * noneroom) + na, npa);
+    u64 tsize = prop_read_number(ranges + (i * noneroom) + na + npa, ns);
+
+    if(c_start <= child_addr && child_addr < c_start + tsize) {
+      return p_start + (child_addr - c_start);
+    }
+  }
+
+  earlycon_puts("cannot translate\n");
+  return 0;
 }
 
 int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size) {
   struct device_node *bus = node->parent;
   fdt32 *regs;
   u32 na, ns, len;
-  int rc, i;
+  int i;
 
-  rc = dt_bus_ncells(bus, &na, &ns);
-  if(rc < 0)
+  if(dt_bus_ncells(bus, &na, &ns) < 0)
     return -1;
 
   regs = dt_node_prop_raw(node, "reg", &len);
@@ -182,17 +215,20 @@ int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size)
   len /= 4;
 
   i = index * (na + ns);
-
   if(i + na + ns > len)
     return -1;
 
   if(addr) {
-    *addr = prop_read_number(regs + i, na);
+    u64 a = prop_read_number(regs + i, na);
+    a = dt_bus_addr_translate(bus, a);
+    if(!a) 
+      return -1;
+
+    *addr = a;
   }
 
-  if(size) {
+  if(size)
     *size = prop_read_number(regs + i + na, ns);
-  }
 
   return 0;
 }
