@@ -176,20 +176,11 @@ static void pageallocator_test() {
   buddydump();
 }
 
-void pagealloc_init_early() {
+void pageallocator_init() {
   spinlock_init(&mem.lock);
 
-  u64 s = PAGE_ALIGN(vmm_end);
-  u64 end = (u64)__earlymem_end;
-
-  for(; s < end; s += PAGESIZE) {
-    free_page((void *)s);
-  }
-}
-
-void pageallocator_init() {
   /* align to PAGESIZE << (MAX_ORDER-1) */
-  u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, __earlymem_end);
+  u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, vmm_end);
 
   mem.start = early_alloc_end;
   mem.end = VMM_SECTION_BASE + system_memory.allsize;

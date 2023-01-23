@@ -139,12 +139,12 @@ startupothers:
 .endm 
 
 /*
- *  make identity mapping pa(vmm_start) to pa(__earlymem_end)
+ *  make identity mapping pa(vmm_start) to pa(vmm_end)
  *                        pa(EATLY_PL011_BASE)
  */
 setup_idmap_pagetable:
   adrp x1, vmm_start
-  adrp x2, __earlymem_end
+  adrp x2, vmm_end
 
   pgt_index x3, x1, 1     // x3 = PIDX(x1, 1)
 
@@ -161,8 +161,8 @@ setup_idmap_pagetable:
   cmp x4, x5
   b.ls 1b
 
-  /* map earlyconsole */
-  ldr x1, =EARLY_PL011_BASE
+  /* map fdt */
+  mov x1, x0
 
   pgt_index x2, x1, 1                   // x2 = PIDX(x1, 1)
   get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
@@ -170,6 +170,20 @@ setup_idmap_pagetable:
  
   set_table __boot_pgt_l1, x2, __idmap_pgt_l2_2, x9, x10
   adrp x3, __idmap_pgt_l2_2
+
+2:
+  pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
+  set_block_r x3, x4, x1, 2, PTE_NORMAL
+
+  /* map earlyconsole */
+  ldr x1, =EARLY_PL011_BASE
+
+  pgt_index x2, x1, 1                   // x2 = PIDX(x1, 1)
+  get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
+  cbnz x3, 2f
+ 
+  set_table __boot_pgt_l1, x2, __idmap_pgt_l2_3, x9, x10
+  adrp x3, __idmap_pgt_l2_3
 
 2:
   pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
@@ -188,7 +202,7 @@ setup_idmap_pagetable:
 setup_boot_pagetable:
   adrp x1, vmm_start        // x1 = pa(vmm_start)
   ldr x2, =vmm_start        // x2 = va(vmm_start)
-  ldr x3, =__earlymem_end   // x3 = va(__earlymem_end)
+  ldr x3, =vmm_end          // x3 = va(vmm_end)
 
   pgt_index x4, x2, 1       // x4 = PIDX(x2, 1)
 

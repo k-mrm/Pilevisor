@@ -301,19 +301,6 @@ u64 at_uva2ipa(u64 uva) {
   }
 }
 
-void dump_par_el1(void) {
-  u64 par = read_sysreg(par_el1);
-
-  if(par & 1) {
-    printf("translation fault\n");
-    printf("FST : %p\n", (par >> 1) & 0x3f);
-    printf("PTW : %p\n", (par >> 8) & 1);
-    printf("S   : %p\n", (par >> 9) & 1);
-  } else {
-    printf("address: %p\n", par);
-  }
-} 
-
 u64 faulting_ipa_page() {
   u64 hpfar = read_sysreg(hpfar_el2); 
   u64 ipa_page = (hpfar & HPFAR_FIPA_MASK) << 8;

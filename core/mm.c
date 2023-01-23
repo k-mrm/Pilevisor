@@ -9,10 +9,14 @@
 #include "earlycon.h"
 #include "iomem.h"
 #include "device.h"
+#include "printf.h"
+#include "compiler.h"
+#include "assert.h"
 
 struct system_memory system_memory;
 
-u64 *vmm_pagetable;
+char vmm_pagetable[4096] __aligned(4096);
+
 static int root_level;
 
 u64 pvoffset;
@@ -75,7 +79,7 @@ static inline int hugepage_level(u64 size) {
   return 0;
 }
 
-static int memmap_huge(u64 pa, u64 va, u64 memflags, u64 size) {
+static int memmap_huge(u64 va, u64 pa, u64 memflags, u64 size) {
   u64 *hugepte;
   u64 *pgt = vmm_pagetable;
 
@@ -132,7 +136,36 @@ void *iomap(u64 pa, u64 size) {
   return (void *)va;
 }
 
-static void *map_fdt(u64 fdt_base) {
+void dump_par_el1(void) {
+  u64 par = read_sysreg(par_el1);
+
+  if(par & 1) {
+    printf("translation fault\n");
+    printf("FST : %p\n", (par >> 1) & 0x3f);
+    printf("PTW : %p\n", (par >> 8) & 1);
+    printf("S   : %p\n", (par >> 9) & 1);
+  } else {
+    printf("address: %p\n", par);
+  }
+} 
+
+static u64 at_hva2pa(u64 hva) {
+  u64 tmp = read_sysreg(par_el1);
+
+  asm volatile ("at s1e2r, %0" :: "r"(hva));
+
+  u64 par = read_sysreg(par_el1);
+
+  write_sysreg(par_el1, tmp);
+
+  if(par & 1) {
+    return 0;
+  } else {
+    return (par & 0xfffffffff000ul) | PAGE_OFFSET(hva);
+  }
+}
+
+static void *remap_fdt(u64 fdt_base) {
   u64 memflags = PTE_NORMAL | PTE_SH_INNER | PTE_RO | PTE_XN;
   u64 offset;
   int rc;
@@ -140,26 +173,18 @@ static void *map_fdt(u64 fdt_base) {
   offset = fdt_base & (BLOCKSIZE_L2 - 1);
   fdt_base = fdt_base & ~(BLOCKSIZE_L2 - 1);
   /* map 2MB */
-  rc = memmap_huge(fdt_base, FDT_SECTION_BASE, memflags, 0x200000);
+  rc = memmap_huge(FDT_SECTION_BASE, fdt_base, memflags, 0x200000);
   if(rc < 0)
     return NULL;
 
   return (void *)(FDT_SECTION_BASE + offset);
 }
 
-static u64 pgt_hva2pa(u64 *pgt, u64 hva) {
-  u64 *pte = pagewalk(pgt, hva, root_level, 0);
-  if(!pte)
-    return 0;
-
-  return PTE_PA(*pte);
-}
-
 static u64 early_phys_start, early_phys_end;
 
 static void remap_kernel() {
-  u64 start_phys = pgt_hva2pa((u64 *)__boot_pgt_l1, VMM_SECTION_BASE);
-  u64 size = (u64)__earlymem_end - (u64)vmm_start;
+  u64 start_phys = at_hva2pa(VMM_SECTION_BASE);
+  u64 size = (u64)vmm_end - (u64)vmm_start;
   u64 memflags, i;
 
   early_phys_start = start_phys;
@@ -197,21 +222,27 @@ static void map_memory(void *fdt) {
 
   u64 vbase = VIRT_BASE;
   u64 pbase = system_memory_base();
-  u64 pend = system_memory_end();
-  u64 memflags, size = pend - pbase;
+  u64 memflags;
+  struct memblock *mem;
+  int nslot = system_memory.nslot;
 
-  for(u64 i = 0; i < size; i += PAGESIZE) {
-    u64 p = pbase + i;
-    u64 kv = phys2kern(p);
-    memflags = PTE_NORMAL | PTE_SH_INNER;
+  for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
+    u64 phys_off = mem->phys_start - pbase;
+    u64 size = mem->size;
 
-    if(!is_vmm_text(kv))
-      memflags |= PTE_XN;
+    for(u64 i = 0; i < size; i += PAGESIZE) {
+      u64 p = mem->phys_start + i;
+      u64 kv = phys2kern(p);
+      memflags = PTE_NORMAL | PTE_SH_INNER;
 
-    if(is_vmm_text(kv) || is_vmm_rodata(kv))
-      memflags |= PTE_RO;
+      if(!is_vmm_text(kv))
+        memflags |= PTE_XN;
 
-    __pagemap(vbase + i, p, memflags);
+      if(is_vmm_text(kv) || is_vmm_rodata(kv))
+        memflags |= PTE_RO;
+
+      __pagemap(vbase + phys_off + i, p, memflags);
+    }
   }
 }
 
@@ -220,13 +251,14 @@ void *setup_pagetable(u64 fdt_base) {
 
   root_level = 1;
 
-  vmm_pagetable = alloc_page();
+  assert(PAGE_ALIGNED(vmm_pagetable));
+
   memset(vmm_pagetable, 0, PAGESIZE);
 
   remap_kernel();
   remap_earlycon();
 
-  virt_fdt = map_fdt(fdt_base);
+  virt_fdt = remap_fdt(fdt_base);
 
   set_ttbr0_el2(V2P(vmm_pagetable));
 

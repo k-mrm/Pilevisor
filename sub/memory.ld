@@ -71,6 +71,8 @@ SECTIONS {
       . += 4096;
       __idmap_pgt_l2_2 = .;
       . += 4096;
+      __idmap_pgt_l2_3 = .;
+      . += 4096;
       __idmap_pgt_l3 = .;
       . += 4096;
       __boot_pgt_l2 = .;
@@ -89,18 +91,6 @@ SECTIONS {
     . = ALIGN(4096);
 
     PROVIDE(vmm_end = .);
-
-    . = ALIGN(0x200000);
-    /*
-     *  reserve 2MB for vmm initialization
-     */
-    .boot_earlymem : {
-      __earlymem_start = .;
-      . += 0x200000;
-      __earlymem_end = .;
-    }
-
-    ASSERT(__earlymem_end % 0x1000 == 0, "earlymem_end misaligned")
 
     /DISCARD/ : {
       *(.comment)

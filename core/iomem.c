@@ -16,6 +16,7 @@ struct ioarea {
   struct ioarea *next;
 };
 
+static struct ioarea first_ioarea;
 static struct ioarea *arealist;
 static struct ioarea *usedlist;
 
@@ -63,7 +64,7 @@ void iofree(void *addr) {
 }
 
 void iomem_init() {
-  struct ioarea *area = malloc(sizeof(*area));
+  struct ioarea *area = &first_ioarea;
 
   area->start = (void *)IOMEM_SECTION_BASE;
   area->npages = IOMEM_NPAGES;
