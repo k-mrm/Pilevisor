@@ -241,39 +241,45 @@ int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size)
   return 0;
 }
 
-struct device_node *dt_find_node_type_cont(struct device_node *node, const char *type,
-                                            struct device_node *cont) {
-  if(!node || !type)
-    return NULL;
+bool dt_node_device_type_is(struct device_node *node, const char *type) {
+  return !strcmp(node->device_type, type);
+}
 
-  struct device_node *s = cont ? cont->next : node->child;
-
-  for(struct device_node *child = s; child; child = child->next) {
-    if(strcmp(child->device_type, type) == 0)
-      return child;
+struct device_node *dt_find_node_type_cont(const char *type, struct device_node *cont) {
+  for(struct device_node *n = next_node(cont); n; n = next_node(n)) {
+    if(strcmp(n->device_type, type) == 0)
+      return n;
   }
 
   return NULL;
 }
 
-struct device_node *dt_find_node_type(struct device_node *node, const char *type) {
-  if(!node || !type)
-    return NULL;
+static bool node_name_is(struct device_node *node, const char *name) {
+  const char *at;
 
-  for(struct device_node *child = node->child; child; child = child->next) {
-    if(strcmp(child->device_type, type) == 0)
-      return child;
+  at = strchr(node->name, '@');
+
+  if(at) {
+    u32 baselen = at - node->name;
+
+    return !strncmp(node->name, name, baselen);
+  } else {
+    return !strcmp(node->name, name);
   }
-
-  return NULL;
 }
 
-struct device_node *dt_find_node_path(struct device_node *node, const char *path) {
+struct device_node *dt_find_node_path(const char *path) {
+  struct device_node *root = localnode.device_tree;
+
+  if(strcmp(path, "/") == 0) {
+    return root;
+  }
+
   while(*path == '/')
     path++;
 
-  for(struct device_node *child = node->child; child; child = child->next) {
-    if(strcmp(child->name, path) == 0)
+  for(struct device_node *child = root->child; child; child = child->next) {
+    if(node_name_is(child, path))
       return child;
   }
 

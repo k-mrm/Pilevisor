@@ -139,12 +139,13 @@ static int cpu_prepare(struct device_node *cpudev) {
 }
 
 void pcpu_init() {
-  struct device_node *cpus = dt_find_node_path(localnode.device_tree, "/cpus");
+  struct device_node *cpus = dt_find_node_path("/cpus");
   if(!cpus)
     panic("cpu?");
 
   struct device_node *cpu = NULL;
 
+  /*
   do {
     cpu = dt_find_node_type_cont(cpus, "cpu", cpu);
     if(!cpu)
@@ -160,4 +161,5 @@ void pcpu_init() {
 
   if(nr_online_pcpus == 0)
     panic("no pcpu?");
+    */
 }

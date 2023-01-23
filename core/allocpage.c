@@ -190,17 +190,21 @@ void pagealloc_init_early() {
 void pageallocator_init() {
   /* align to PAGESIZE << (MAX_ORDER-1) */
   u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, __earlymem_end);
+  u64 base, size;
 
-  struct device_node *memdev = dt_find_node_type(localnode.device_tree, "memory");
+  struct device_node *memdev = dt_find_node_path("/memory");
   if(!memdev)
     panic("no memory device");
 
-  u64 reg[2];
-  int rc = dt_node_propa64(memdev, "reg", reg);
-  if(rc < 0)
-    panic("memory device err");
+  if(!dt_node_device_type_is(memdev, "memory"))
+    panic("memory device type");
 
-  phy_end = reg[0] + reg[1];
+  if(dt_node_prop_addr(memdev, 0, &base, &size) < 0)
+    panic("memory device ?");
+
+  printf("base %p size %p\n", base, size);
+
+  phy_end = base + size;
 
   mem.start = early_alloc_end;
   mem.end = phy_end;

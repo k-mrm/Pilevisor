@@ -7,6 +7,7 @@
 #include "panic.h"
 #include "lib.h"
 #include "earlycon.h"
+#include "iomem.h"
 
 u64 *vmm_pagetable;
 static int root_level;

@@ -63,6 +63,38 @@ int memcmp(const void *b1, const void *b2, u64 count) {
   return 0;
 }
 
+char *strchr(const char *s, int c) {
+  char *p = (char *)s;
+  while(*p) {
+    if(*p == c) {
+      return p;
+    }
+    p++;
+  }
+
+  return NULL;
+}
+
+char *strtok(char *s1, const char *s2) {
+  static char *save = "";
+  if(s1)
+    save = s1;
+  else
+    s1 = save;
+  char *s = s1;
+
+  while(*s1) {
+    if(strchr(s2, *s1)) {
+      *s1++ = 0;
+      save = s1;
+      return s;
+    }
+    s1++;
+  }
+
+  return NULL;
+}
+
 int strncmp(const char *s1, const char *s2, u64 len) {
   while(*s1 && *s1 == *s2 && len > 0) {
     s1++;

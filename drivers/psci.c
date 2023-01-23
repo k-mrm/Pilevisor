@@ -69,7 +69,7 @@ const struct cpu_enable_method psci = {
 };
 
 void psci_init() {
-  struct device_node *dev = dt_find_node_path(localnode.device_tree, "/psci");
+  struct device_node *dev = dt_find_node_path("/psci");
   if(!dev)
     return;
 
