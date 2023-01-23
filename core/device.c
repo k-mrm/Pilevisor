@@ -4,6 +4,8 @@
 #include "localnode.h"
 #include "lib.h"
 #include "fdt.h"
+#include "memory.h"
+#include "earlycon.h"
 
 static inline struct device_node *next_node(struct device_node *prev) {
   if(!prev)
@@ -171,7 +173,7 @@ static int dt_bus_ncells(struct device_node *bus, u32 *addr_cells, u32 *size_cel
 
 /* ranges: <child_addr parent_addr size> */
 u64 dt_bus_addr_translate(struct device_node *bus_node, u64 child_addr, u64 *paddr) {
-  u32 len, na, ns, npa, noneroom;
+  u32 len, na, ns, npa, oneroom;
   u64 parent_addr;
   fdt32 *ranges = dt_node_prop_raw(bus_node, "ranges", &len);
   struct device_node *parent;
@@ -193,13 +195,13 @@ u64 dt_bus_addr_translate(struct device_node *bus_node, u64 child_addr, u64 *pad
   if(dt_bus_ncells(parent, &npa, NULL) < 0)
     return -1;
 
-  noneroom = na + ns + npa;
-  nentry = (len / 4) / noneroom;
+  oneroom = na + ns + npa;
+  nentry = (len / 4) / oneroom;
 
   for(int i = 0; i < nentry; i++) {
-    u64 c_start = prop_read_number(ranges + (i * noneroom), na);
-    u64 p_start = prop_read_number(ranges + (i * noneroom) + na, npa);
-    u64 tsize = prop_read_number(ranges + (i * noneroom) + na + npa, ns);
+    u64 c_start = prop_read_number(ranges + (i * oneroom), na);
+    u64 p_start = prop_read_number(ranges + (i * oneroom) + na, npa);
+    u64 tsize = prop_read_number(ranges + (i * oneroom) + na + npa, ns);
 
     if(c_start <= child_addr && child_addr < c_start + tsize) {
       parent_addr = p_start + (child_addr - c_start);
@@ -343,6 +345,57 @@ int compat_dt_device_init(struct dt_device *table, struct device_node *node,
   return -1;
 }
 
+static void setup_system_memory() {
+  u64 base, size;
+  u32 len, nranges, na, ns, oneroom;
+  fdt32 *memranges;
+
+  struct device_node *memdev = dt_find_node_path("/memory");
+  if(!memdev)
+    panic("no memory device");
+
+  if(!dt_node_device_type_is(memdev, "memory"))
+    panic("memory device type");
+
+  struct device_node *bus = memdev->parent;
+  if(dt_bus_ncells(bus, &na, &ns) < 0)
+    panic("memory err");
+  
+  memranges = dt_node_prop_raw(memdev, "reg", &len);
+  if(!memranges)
+    panic("memory err");
+
+  oneroom = na + ns;
+  nranges = len / 4 / (oneroom);
+
+  for(int i = 0; i < nranges; i++) {
+    u64 start = prop_read_number(memranges + (i * oneroom), na);
+    u64 size = prop_read_number(memranges + (i * oneroom) + na, ns);
+
+    system_memory_reg(start, size);
+  }
+}
+
+struct device_node *dt_next_cpu_device(struct device_node *prev) {
+  struct device_node *cpus, *start;
+
+  if(!prev) {
+    cpus = dt_find_node_path("/cpus");
+  } else {
+    cpus = prev->parent;
+  }
+
+  start = prev ? prev->next : cpus->child;
+
+  for(struct device_node *child = start; child; child = child->next) {
+    if(dt_node_device_type_is(child, "cpu")) {
+      return child;
+    }
+  }
+
+  return NULL;
+}
+
 void device_tree_init(void *fdt_base) {
   struct fdt fdt;
 
@@ -350,9 +403,11 @@ void device_tree_init(void *fdt_base) {
 
   struct device_node *root = fdt_parse(&fdt);
 
+  localnode.device_tree = root;
+
   const char *mach = dt_node_props(root, "compatible");
   if(mach)
     earlycon_puts(mach);
 
-  localnode.device_tree = root;
+  setup_system_memory();
 }

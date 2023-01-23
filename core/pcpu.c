@@ -139,27 +139,17 @@ static int cpu_prepare(struct device_node *cpudev) {
 }
 
 void pcpu_init() {
-  struct device_node *cpus = dt_find_node_path("/cpus");
-  if(!cpus)
-    panic("cpu?");
+  struct device_node *cpu;
 
-  struct device_node *cpu = NULL;
-
-  /*
-  do {
-    cpu = dt_find_node_type_cont(cpus, "cpu", cpu);
-    if(!cpu)
-      break;
-
+  for(cpu = dt_next_cpu_device(NULL); cpu;
+      cpu = dt_next_cpu_device(cpu)) {
     if(nr_online_pcpus++ > NCPU_MAX)
       panic("too many cpu");
 
-    int rc = cpu_prepare(cpu);
-    if(rc < 0)
+    if(cpu_prepare(cpu) < 0)
       panic("cpu? %s", cpu->name);
-  } while(1);
+  }
 
   if(nr_online_pcpus == 0)
     panic("no pcpu?");
-    */
 }

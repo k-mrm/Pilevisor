@@ -9,6 +9,8 @@
 #include "earlycon.h"
 #include "iomem.h"
 
+struct system_memory system_memory;
+
 u64 *vmm_pagetable;
 static int root_level;
 
