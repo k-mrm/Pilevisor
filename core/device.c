@@ -282,9 +282,8 @@ static bool node_name_is(struct device_node *node, const char *name) {
 struct device_node *dt_find_node_path(const char *path) {
   struct device_node *root = localnode.device_tree;
 
-  if(strcmp(path, "/") == 0) {
+  if(strcmp(path, "/") == 0)
     return root;
-  }
 
   while(*path == '/')
     path++;
@@ -402,7 +401,6 @@ void device_tree_init(void *fdt_base) {
   fdt_probe(&fdt, fdt_base);
 
   struct device_node *root = fdt_parse(&fdt);
-
   localnode.device_tree = root;
 
   const char *mach = dt_node_props(root, "compatible");

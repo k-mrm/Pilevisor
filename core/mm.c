@@ -8,6 +8,7 @@
 #include "lib.h"
 #include "earlycon.h"
 #include "iomem.h"
+#include "device.h"
 
 struct system_memory system_memory;
 
@@ -41,7 +42,7 @@ u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   return &pgt[PIDX(3, va)];
 }
 
-static void __memmap(u64 pa, u64 va, u64 size, u64 memflags) {
+static void __memmap(u64 va, u64 pa, u64 size, u64 memflags) {
   if(!PAGE_ALIGNED(pa) || !PAGE_ALIGNED(va) || size % PAGESIZE != 0)
     panic("__memmap");
 
@@ -55,7 +56,7 @@ static void __memmap(u64 pa, u64 va, u64 size, u64 memflags) {
   }
 }
 
-static void __pagemap(u64 pa, u64 va, u64 memflags) {
+static void __pagemap(u64 va, u64 pa, u64 memflags) {
   u64 *pte = pagewalk(vmm_pagetable, va, root_level, 1);
   if(*pte & PTE_AF)
       panic("this entry has been used: %p", va);
@@ -131,7 +132,7 @@ void *iomap(u64 pa, u64 size) {
   return (void *)va;
 }
 
-static void *map_fdt_early(u64 fdt_base) {
+static void *map_fdt(u64 fdt_base) {
   u64 memflags = PTE_NORMAL | PTE_SH_INNER | PTE_RO | PTE_XN;
   u64 offset;
   int rc;
@@ -146,7 +147,7 @@ static void *map_fdt_early(u64 fdt_base) {
   return (void *)(FDT_SECTION_BASE + offset);
 }
 
-static u64 hva2pa(u64 *pgt, u64 hva) {
+static u64 pgt_hva2pa(u64 *pgt, u64 hva) {
   u64 *pte = pagewalk(pgt, hva, root_level, 0);
   if(!pte)
     return 0;
@@ -154,14 +155,18 @@ static u64 hva2pa(u64 *pgt, u64 hva) {
   return PTE_PA(*pte);
 }
 
+static u64 early_phys_start, early_phys_end;
+
 static void remap_kernel() {
-  u64 start_phys = hva2pa((u64 *)__boot_pgt_l1, VMM_SECTION_BASE);
+  u64 start_phys = pgt_hva2pa((u64 *)__boot_pgt_l1, VMM_SECTION_BASE);
   u64 size = (u64)__earlymem_end - (u64)vmm_start;
-  u64 memflags;
+  u64 memflags, i;
+
+  early_phys_start = start_phys;
 
   pvoffset = VMM_SECTION_BASE - start_phys;
 
-  for(u64 i = 0; i < size; i += PAGESIZE) {
+  for(i = 0; i < size; i += PAGESIZE) {
     u64 p = start_phys + i;
     u64 v = VMM_SECTION_BASE + i;
 
@@ -173,8 +178,10 @@ static void remap_kernel() {
     if(is_vmm_text(v) || is_vmm_rodata(v))
       memflags |= PTE_RO;
 
-    __pagemap(p, v, memflags);
+    __pagemap(v, p, memflags);
   }
+
+  early_phys_end = start_phys + i;
 }
 
 static void remap_earlycon() {
@@ -184,6 +191,21 @@ static void remap_earlycon() {
 }
 
 static void map_memory(void *fdt) {
+  device_tree_init(fdt);
+
+  /* system_memory available here */
+
+  u64 vbase = VIRT_BASE;
+  u64 pbase = system_memory_base();
+  u64 pend = system_memory_end();
+
+  u64 i = 0;
+  u64 memflags = PTE_NORMAL | PTE_SH_INNER;
+
+  for(int s = 0; s < system_memory.nslot; s++) {
+    ;
+  }
+
   return;
 }
 
@@ -198,11 +220,11 @@ void *setup_pagetable(u64 fdt_base) {
   remap_kernel();
   remap_earlycon();
 
-  virt_fdt = map_fdt_early(fdt_base);
-
-  map_memory(virt_fdt);
+  virt_fdt = map_fdt(fdt_base);
 
   set_ttbr0_el2(V2P(vmm_pagetable));
+
+  map_memory(virt_fdt);
 
   return virt_fdt;
 }

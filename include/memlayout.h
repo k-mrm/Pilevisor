@@ -11,12 +11,14 @@
  *  0  - 2M : unmapped
  *  2M - 4M : fdt section
  *  4M - 1G : iomem section (mapped mmio)
- *  1G -    : vmm section (mapped vmm and heap)
+ *  1G - 2G : vmm kernel
+ *  2G -    : memory linear map
  */
 
 #define FDT_SECTION_BASE      0x200000
 #define IOMEM_SECTION_BASE    0x400000
 #define VMM_SECTION_BASE      0x40000000
+#define VIRT_BASE             0x80000000
 
 #define FDT_SECTION_SIZE      0x200000
 #define IOMEM_SECTION_SIZE    (VMM_SECTION_BASE - IOMEM_SECTION_BASE)
@@ -33,8 +35,16 @@ extern char __earlymem_start[], __earlymem_end[];
 
 extern u64 pvoffset;
 
-#define V2P(va)               ((u64)(va) - pvoffset)
-#define P2V(pa)               (void *)((u64)pa + pvoffset)
+static inline u64 virt2phys(u64 va) {
+  ;
+}
+
+static inline u64 phys2virt(u64 pa) {
+  ;
+}
+
+#define V2P(va)               virt2phys((u64)va)
+#define P2V(pa)               phys2virt((u64)pa)
 
 #endif  /* __ASSEMBLER__ */
 
