@@ -200,14 +200,14 @@ void pageallocator_init() {
     panic("memory device type");
 
   if(dt_node_prop_addr(memdev, 0, &base, &size) < 0)
-    panic("memory device ?");
+    panic("memory ?");
 
   printf("base %p size %p\n", base, size);
 
   phy_end = base + size;
 
   mem.start = early_alloc_end;
-  mem.end = phy_end;
+  mem.end = (u64)P2V(phy_end);
 
   printf("buddy: heap [%p - %p) (free area: %d MB) \n", mem.start, mem.end, (mem.end - mem.start) >> 20);
   printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);

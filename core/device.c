@@ -170,25 +170,28 @@ static int dt_bus_ncells(struct device_node *bus, u32 *addr_cells, u32 *size_cel
 }
 
 /* ranges: <child_addr parent_addr size> */
-u64 dt_bus_addr_translate(struct device_node *bus_node, u64 child_addr) {
+u64 dt_bus_addr_translate(struct device_node *bus_node, u64 child_addr, u64 *paddr) {
   u32 len, na, ns, npa, noneroom;
+  u64 parent_addr;
   fdt32 *ranges = dt_node_prop_raw(bus_node, "ranges", &len);
   struct device_node *parent;
   int nentry;
 
   /* same address space */
-  if(!ranges || len == 0)
-    return child_addr;
+  if(!ranges || len == 0) {
+    parent_addr = child_addr;
+    goto done;
+  }
 
   if(dt_bus_ncells(bus_node, &na, &ns) < 0)
-    return 0;
+    return -1;
 
   parent = bus_node->parent;
   if(!parent)
-    return 0;
+    return -1;
 
   if(dt_bus_ncells(parent, &npa, NULL) < 0)
-    return 0;
+    return -1;
 
   noneroom = na + ns + npa;
   nentry = (len / 4) / noneroom;
@@ -199,11 +202,18 @@ u64 dt_bus_addr_translate(struct device_node *bus_node, u64 child_addr) {
     u64 tsize = prop_read_number(ranges + (i * noneroom) + na + npa, ns);
 
     if(c_start <= child_addr && child_addr < c_start + tsize) {
-      return p_start + (child_addr - c_start);
+      parent_addr = p_start + (child_addr - c_start);
+      goto done;
     }
   }
 
   earlycon_puts("cannot translate\n");
+  return -1;
+
+done:
+  if(paddr)
+    *paddr = parent_addr;
+
   return 0;
 }
 
@@ -227,12 +237,11 @@ int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size)
     return -1;
 
   if(addr) {
-    u64 a = prop_read_number(regs + i, na);
-    a = dt_bus_addr_translate(bus, a);
-    if(!a) 
+    u64 ad, a = prop_read_number(regs + i, na);
+    if(dt_bus_addr_translate(bus, a, &ad) < 0)
       return -1;
 
-    *addr = a;
+    *addr = ad;
   }
 
   if(size)
