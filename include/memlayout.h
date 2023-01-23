@@ -35,12 +35,20 @@ extern char __earlymem_start[], __earlymem_end[];
 
 extern u64 pvoffset;
 
-static inline u64 virt2phys(u64 va) {
-  ;
+static inline bool is_linear_addr(u64 va) {
+  return va >= VIRT_BASE;
 }
 
-static inline u64 phys2virt(u64 pa) {
-  ;
+static inline u64 virt2phys(u64 va) {
+  return is_linear_addr(va) ? va - VIRT_BASE : va - pvoffset;
+}
+
+static inline void *phys2virt(u64 pa) {
+  return (void *)(pa + VIRT_BASE);
+}
+
+static inline u64 phys2kern(u64 pa) {
+  return pa + pvoffset;
 }
 
 #define V2P(va)               virt2phys((u64)va)

@@ -198,15 +198,21 @@ static void map_memory(void *fdt) {
   u64 vbase = VIRT_BASE;
   u64 pbase = system_memory_base();
   u64 pend = system_memory_end();
+  u64 memflags, size = pend - pbase;
 
-  u64 i = 0;
-  u64 memflags = PTE_NORMAL | PTE_SH_INNER;
+  for(u64 i = 0; i < size; i += PAGESIZE) {
+    u64 p = pbase + i;
+    u64 kv = phys2kern(p);
+    memflags = PTE_NORMAL | PTE_SH_INNER;
 
-  for(int s = 0; s < system_memory.nslot; s++) {
-    ;
+    if(!is_vmm_text(kv))
+      memflags |= PTE_XN;
+
+    if(is_vmm_text(kv) || is_vmm_rodata(kv))
+      memflags |= PTE_RO;
+
+    __pagemap(vbase + i, p, memflags);
   }
-
-  return;
 }
 
 void *setup_pagetable(u64 fdt_base) {
