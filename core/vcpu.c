@@ -76,6 +76,9 @@ void vcpu_entry() {
 
   vcpu_dump(current);
 
+  u64 pa = ipa2pa(localvm.vttbr, 0x40200000);
+  printf("pa %p\n", pa);
+
   /* vmentry */
   trapret();
 }

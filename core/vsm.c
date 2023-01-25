@@ -22,6 +22,7 @@
 #include "assert.h"
 #include "compiler.h"
 #include "vsm-log.h"
+#include "memlayout.h"
 
 #define ipa_to_pfn(ipa)       (((ipa) - 0x40000000) >> PAGESHIFT)
 #define ipa_to_desc(ipa)      (&ptable[ipa_to_pfn(ipa)])
@@ -891,7 +892,7 @@ void vsm_node_init(struct memrange *mem) {
     if(!page)
       panic("ram");
 
-    pagemap(vttbr, start+p, (u64)page, PAGESIZE, PTE_NORMAL|S2PTE_RW);
+    pagemap(vttbr, start+p, V2P(page), PAGESIZE, PTE_NORMAL|S2PTE_RW);
   }
 
   vmm_log("Node %d mapped: [%p - %p]\n", local_nodeid(), start, start+p);

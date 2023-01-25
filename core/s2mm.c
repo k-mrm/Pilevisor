@@ -205,12 +205,12 @@ void page_access_ro(u64 *pgt, u64 va) {
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
   while(len > 0) {
-    u64 pa = ipa2pa(pgt, to_ipa);
-    if(pa == 0) {
+    void *hva = ipa2hva(pgt, to_ipa);
+    if(hva == 0) {
       char *page = alloc_page();
       pagemap(pgt, PAGE_ADDRESS(to_ipa), V2P(page), PAGESIZE, PTE_NORMAL|S2PTE_RW);
-      pa = ipa2pa(pgt, to_ipa);
-      if(pa == 0)
+      hva = ipa2hva(pgt, to_ipa);
+      if(hva == 0)
         panic("copy_to_guest_alloc");
     }
 
@@ -219,7 +219,7 @@ void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
     if(n > len)
       n = len;
 
-    memcpy((char *)pa, from, n);
+    memcpy((char *)hva, from, n);
 
     from += n;
     to_ipa += n;
@@ -229,15 +229,15 @@ void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
 
 void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len) {
   while(len > 0) {
-    u64 pa = ipa2pa(pgt, to_ipa);
-    if(pa == 0)
-      panic("copy_to_guest pa == 0 to_ipa: %p", to_ipa);
+    void *hva = ipa2hva(pgt, to_ipa);
+    if(hva == 0)
+      panic("copy_to_guest hva == 0 to_ipa: %p", to_ipa);
     u64 poff = to_ipa & (PAGESIZE-1);
     u64 n = PAGESIZE - poff;
     if(n > len)
       n = len;
 
-    memcpy((char *)pa, from, n);
+    memcpy((char *)hva, from, n);
 
     from += n;
     to_ipa += n;
@@ -247,15 +247,15 @@ void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len) {
 
 void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len) {
   while(len > 0) {
-    u64 pa = ipa2pa(pgt, from_ipa);
-    if(pa == 0)
-      panic("copy_from_guest pa == 0 from_ipa: %p", from_ipa);
+    void *hva = ipa2hva(pgt, from_ipa);
+    if(hva == 0)
+      panic("copy_from_guest hva == 0 from_ipa: %p", from_ipa);
     u64 poff = PAGE_OFFSET(from_ipa);
     u64 n = PAGESIZE - poff;
     if(n > len)
       n = len;
 
-    memcpy(to, (char *)pa, n);
+    memcpy(to, (char *)hva, n);
 
     to += n;
     from_ipa += n;
@@ -270,6 +270,15 @@ u64 ipa2pa(u64 *pgt, u64 ipa) {
   u32 off = PAGE_OFFSET(ipa);
 
   return PTE_PA(*pte) + off;
+}
+
+void *ipa2hva(u64 *pgt, u64 ipa) {
+  u64 *pte = pagewalk(pgt, ipa, root_level, 0);
+  if(!pte)
+    return 0;
+  u32 off = PAGE_OFFSET(ipa);
+
+  return P2V(PTE_PA(*pte) + off);
 }
 
 u64 at_uva2pa(u64 uva) {

@@ -26,6 +26,7 @@ void s2mmu_init(void);
 #define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0xf)
 
 u64 *s2_readable_pte(u64 *s2pgt, u64 ipa);
+void *ipa2hva(u64 *pgt, u64 ipa);
 
 static inline int s2pte_perm(u64 *pte) {
   return (*pte & S2PTE_S2AP_MASK) >> 6;
