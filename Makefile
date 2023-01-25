@@ -34,11 +34,11 @@ NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 8
+GUEST_NCPU = 4
 endif
 
 ifndef GUEST_MEMORY
-GUEST_MEMORY = 512
+GUEST_MEMORY = 256
 endif
 
 QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
@@ -89,7 +89,10 @@ guest/hello.img: guest/hello/Makefile
 guest/vsmtest.img: guest/vsmtest/Makefile
 	make -C guest/vsmtest
 
-kernel8.img: poc-sub
+vmm-boot.img: poc-main
+	$(OBJCOPY) -O binary $^ $@
+
+vmm.img: poc-sub
 	$(OBJCOPY) -O binary $^ $@
 
 poc-main: $(MAINOBJS) $(M)/memory.ld dtb-numa $(KERNIMG) guest/linux/rootfs.img
@@ -112,7 +115,7 @@ poc-sub-vsm: $(SUBOBJS) $(S)/memory.ld
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
 
-dev-main: poc-main
+dev-main: vmm-boot.img
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
 	sudo ifconfig br4poc mtu 4500 || true
@@ -120,11 +123,11 @@ dev-main: poc-main
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) $(QEMUOPTS) poc-main
+	$(QEMU) $(QEMUOPTS) vmm-boot.img
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
-dev-sub: kernel8.img
+dev-sub: vmm.img
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
 	sudo ifconfig br4poc mtu 4500
@@ -132,7 +135,7 @@ dev-sub: kernel8.img
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) $(QEMUOPTS) kernel8.img
+	$(QEMU) $(QEMUOPTS) vmm.img
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
@@ -158,7 +161,7 @@ dev-sub-vsm: poc-sub-vsm
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
-gdb-main: poc-main
+gdb-main: vmm-boot.img
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
 	sudo ifconfig br4poc mtu 4500 || true
@@ -166,11 +169,11 @@ gdb-main: poc-main
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) -S -gdb tcp::1234 $(QEMUOPTS) poc-main
+	$(QEMU) -S -gdb tcp::1234 $(QEMUOPTS) vmm-boot.img
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
-gdb-sub: kernel8.img
+gdb-sub: vmm.img
 	sudo ip link add br4poc type bridge || true
 	sudo ip link set br4poc up || true
 	sudo ifconfig br4poc mtu 4500
@@ -178,7 +181,7 @@ gdb-sub: kernel8.img
 	sudo ip link set dev tap$(TAP_NUM) master br4poc
 	sudo ip link set tap$(TAP_NUM) up
 	sudo ifconfig tap$(TAP_NUM) mtu 4500
-	$(QEMU) -S -gdb tcp::5678 $(QEMUOPTS) kernel8.img
+	$(QEMU) -S -gdb tcp::5678 $(QEMUOPTS) vmm.img
 	sudo ip link set tap$(TAP_NUM) down
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 

@@ -5,6 +5,8 @@ SECTIONS {
     . = 0x40000000;
     PROVIDE(vmm_start = .);
 
+    ASSERT(vmm_start % 0x1000 == 0, "vmm misaligned")
+
     __text_start = .;
 
     .text.head : {
@@ -27,9 +29,18 @@ SECTIONS {
     __text_end = .;
 
     . = ALIGN(4096);
-    .rodata : {
-      __rodata_start = .;
+    __rodata_start = .;
 
+    .rodata.device : {
+      __dt_irqchip_device = .;
+      KEEP(*(__dt_irqchip_device));
+      KEEP(*(__dt_irqchip_sentinel));
+      __dt_serial_device = .;
+      KEEP(*(__dt_serial_device));
+      KEEP(*(__dt_serial_sentinel));
+    }
+
+    .rodata : {
       *(.rodata) 
 
       . = ALIGN(16);
@@ -42,16 +53,10 @@ SECTIONS {
       *(.rodata.msg.node0)
       __msg_handler_data_end = .;
 
-      __rodata_end = .;
+      *(.rodata.*)
     }
 
-    . = ALIGN(4096);
-    .data.device : {
-      __dt_irqchip_device = .;
-      KEEP(*(__dt_irqchip_device));
-      __dt_serial_device = .;
-      KEEP(*(__dt_serial_device));
-    }
+    __rodata_end = .;
 
     . = ALIGN(16);
     .data : {
@@ -62,12 +67,16 @@ SECTIONS {
     .boot_pagetable : {
       __boot_pgt_l1 = .;
       . += 4096;
-      __boot_pgt_l2_1 = .;
+      __idmap_pgt_l2_1 = .;
       . += 4096;
-      __boot_pgt_l2_2 = .;
+      __idmap_pgt_l2_2 = .;
+      . += 4096;
+      __idmap_pgt_l3 = .;
+      . += 4096;
+      __boot_pgt_l2 = .;
       . += 4096;
       __boot_pgt_l3 = .;
-      . += 4096;
+      . += 4096 * 4;
     }
 
     . = ALIGN(4096);
@@ -78,18 +87,7 @@ SECTIONS {
     }
 
     . = ALIGN(4096);
-
     PROVIDE(vmm_end = .);
-
-    . = ALIGN(0x200000);
-    /*
-     *  reserve 2MB for vmm initialization
-     */
-    .boot_earlymem : {
-      __earlymem_start = .;
-      . += 0x200000;
-      __earlymem_end = .;
-    }
 
     /DISCARD/ : {
       *(.comment)

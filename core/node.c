@@ -247,6 +247,7 @@ void node_cluster_dump() {
   printf("Cluster Info:\n");
   printf("\tnr_nodes: %d nr_vcpus: %d\n", nr_cluster_nodes, nr_cluster_vcpus);
 
+  /*
   foreach_cluster_node(node) {
     int id = node->nodeid;
     online = node_online(id) ? "online" : "offline";
@@ -266,7 +267,7 @@ void node_cluster_dump() {
       printf("%d ", node->vcpus[i]);
     }
     printf("\n");
-  }
+  } */
 }
 
 static void __node0 broadcast_init_request() {
