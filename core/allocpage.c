@@ -176,9 +176,27 @@ static void pageallocator_test() {
   buddydump();
 }
 
-void pageallocator_init() {
+void early_allocator_init() {
   spinlock_init(&mem.lock);
 
+  // TODO: determine by fdt 
+  u64 start_phys = 0x400000;
+  u64 end_phys = 0x600000;
+
+  early_map_earlymem(start_phys, end_phys);
+
+  u64 vstart = start_phys + VIRT_BASE;
+  u64 vend = end_phys + VIRT_BASE;
+
+  earlycon_putn(vstart);
+  earlycon_putn(vend);
+
+  for(; vstart < vend; vstart += PAGESIZE) {
+    free_page((void *)vstart);
+  }
+}
+
+void pageallocator_init() {
   /* align to PAGESIZE << (MAX_ORDER-1) */
   u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, vmm_end);
 
@@ -191,6 +209,4 @@ void pageallocator_init() {
   for(u64 s = mem.start; s < mem.end; s += PAGESIZE << (MAX_ORDER - 1)) {
     init_free_pages(&mem, (void *)s, MAX_ORDER - 1);
   }
-
-  // pageallocator_test();
 }

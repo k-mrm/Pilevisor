@@ -161,16 +161,6 @@ setup_idmap_pagetable:
   cmp x4, x5
   b.ls 1b
 
-  /* map fdt */
-  mov x1, x0
-
-  pgt_index x2, x1, 1                   // x2 = PIDX(x1, 1)
-  get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
-  cbnz x3, 2f
- 
-  set_table __boot_pgt_l1, x2, __idmap_pgt_l2_2, x9, x10
-  adrp x3, __idmap_pgt_l2_2
-
 2:
   pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
   set_block_r x3, x4, x1, 2, PTE_NORMAL
@@ -182,8 +172,8 @@ setup_idmap_pagetable:
   get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
   cbnz x3, 2f
  
-  set_table __boot_pgt_l1, x2, __idmap_pgt_l2_3, x9, x10
-  adrp x3, __idmap_pgt_l2_3
+  set_table __boot_pgt_l1, x2, __idmap_pgt_l2_2, x9, x10
+  adrp x3, __idmap_pgt_l2_2
 
 2:
   pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)

@@ -15,15 +15,19 @@
 
 struct system_memory system_memory;
 
-char vmm_pagetable[4096] __aligned(4096);
+u64 vmm_pagetable[512] __aligned(4096);
+
+static u64 earlymem_pgt_l2[512] __aligned(4096);
 
 static int root_level;
+static u64 early_phys_start, early_phys_end;
+
+extern u64 __boot_pgt_l1[];
 
 u64 pvoffset;
 
-extern char __boot_pgt_l1[];
-
 void set_ttbr0_el2(u64 ttbr0_el2);
+static void pgt_set_block(u64 *pe, u64 phys, u64 memflags);
 
 u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   for(int level = root; level < 3; level++) {
@@ -109,6 +113,7 @@ static int memmap_huge(u64 va, u64 pa, u64 memflags, u64 size) {
   if((*hugepte & PTE_TABLE) || (*hugepte & PTE_AF))
     return -1;
 
+  pgt_set_block(hugepte, pa, memflags);
   *hugepte |= PTE_PA(pa) | PTE_AF | PTE_VALID | memflags;
 
   return 0;
@@ -180,16 +185,52 @@ static void *remap_fdt(u64 fdt_base) {
   return (void *)(FDT_SECTION_BASE + offset);
 }
 
-static u64 early_phys_start, early_phys_end;
+static void pgt_set_table_entry(u64 *pe, u64 next_table_phys) {
+  if(!pe)
+    return;
+  
+  *pe = PTE_PA(next_table_phys) | PTE_TABLE | PTE_VALID;
+}
+
+static void pgt_set_block(u64 *pe, u64 phys, u64 memflags) {
+  if(!pe)
+    return;
+
+  *pe = phys | memflags | PTE_AF | PTE_VALID;
+}
+
+void early_map_earlymem(u64 pstart, u64 pend) {
+  u64 size = pend - pstart;
+  u64 *epmd, *epud;
+  u64 vstart = pstart + VIRT_BASE;
+
+  assert(pstart % 0x200000 == 0);
+  assert(pend % 0x200000 == 0);
+  assert(size == 0x200000);
+
+  early_phys_start = pstart; 
+  early_phys_end = pend;
+
+  pvoffset = VMM_SECTION_BASE - at_hva2pa(VMM_SECTION_BASE);
+
+  /* map earlymem */
+  epud = &__boot_pgt_l1[PIDX(vstart, 1)];
+
+  pgt_set_table_entry(epud, V2P(earlymem_pgt_l2));
+
+  earlycon_putn(*epud);
+
+  epmd = &earlymem_pgt_l2[PIDX(vstart, 2)];
+
+  pgt_set_block(epmd, pstart, PTE_NORMAL | PTE_SH_INNER);
+
+  earlycon_putn(*epmd);
+}
 
 static void remap_kernel() {
   u64 start_phys = at_hva2pa(VMM_SECTION_BASE);
   u64 size = (u64)vmm_end - (u64)vmm_start;
   u64 memflags, i;
-
-  early_phys_start = start_phys;
-
-  pvoffset = VMM_SECTION_BASE - start_phys;
 
   for(i = 0; i < size; i += PAGESIZE) {
     u64 p = start_phys + i;
@@ -205,8 +246,6 @@ static void remap_kernel() {
 
     __pagemap(v, p, memflags);
   }
-
-  early_phys_end = start_phys + i;
 }
 
 static void remap_earlycon() {

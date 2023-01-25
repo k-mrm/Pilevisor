@@ -71,8 +71,6 @@ SECTIONS {
       . += 4096;
       __idmap_pgt_l2_2 = .;
       . += 4096;
-      __idmap_pgt_l2_3 = .;
-      . += 4096;
       __idmap_pgt_l3 = .;
       . += 4096;
       __boot_pgt_l2 = .;
@@ -88,8 +86,7 @@ SECTIONS {
       __bss_end = .;
     }
 
-    . = ALIGN(4096);
-
+    . = ALIGN(0x200000);
     PROVIDE(vmm_end = .);
 
     /DISCARD/ : {

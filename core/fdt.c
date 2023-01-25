@@ -97,15 +97,6 @@ struct device_node *fdt_parse(struct fdt *fdt) {
   return root;
 }
 
-void early_fdt_init(const void *fdt_phys) {
-  if(fdt_magic(fdt_phys) != FDT_MAGIC)
-    earlycon_puts("??????");
-
-  earlycon_putn(fdt_phys);
-  if(fdt_version(fdt_phys) != 17)
-    ;
-}
-
 void fdt_probe(struct fdt *fdt, void *base) {
   if(fdt_magic(base) != FDT_MAGIC)
     panic("no fdt");
