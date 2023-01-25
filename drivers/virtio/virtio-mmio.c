@@ -168,8 +168,5 @@ static void vtmmio_intr(void *arg) {
 #define VIRTIO0     0x0a000000
 
 int virtio_mmio_init(void) {
-  if(vtmmio_probe((void *)VIRTIO0, 48) < 0)
-    panic("virtio-net dead");
-
-  return 0;
+  return vtmmio_probe((void *)VIRTIO0, 48);
 }

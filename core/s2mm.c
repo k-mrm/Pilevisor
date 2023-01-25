@@ -9,6 +9,7 @@
 #include "param.h"
 #include "localnode.h"
 #include "allocpage.h"
+#include "memlayout.h"
 #include "printf.h"
 #include "guest.h"
 #include "panic.h"
@@ -66,7 +67,7 @@ void pageunmap(u64 *pgt, u64 va, u64 size) {
       panic("unmapped");
 
     u64 pa = PTE_PA(*pte);
-    free_page((void *)pa);
+    free_page(P2V(pa));
     *pte = 0;
   }
 }
@@ -80,7 +81,7 @@ void alloc_guestmem(u64 *pgt, u64 ipa, u64 size) {
     if(!p)
       panic("p");
 
-    pagemap(pgt, ipa+i, (u64)p, PAGESIZE, PTE_NORMAL|S2PTE_RW);
+    pagemap(pgt, ipa+i, V2P(p), PAGESIZE, PTE_NORMAL|S2PTE_RW);
   }
 }
 
@@ -186,7 +187,7 @@ void page_access_invalidate(u64 *pgt, u64 va) {
 
   tlb_s2_flush_all();
 
-  free_page(pa);
+  free_page(P2V(pa));
 }
 
 void page_access_ro(u64 *pgt, u64 va) {
@@ -207,7 +208,7 @@ void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len) {
     u64 pa = ipa2pa(pgt, to_ipa);
     if(pa == 0) {
       char *page = alloc_page();
-      pagemap(pgt, PAGE_ADDRESS(to_ipa), (u64)page, PAGESIZE, PTE_NORMAL|S2PTE_RW);
+      pagemap(pgt, PAGE_ADDRESS(to_ipa), V2P(page), PAGESIZE, PTE_NORMAL|S2PTE_RW);
       pa = ipa2pa(pgt, to_ipa);
       if(pa == 0)
         panic("copy_to_guest_alloc");
@@ -332,7 +333,7 @@ void s2mmu_init() {
   if(!vttbr)
     panic("vttbr failed");
 
-  localvm.vttbr = vttbr;
+  localvm.vttbr = V2P(vttbr);
   localvm.vtcr = vtcr;
 
   printf("vtcr_el2: %p\n", vtcr);
