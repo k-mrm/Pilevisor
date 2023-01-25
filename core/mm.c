@@ -214,13 +214,13 @@ void early_map_earlymem(u64 pstart, u64 pend) {
   pvoffset = VMM_SECTION_BASE - at_hva2pa(VMM_SECTION_BASE);
 
   /* map earlymem */
-  epud = &__boot_pgt_l1[PIDX(vstart, 1)];
+  epud = &__boot_pgt_l1[PIDX(1, vstart)];
 
   pgt_set_table_entry(epud, V2P(earlymem_pgt_l2));
 
   earlycon_putn(*epud);
 
-  epmd = &earlymem_pgt_l2[PIDX(vstart, 2)];
+  epmd = &earlymem_pgt_l2[PIDX(2, vstart)];
 
   pgt_set_block(epmd, pstart, PTE_NORMAL | PTE_SH_INNER);
 
