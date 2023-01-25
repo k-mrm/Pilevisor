@@ -12,6 +12,7 @@
 struct pcpu pcpus[NCPU_MAX];
 char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 static int nr_online_pcpus;
+static bool disallow_mp;
 
 extern const struct cpu_enable_method psci;
 extern const struct cpu_enable_method spin_table;
@@ -133,7 +134,8 @@ static int cpu_prepare(struct device_node *cpudev) {
   const char *compat = dt_node_props(cpudev, "compatible");
   printf("cpu: %s id: %d compat %s\n", cpudev->name, reg, compat);
 
-  cpu_init_enable_method(reg, cpudev);
+  if(cpu_init_enable_method(reg, cpudev) < 0)
+    disallow_mp = true;
 
   return 0;
 }
@@ -152,4 +154,7 @@ void pcpu_init() {
 
   if(nr_online_pcpus == 0)
     panic("no pcpu?");
+
+  if(nr_online_pcpus != 1 && disallow_mp)
+    panic("mp");
 }

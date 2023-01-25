@@ -7,6 +7,8 @@
 #include "memory.h"
 #include "earlycon.h"
 
+static inline u64 prop_read_number(fdt32 *prop, int size);
+
 static inline struct device_node *next_node(struct device_node *prev) {
   if(!prev)
     return localnode.device_tree;
@@ -77,10 +79,8 @@ int dt_node_propa(struct device_node *node, const char *name, u32 *buf) {
 
   for(; p; p = p->next) {
     if(strcmp(p->name, name) == 0) {
-      fdt32 *data = p->data;
       for(int i = 0; i < p->data_len / 4; i++) {
-        fdt32 d = data[i];
-        buf[i] = fdt32_to_u32(d);
+        buf[i] = (u32)prop_read_number(p->data + i, 1);
       }
 
       return 0;
@@ -98,10 +98,8 @@ int dt_node_propa64(struct device_node *node, const char *name, u64 *buf) {
 
   for(; p; p = p->next) {
     if(strcmp(p->name, name) == 0) {
-      fdt64 *data = p->data;
       for(int i = 0; i < p->data_len / 8; i++) {
-        fdt64 d = data[i];
-        buf[i] = fdt64_to_u64(d);
+        buf[i] = prop_read_number(p->data + i * 2, 2);
       }
 
       return 0;
@@ -253,7 +251,11 @@ int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size)
 }
 
 bool dt_node_device_type_is(struct device_node *node, const char *type) {
-  return !strcmp(node->device_type, type);
+  const char *devtype = node->device_type;
+  if(!devtype)
+    return false;
+
+  return !strcmp(devtype, type);
 }
 
 struct device_node *dt_find_node_type_cont(const char *type, struct device_node *cont) {
@@ -383,6 +385,9 @@ struct device_node *dt_next_cpu_device(struct device_node *prev) {
   } else {
     cpus = prev->parent;
   }
+
+  if(!cpus)
+    panic("cpus!?");
 
   start = prev ? prev->next : cpus->child;
 
