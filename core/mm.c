@@ -12,17 +12,20 @@
 #include "printf.h"
 #include "compiler.h"
 #include "assert.h"
+#include "fdt.h"
 
 struct system_memory system_memory;
 
 u64 vmm_pagetable[512] __aligned(4096);
 
+extern u64 __boot_pgt_l1[];
+
 static u64 earlymem_pgt_l2[512] __aligned(4096);
+static u64 bootfdt_pgt_l2[512] __aligned(4096);
+static u64 bootfdt_pgt_l2_2[512] __aligned(4096);
 
 static int root_level;
 static u64 early_phys_start, early_phys_end;
-
-extern u64 __boot_pgt_l1[];
 
 u64 pvoffset;
 
@@ -170,19 +173,31 @@ static u64 at_hva2pa(u64 hva) {
   }
 }
 
-static void *remap_fdt(u64 fdt_base) {
+static void *remap_fdt(u64 fdt_phys) {
   u64 memflags = PTE_NORMAL | PTE_SH_INNER | PTE_RO | PTE_XN;
-  u64 offset;
+  u64 offset, size, fdt_base;
   int rc;
+  void *fdt;
 
-  offset = fdt_base & (BLOCKSIZE_L2 - 1);
-  fdt_base = fdt_base & ~(BLOCKSIZE_L2 - 1);
+  offset = fdt_phys & (BLOCKSIZE_L2 - 1);
+  fdt_base = fdt_phys & ~(BLOCKSIZE_L2 - 1);
   /* map 2MB */
   rc = memmap_huge(FDT_SECTION_BASE, fdt_base, memflags, 0x200000);
   if(rc < 0)
     return NULL;
 
-  return (void *)(FDT_SECTION_BASE + offset);
+  fdt = (void *)(FDT_SECTION_BASE + offset);
+
+  if(fdt_magic(fdt) != FDT_MAGIC)
+    return NULL;
+
+  if(fdt_version(fdt) != 17)
+    return NULL;
+
+  size = fdt_totalsize(fdt);
+  earlycon_putn(size);
+
+  return fdt;
 }
 
 static void pgt_set_table_entry(u64 *pe, u64 next_table_phys) {
@@ -197,6 +212,11 @@ static void pgt_set_block(u64 *pe, u64 phys, u64 memflags) {
     return;
 
   *pe = phys | memflags | PTE_AF | PTE_VALID;
+}
+
+void *early_fdt_map(void *fdt_phys) {
+  // TODO
+  return fdt_phys;
 }
 
 void early_map_earlymem(u64 pstart, u64 pend) {
@@ -254,12 +274,19 @@ static void remap_earlycon() {
   __pagemap(EARLY_PL011_BASE, EARLY_PL011_BASE, flags);
 }
 
-static void map_memory(void *fdt) {
-  device_tree_init(fdt);
+static void remap_earlymem() {
+  u64 vstart = early_phys_start + VIRT_BASE;
+  u64 size = 0x200000;
+  u64 memflags = PTE_NORMAL | PTE_SH_INNER;
 
+  for(u64 i = 0; i < size; i += PAGESIZE) {
+    __pagemap(vstart + i, early_phys_start + i, memflags);
+  }
+}
+
+static void map_memory() {
   /* system_memory available here */
 
-  u64 vbase = VIRT_BASE;
   u64 pbase = system_memory_base();
   u64 memflags;
   struct memblock *mem;
@@ -267,12 +294,17 @@ static void map_memory(void *fdt) {
 
   for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
     u64 phys_off = mem->phys_start - pbase;
+    u64 vbase = VIRT_BASE + phys_off;
     u64 size = mem->size;
 
     for(u64 i = 0; i < size; i += PAGESIZE) {
       u64 p = mem->phys_start + i;
+      u64 v = vbase + i;
       u64 kv = phys2kern(p);
       memflags = PTE_NORMAL | PTE_SH_INNER;
+
+      if(early_phys_start <= p && p < early_phys_end)   // already mapped
+        continue;
 
       if(!is_vmm_text(kv))
         memflags |= PTE_XN;
@@ -280,7 +312,7 @@ static void map_memory(void *fdt) {
       if(is_vmm_text(kv) || is_vmm_rodata(kv))
         memflags |= PTE_RO;
 
-      __pagemap(vbase + phys_off + i, p, memflags);
+      __pagemap(v, p, memflags);
     }
   }
 }
@@ -296,12 +328,14 @@ void *setup_pagetable(u64 fdt_base) {
 
   remap_kernel();
   remap_earlycon();
-
-  virt_fdt = remap_fdt(fdt_base);
+  remap_earlymem();
 
   set_ttbr0_el2(V2P(vmm_pagetable));
 
-  map_memory(virt_fdt);
+  virt_fdt = remap_fdt(fdt_base);
+
+  device_tree_init(virt_fdt);
+  map_memory();
 
   return virt_fdt;
 }

@@ -9,18 +9,18 @@
  *  memory layout
  *
  *  0  - 2M : unmapped
- *  2M - 4M : fdt section
- *  4M - 1G : iomem section (mapped mmio)
+ *  2M - 6M : fdt section
+ *  6M - 1G : iomem section (mapped mmio)
  *  1G - 2G : vmm kernel
  *  2G -    : memory linear map
  */
 
 #define FDT_SECTION_BASE      0x200000
-#define IOMEM_SECTION_BASE    0x400000
+#define IOMEM_SECTION_BASE    0x600000
 #define VMM_SECTION_BASE      0x40000000
 #define VIRT_BASE             0x80000000
 
-#define FDT_SECTION_SIZE      0x200000
+#define FDT_SECTION_SIZE      0x400000
 #define IOMEM_SECTION_SIZE    (VMM_SECTION_BASE - IOMEM_SECTION_BASE)
 
 #ifndef __ASSEMBLER__

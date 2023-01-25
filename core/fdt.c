@@ -97,6 +97,57 @@ struct device_node *fdt_parse(struct fdt *fdt) {
   return root;
 }
 
+static bool fdt_node_name_eq() {
+  return false;
+}
+
+static u64 fdt_next_node(u64 offset) {
+  return 0;
+}
+
+static u64 fdt_offset_path(const void *fdt, const char *path) {
+  /* alias unsupported */
+  if(*path != '/')
+    return 0;
+
+  while(*path == '/')
+    path++;
+
+  u64 offset;
+  int rc;
+
+  for(offset = 0; ; offset = fdt_next_node(offset)) {
+    ;
+  }
+}
+
+static fdt32 *fdt_get_prop(const void *fdt, u64 offset, const char *name, u32 *plen) {
+  ;
+}
+
+static void early_fdt_memory_init(const void *fdt) {
+  u64 memory = fdt_offset_path(fdt, "/memory");
+  fdt32 *reg;
+  u32 len;
+
+  if(!memory)
+    return;
+
+  reg = fdt_get_prop(fdt, memory, "reg", &len);
+}
+
+void early_fdt_init(const void *fdt_phys) {
+  if(fdt_magic(fdt_phys) != FDT_MAGIC)
+    return;
+
+  if(fdt_version(fdt_phys) != 17)
+    return;
+
+  earlycon_putn(fdt_phys);
+
+  early_fdt_memory_init(fdt_phys);
+}
+
 void fdt_probe(struct fdt *fdt, void *base) {
   if(fdt_magic(base) != FDT_MAGIC)
     panic("no fdt");
