@@ -42,10 +42,10 @@ void vmmemmap(u64 *s2pgt, u64 va, u64 pa, u64 size, u64 attr) {
 }
 
 /* make identity map */
-void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size) {
-  u64 va = pa;
+void vmiomap_passthrough(u64 *s2pgt, u64 va, u64 size) {
+  u64 pa = va;
 
-  if(pa % PAGESIZE != 0 || size % PAGESIZE != 0)
+  if(va % PAGESIZE != 0 || size % PAGESIZE != 0)
     panic("vmiomap");
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
@@ -92,6 +92,7 @@ void map_guest_image(u64 *pgt, struct guest *img, u64 ipa) {
 }
 
 void map_guest_peripherals(u64 *s2pgt) {
+  /*
   vmiomap_passthrough(s2pgt, 0x09000000, PAGESIZE);   // UART
   vmiomap_passthrough(s2pgt, 0x09010000, PAGESIZE);   // RTC
   vmiomap_passthrough(s2pgt, 0x09030000, PAGESIZE);   // GPIO
@@ -101,6 +102,7 @@ void map_guest_peripherals(u64 *s2pgt) {
   vmiomap_passthrough(s2pgt, 0x4010000000ul, 256*1024*1024);    // PCIE ECAM
   vmiomap_passthrough(s2pgt, 0x10000000, 0x2eff0000);           // PCIE MMIO
   vmiomap_passthrough(s2pgt, 0x8000000000ul, 0x100000);         // PCIE HIGH MMIO
+  */
 }
 
 void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {

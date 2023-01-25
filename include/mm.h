@@ -174,6 +174,9 @@ u64 *pagewalk(u64 *pgt, u64 va, int root_level, int alloc);
 void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr);
 void pageunmap(u64 *pgt, u64 va, u64 size);
 
+void *early_fdt_map(void *fdt_phys);
+void early_map_earlymem(u64 pstart, u64 pend);
+
 u64 ipa2pa(u64 *pgt, u64 ipa);
 u64 at_uva2pa(u64 uva);
 u64 at_uva2ipa(u64 uva);

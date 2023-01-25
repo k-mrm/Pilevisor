@@ -66,11 +66,11 @@ int vmm_init_secondary() {
 }
 
 int vmm_init_cpu0(void *fdt_phys) {
-  void *fdt;
+  // void *fdt;
   earlycon_puts("vmm init cpu0\n");
 
   early_allocator_init();
-  fdt = early_fdt_map(fdt_phys);
+  // fdt = early_fdt_map(fdt_phys);
 
   iomem_init();
   setup_pagetable((u64)fdt_phys);

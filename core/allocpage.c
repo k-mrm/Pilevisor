@@ -18,7 +18,7 @@
 
 u64 phy_end;
 
-#define MAX_ORDER   10
+#define MAX_ORDER   9
 
 #define ORDER_ALIGN(order, _addr)         \
   ({                                      \
@@ -26,7 +26,7 @@ u64 phy_end;
     (((addr) + (PAGESIZE << ((order) - 1)) - 1) & ~((PAGESIZE << ((order) - 1)) - 1));    \
   })
 
-static u64 used_bitmap[PHYSIZE >> 12 >> 6];
+// static u64 used_bitmap[PHYSIZE >> 12 >> 6];
 
 static void pageallocator_test(void) __unused;
 
@@ -43,12 +43,11 @@ struct free_chunk {
 struct memzone {
   u64 start;
   u64 end;
-  struct free_chunk chunks[MAX_ORDER];
+  struct free_chunk chunks[MAX_ORDER+1];
   spinlock_t lock;
 };
 
-static struct memzone mem;
-static int nzone;
+static struct memzone memzone;
 
 static inline u64 page_buddy_pfn(u64 pfn, int order) {
   return pfn ^ (1 << order);
@@ -77,7 +76,7 @@ static void expand(struct memzone *z, void *page, int order, int page_order) {
 }
 
 static void *__alloc_pages(struct memzone *z, int order) {
-  for(int i = order; i < MAX_ORDER; i++) {
+  for(int i = order; i <= MAX_ORDER; i++) {
     struct free_chunk *f = &z->chunks[i];
 
     if(!f->freelist)
@@ -99,14 +98,14 @@ static void *__alloc_pages(struct memzone *z, int order) {
 void *alloc_pages(int order) {
   u64 flags = 0;
 
-  if(order > MAX_ORDER-1)
+  if(order > MAX_ORDER)
     panic("invalid order %d", order);
 
-  spin_lock_irqsave(&mem.lock, flags);
+  spin_lock_irqsave(&memzone.lock, flags);
 
-  void *p = __alloc_pages(&mem, order);
+  void *p = __alloc_pages(&memzone, order);
 
-  spin_unlock_irqrestore(&mem.lock, flags);
+  spin_unlock_irqrestore(&memzone.lock, flags);
 
   if(!p)
     panic("nomem");
@@ -131,17 +130,18 @@ void free_pages(void *pages, int order) {
   if(!pages)
     panic("null free_page");
 
+  if(order > MAX_ORDER)
+    panic("invalid order");
+
   if((u64)pages & ((PAGESIZE << order) - 1))
     panic("alignment %p %d", pages, order);
 
-  if(order > MAX_ORDER-1)
-    panic("invalid order");
 
-  spin_lock_irqsave(&mem.lock, flags);
+  spin_lock_irqsave(&memzone.lock, flags);
 
-  __free_pages(&mem, pages, order);
+  __free_pages(&memzone, pages, order);
 
-  spin_unlock_irqrestore(&mem.lock, flags);
+  spin_unlock_irqrestore(&memzone.lock, flags);
 }
 
 static void init_free_pages(struct memzone *z, void *pages, int order) {
@@ -153,10 +153,11 @@ static void init_free_pages(struct memzone *z, void *pages, int order) {
 
 static void buddydump(void) {
   printf("----------buddy allocator debug----------\n");
-  for(int i = 0; i < MAX_ORDER; i++) {
-    struct free_chunk *f = &mem.chunks[i];
+  for(int i = 0; i <= MAX_ORDER; i++) {
+    struct free_chunk *f = &memzone.chunks[i];
 
-    printf("order %d %p(->%p) nfree %d\n", i, f->freelist, f->freelist->next, f->nfree);
+    printf("order %d %p %p(->%p) nfree %d\n",
+           i, f, f->freelist, f->freelist ? f->freelist->next : NULL, f->nfree);
   }
 }
 
@@ -180,7 +181,7 @@ static void pageallocator_test() {
 }
 
 void early_allocator_init() {
-  spinlock_init(&mem.lock);
+  spinlock_init(&memzone.lock);
 
   // TODO: determine by fdt 
   u64 start_phys = 0x400000;
@@ -191,9 +192,6 @@ void early_allocator_init() {
   u64 vstart = start_phys + VIRT_BASE;
   u64 vend = end_phys + VIRT_BASE;
 
-  earlycon_putn(vstart);
-  earlycon_putn(vend);
-
   for(; vstart < vend; vstart += PAGESIZE) {
     free_page((void *)vstart);
   }
@@ -202,21 +200,23 @@ void early_allocator_init() {
 void pageallocator_init() {
   system_memory_dump();
 
-  /* align to PAGESIZE << (MAX_ORDER-1) */
   struct memblock *mem;
   int nslot = system_memory.nslot;
+  int total = 0;
 
   for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
     u64 pstart = mem->phys_start;
     u64 size = mem->size;
 
-    for(u64 s = 0; s < size; s += PAGESIZE << (MAX_ORDER - 1)) {
+    for(u64 s = 0; s < size; s += PAGESIZE << MAX_ORDER) {
       if(is_reserved(pstart + s))
         continue;
 
-      init_free_pages(&mem, P2V(pstart + s), MAX_ORDER);
+      init_free_pages(&memzone, P2V(pstart + s), MAX_ORDER);
+
+      total++;
     }
   }
 
-  printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);
+  printf("total %d MB page: %d\n", (PAGESIZE << MAX_ORDER) >> 20, total);
 }
