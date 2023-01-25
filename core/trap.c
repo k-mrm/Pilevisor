@@ -123,6 +123,8 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   u64 faultpage = faulting_ipa_page();
 
+  iabort_iss_dump(iss);
+
   if(vcpu->reg.elr == 0)
     panic("? %p %p %p", faultpage, far, vcpu->reg.elr);
 
@@ -277,7 +279,6 @@ static void iabort_iss_dump(u64 iss) {
 void vm_sync_handler() {
   local_irq_enable();
 
-  // vmm_log("el0/1 sync!\n");
   u64 esr = read_sysreg(esr_el2);
   u64 elr = read_sysreg(elr_el2);
   u64 far = read_sysreg(far_el2);

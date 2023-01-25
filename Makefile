@@ -35,7 +35,7 @@ NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 4
+GUEST_NCPU = 1
 endif
 
 ifndef GUEST_MEMORY
@@ -99,7 +99,7 @@ vmm-boot.img: poc-main
 vmm.img: poc-sub
 	$(OBJCOPY) -O binary $^ $@
 
-poc-main: $(MAINOBJS) $(M)/memory.ld dtb-numa $(KERNIMG) guest/linux/rootfs.img
+poc-main: $(MAINOBJS) $(M)/memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o

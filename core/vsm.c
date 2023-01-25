@@ -494,7 +494,7 @@ void *vsm_read_fetch_page(u64 page_ipa) {
 static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d) {
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
-  void *page_pa = NULL;
+  u64 page_pa = 0;
   int manager = -1;
   u64 page_ipa = page_desc_addr(page);
 
@@ -510,7 +510,7 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
    * may other cpu has readable page already
    */
   if((pte = s2_readable_pte(vttbr, page_ipa)) != NULL) {
-    page_pa = (void *)PTE_PA(*pte);
+    page_pa = PTE_PA(*pte);
     goto end;
   }
 
@@ -533,11 +533,11 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
 
   vmm_log("read req %p: get remote page!\n", page_ipa);
 
-  page_pa = (void *)PTE_PA(*pte);
+  page_pa = PTE_PA(*pte);
 
   /* read data */
   if(unlikely(d))
-    memcpy(d->buf, (char *)page_pa + d->offset, d->size);
+    memcpy(d->buf, P2V(page_pa + d->offset), d->size);
 
   s2pte_ro(pte);
   tlb_s2_flush_all();
@@ -545,7 +545,7 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
 end:
   vsm_process_waitqueue(page);
 
-  return page_pa;
+  return P2V(page_pa);
 }
 
 void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
@@ -570,7 +570,7 @@ void *vsm_write_fetch_page(u64 page_ipa) {
 static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *d) {
   u64 *vttbr = localvm.vttbr;
   u64 *pte;
-  void *page_pa;
+  u64 page_pa = 0;
   int manager = -1;
   u64 page_ipa = page_desc_addr(page);
 
@@ -586,7 +586,7 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
    * may other cpu has readable/writable page already
    */
   if((pte = page_rwable_pte(vttbr, page_ipa)) != NULL) {
-    page_pa = (void *)PTE_PA(*pte);
+    page_pa = PTE_PA(*pte);
     goto end;
   }
 
@@ -604,12 +604,12 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
      */
     vmm_log("write request %p: write to copyset\n", page_ipa);
 
-    void *pa = (void *)PTE_PA(*pte);
+    u64 pa = PTE_PA(*pte);
 
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
 
-    free_page(pa);
+    free_page(P2V(pa));
   }
 
   if(manager == local_nodeid()) {   /* I am manager */
@@ -637,11 +637,11 @@ inv_phase:
 
   s2pte_clear_copyset(pte);
 
-  page_pa = (void *)PTE_PA(*pte);
+  page_pa = PTE_PA(*pte);
 
   /* write data */
   if(unlikely(d))
-    memcpy((char *)page_pa + d->offset, d->buf, d->size);
+    memcpy(P2V(page_pa + d->offset), d->buf, d->size);
 
   s2pte_rw(pte);
   // tlb_s2_flush_all();
@@ -649,7 +649,7 @@ inv_phase:
 end:
   vsm_process_waitqueue(page);
 
-  return page_pa;
+  return P2V(page_pa);
 }
 
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
@@ -788,7 +788,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
   if((pte = page_rwable_pte(vttbr, page_ipa)) != NULL ||
       (((pte = page_ro_pte(vttbr, page_ipa)) != NULL) && s2pte_copyset(pte) != 0)) {
     /* I am owner */
-    void *pa = (void *)PTE_PA(*pte);
+    u64 pa = PTE_PA(*pte);
     u64 copyset = s2pte_copyset(pte);
 
     vmm_log("write server %p %d -> %d I am owner!\n", page_ipa, req_nodeid, local_nodeid());
@@ -797,9 +797,9 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
     tlb_s2_flush_all();
 
     // send p and copyset;
-    send_write_fetch_reply(req_nodeid, page_ipa, pa, copyset);
+    send_write_fetch_reply(req_nodeid, page_ipa, P2V(pa), copyset);
 
-    free_page(pa);
+    free_page(P2V(pa));
 
     if(local_nodeid() == manager) {
       struct manager_page *p = ipa_manager_page(page_ipa);

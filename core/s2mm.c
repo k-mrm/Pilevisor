@@ -181,7 +181,7 @@ void page_access_invalidate(u64 *pgt, u64 va) {
   if(!pte)
     panic("no entry");
 
-  void *pa = (void *)PTE_PA(*pte);
+  u64 pa = PTE_PA(*pte);
 
   s2pte_invalidate(pte);
 

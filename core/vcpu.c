@@ -13,6 +13,7 @@
 #include "tlb.h"
 #include "arch-timer.h"
 #include "memlayout.h"
+#include "s2mm.h"
 
 struct vcpu *vcpu0;
 
@@ -66,7 +67,8 @@ void vcpu_entry() {
 
   write_sysreg(vtcr_el2, localvm.vtcr);
 
-  write_sysreg(vttbr_el2, localvm.vttbr);
+  u64 vttbr = V2P(localvm.vttbr);
+  write_sysreg(vttbr_el2, vttbr);
   tlb_s2_flush_all();
   dsb(sy);
 
@@ -75,9 +77,6 @@ void vcpu_entry() {
   isb();
 
   vcpu_dump(current);
-
-  u64 pa = ipa2pa(localvm.vttbr, 0x40200000);
-  printf("pa %p\n", pa);
 
   /* vmentry */
   trapret();
