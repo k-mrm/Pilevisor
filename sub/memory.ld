@@ -86,7 +86,7 @@ SECTIONS {
       __bss_end = .;
     }
 
-    . = ALIGN(0x200000);
+    . = ALIGN(4096);
     PROVIDE(vmm_end = .);
 
     /DISCARD/ : {

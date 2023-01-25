@@ -142,13 +142,22 @@
 #define PAGESIZE          4096  /* 4KB */
 #define PAGESHIFT         12    /* 1 << 12 */
 
-#define BLOCKSIZE_L2      0x200000      /* 2 MB */
-#define BLOCKSIZE_L1      0x40000000    /* 1 GB */
+#define SZ_2MiB           0x200000
+#define SZ_1GiB           0x40000000
+
+#define BLOCKSIZE_L2      SZ_2MiB
+#define BLOCKSIZE_L1      SZ_1GiB
 
 #define PAGE_ADDRESS(p)   ((u64)(p) & ~(PAGESIZE-1))
 #define PAGE_ALIGNED(p)   ((u64)(p) % PAGESIZE == 0)
 #define PAGE_ALIGN(p)     (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
 #define PAGE_OFFSET(p)    ((u64)(p) & (PAGESIZE-1))
+
+#define ALIGN_DOWN(p, align)  \
+  ((u64)(p) & ~((align) - 1))
+
+#define ALIGN_UP(p, align)  \
+  (((u64)(p) + (align) - 1) & ~((align) - 1))
 
 #ifndef __ASSEMBLER__
 

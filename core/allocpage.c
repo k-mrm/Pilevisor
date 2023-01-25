@@ -40,12 +40,15 @@ struct free_chunk {
   int nfree;
 };
 
-static struct memzone {
+struct memzone {
   u64 start;
   u64 end;
   struct free_chunk chunks[MAX_ORDER];
   spinlock_t lock;
-} mem;
+};
+
+static struct memzone mem;
+static int nzone;
 
 static inline u64 page_buddy_pfn(u64 pfn, int order) {
   return pfn ^ (1 << order);
@@ -197,16 +200,23 @@ void early_allocator_init() {
 }
 
 void pageallocator_init() {
+  system_memory_dump();
+
   /* align to PAGESIZE << (MAX_ORDER-1) */
-  u64 early_alloc_end = ORDER_ALIGN(MAX_ORDER, vmm_end);
+  struct memblock *mem;
+  int nslot = system_memory.nslot;
 
-  mem.start = early_alloc_end;
-  mem.end = VMM_SECTION_BASE + system_memory.allsize;
+  for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
+    u64 pstart = mem->phys_start;
+    u64 size = mem->size;
 
-  printf("buddy: heap [%p - %p) (free area: %d MB) \n", mem.start, mem.end, (mem.end - mem.start) >> 20);
-  printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);
+    for(u64 s = 0; s < size; s += PAGESIZE << (MAX_ORDER - 1)) {
+      if(is_reserved(pstart + s))
+        continue;
 
-  for(u64 s = mem.start; s < mem.end; s += PAGESIZE << (MAX_ORDER - 1)) {
-    init_free_pages(&mem, (void *)s, MAX_ORDER - 1);
+      init_free_pages(&mem, P2V(pstart + s), MAX_ORDER);
+    }
   }
+
+  printf("buddy: max order %d (%d MB)\n", MAX_ORDER, (PAGESIZE << (MAX_ORDER - 1)) >> 20);
 }

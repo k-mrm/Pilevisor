@@ -14,8 +14,6 @@
 #include "assert.h"
 #include "fdt.h"
 
-struct system_memory system_memory;
-
 u64 vmm_pagetable[512] __aligned(4096);
 
 extern u64 __boot_pgt_l1[];
@@ -266,22 +264,28 @@ static void remap_kernel() {
 
     __pagemap(v, p, memflags);
   }
+
+  earlycon_putn(V2P(vmm_start));
+  earlycon_putn(V2P(vmm_end));
+  system_memory_reserve(start_phys, start_phys + i);
+}
+
+static void remap_earlymem() {
+  u64 vstart = early_phys_start + VIRT_BASE;
+  u64 size = 0x200000;
+  u64 i, memflags = PTE_NORMAL | PTE_SH_INNER;
+
+  for(i = 0; i < size; i += PAGESIZE) {
+    __pagemap(vstart + i, early_phys_start + i, memflags);
+  }
+
+  system_memory_reserve(early_phys_start, early_phys_end);
 }
 
 static void remap_earlycon() {
   u64 flags = PTE_DEVICE_nGnRE | PTE_XN;
 
   __pagemap(EARLY_PL011_BASE, EARLY_PL011_BASE, flags);
-}
-
-static void remap_earlymem() {
-  u64 vstart = early_phys_start + VIRT_BASE;
-  u64 size = 0x200000;
-  u64 memflags = PTE_NORMAL | PTE_SH_INNER;
-
-  for(u64 i = 0; i < size; i += PAGESIZE) {
-    __pagemap(vstart + i, early_phys_start + i, memflags);
-  }
 }
 
 static void map_memory() {
@@ -327,8 +331,8 @@ void *setup_pagetable(u64 fdt_base) {
   memset(vmm_pagetable, 0, PAGESIZE);
 
   remap_kernel();
-  remap_earlycon();
   remap_earlymem();
+  remap_earlycon();
 
   set_ttbr0_el2(V2P(vmm_pagetable));
 

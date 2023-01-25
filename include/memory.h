@@ -36,6 +36,11 @@ static inline bool in_memrange(struct memrange *mem, u64 addr) {
 
 extern struct system_memory system_memory;
 
+void system_memory_dump(void);
+void system_memory_reserve(u64 start, u64 end);
+
+bool is_reserved(u64 p);
+
 static inline void system_memory_reg(u64 start, u64 size) {
   struct memblock *mem = &system_memory.slots[system_memory.nslot++];
 
