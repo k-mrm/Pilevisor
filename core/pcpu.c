@@ -134,14 +134,18 @@ static int cpu_prepare(struct device_node *cpudev) {
   const char *compat = dt_node_props(cpudev, "compatible");
   printf("cpu: %s id: %d compat %s\n", cpudev->name, reg, compat);
 
-  if(cpu_init_enable_method(reg, cpudev) < 0)
+  if(cpu_init_enable_method(reg, cpudev) < 0) {
     disallow_mp = true;
+    printf("enable-method?\n");
+  }
 
   return 0;
 }
 
 void pcpu_init() {
   struct device_node *cpu;
+
+  disallow_mp = false;
 
   for(cpu = dt_next_cpu_device(NULL); cpu;
       cpu = dt_next_cpu_device(cpu)) {
@@ -155,6 +159,6 @@ void pcpu_init() {
   if(nr_online_pcpus == 0)
     panic("no pcpu?");
 
-  if(nr_online_pcpus != 1 && disallow_mp)
-    panic("mp");
+  if(nr_online_pcpus > 1 && disallow_mp)
+    panic("mp %d", disallow_mp);
 }
