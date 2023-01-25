@@ -23,7 +23,7 @@ static u64 bootfdt_pgt_l2[512] __aligned(4096);
 static u64 bootfdt_pgt_l2_2[512] __aligned(4096);
 
 static int root_level;
-static u64 early_phys_start, early_phys_end;
+static u64 early_phys_start, early_phys_end, early_memsize;
 
 u64 pvoffset;
 
@@ -99,8 +99,7 @@ static int memmap_huge(u64 va, u64 pa, u64 memflags, u64 size) {
     u64 *pte = &pgt[PIDX(lv, va)];
 
     if((*pte & PTE_VALID) && (*pte & PTE_TABLE)) {
-      u64 pgt_pa = PTE_PA(*pte);
-      pgt = P2V(pgt_pa);
+      pgt = P2V(PTE_PA(*pte));
     } else {
       pgt = alloc_page();
       if(!pgt)
@@ -116,7 +115,6 @@ static int memmap_huge(u64 va, u64 pa, u64 memflags, u64 size) {
     return -1;
 
   pgt_set_block(hugepte, pa, memflags);
-  *hugepte |= PTE_PA(pa) | PTE_AF | PTE_VALID | memflags;
 
   return 0;
 }
@@ -223,24 +221,25 @@ void early_map_earlymem(u64 pstart, u64 pend) {
   u64 *epmd, *epud;
   u64 vstart = pstart + VIRT_BASE;
 
-  assert(pstart % 0x200000 == 0);
-  assert(pend % 0x200000 == 0);
-  assert(size == 0x200000);
+  assert(pstart % SZ_2MiB == 0);
+  assert(pend % SZ_2MiB == 0);
+  assert(size % SZ_2MiB == 0);
 
   early_phys_start = pstart; 
   early_phys_end = pend;
+  early_memsize = size;
 
-  /* map earlymem */
   epud = &__boot_pgt_l1[PIDX(1, vstart)];
-
   pgt_set_table_entry(epud, V2P(earlymem_pgt_l2));
 
-  epmd = &earlymem_pgt_l2[PIDX(2, vstart)];
-
-  pgt_set_block(epmd, pstart, PTE_NORMAL | PTE_SH_INNER);
+  /* map earlymem */
+  for(u64 i = 0; i < size; i += SZ_2MiB) {
+    epmd = &earlymem_pgt_l2[PIDX(2, vstart + i)];
+    pgt_set_block(epmd, pstart + i, PTE_NORMAL | PTE_SH_INNER);
+  }
 }
 
-static void remap_kernel() {
+static void remap_image() {
   u64 start_phys = at_hva2pa(VMM_SECTION_BASE);
   u64 size = (u64)vmm_end - (u64)vmm_start;
   u64 memflags, i;
@@ -262,19 +261,19 @@ static void remap_kernel() {
 
   earlycon_putn(V2P(vmm_start));
   earlycon_putn(V2P(vmm_end));
-  system_memory_reserve(start_phys, start_phys + i);
+  system_memory_reserve(start_phys, start_phys + i, "vmm image");
 }
 
 static void remap_earlymem() {
   u64 vstart = early_phys_start + VIRT_BASE;
-  u64 size = 0x200000;
+  u64 size = early_memsize;
   u64 i, memflags = PTE_NORMAL | PTE_SH_INNER;
 
   for(i = 0; i < size; i += PAGESIZE) {
     __pagemap(vstart + i, early_phys_start + i, memflags);
   }
 
-  system_memory_reserve(early_phys_start, early_phys_end);
+  system_memory_reserve(early_phys_start, early_phys_end, "earlymem");
 }
 
 static void remap_earlycon() {
@@ -290,6 +289,8 @@ static void map_memory() {
   u64 memflags;
   struct memblock *mem;
   int nslot = system_memory.nslot;
+
+  earlycon_putn(system_memory.allsize);
 
   for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
     u64 phys_off = mem->phys_start - pbase;
@@ -325,7 +326,7 @@ void *setup_pagetable(u64 fdt_base) {
 
   memset(vmm_pagetable, 0, PAGESIZE);
 
-  remap_kernel();
+  remap_image();
   remap_earlymem();
   remap_earlycon();
 

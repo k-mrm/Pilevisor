@@ -107,10 +107,8 @@ void *alloc_pages(int order) {
 
   spin_unlock_irqrestore(&memzone.lock, flags);
 
-  if(!p)
-    panic("nomem");
-
-  memset(p, 0, PAGESIZE << order);
+  if(p)
+    memset(p, 0, PAGESIZE << order);
 
   return p;
 }
@@ -191,7 +189,7 @@ void early_allocator_init() {
   pend = ALIGN_UP(pend, SZ_2MiB);
 
   u64 start_phys = pend;
-  u64 end_phys = pend + SZ_2MiB;
+  u64 end_phys = pend + SZ_2MiB * 3;
 
   earlycon_puts("pvoffset: ");
   earlycon_putn(pvoffset);

@@ -22,6 +22,7 @@ struct memblock {
   u64 size;
 
   u64 virt_start;
+  const char *name;
 };
 
 struct system_memory {
@@ -37,7 +38,7 @@ static inline bool in_memrange(struct memrange *mem, u64 addr) {
 extern struct system_memory system_memory;
 
 void system_memory_dump(void);
-void system_memory_reserve(u64 start, u64 end);
+void system_memory_reserve(u64 start, u64 end, const char *name);
 
 bool is_reserved(u64 p);
 

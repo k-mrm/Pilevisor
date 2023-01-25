@@ -24,11 +24,11 @@ void system_memory_dump() {
     u64 start = mem->phys_start;
     u64 size = mem->size;
 
-    printf("\t[%p - %p) (area: %d MB)\n", start, start + size, size >> 20);
+    printf("\t%s: [%p - %p) (area: %d MB)\n", mem->name, start, start + size, size >> 20);
   }
 }
 
-void system_memory_reserve(u64 start, u64 end) {
+void system_memory_reserve(u64 start, u64 end, const char *name) {
   struct memblock *mem = &reserved[nreserved++];
 
   start = ALIGN_DOWN(start, SZ_2MiB);
@@ -36,6 +36,7 @@ void system_memory_reserve(u64 start, u64 end) {
 
   mem->phys_start = start;
   mem->size = end - start;
+  mem->name = name;
 }
 
 bool is_reserved(u64 p) {
