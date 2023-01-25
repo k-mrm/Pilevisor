@@ -285,7 +285,6 @@ static void remap_earlycon() {
 static void map_memory() {
   /* system_memory available here */
 
-  u64 pbase = system_memory_base();
   u64 memflags;
   struct memblock *mem;
   int nslot = system_memory.nslot;
@@ -293,8 +292,7 @@ static void map_memory() {
   earlycon_putn(system_memory.allsize);
 
   for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
-    u64 phys_off = mem->phys_start - pbase;
-    u64 vbase = VIRT_BASE + phys_off;
+    u64 vbase = VIRT_BASE + mem->phys_start;
     u64 size = mem->size;
 
     for(u64 i = 0; i < size; i += PAGESIZE) {
