@@ -183,9 +183,15 @@ static void pageallocator_test() {
 void early_allocator_init() {
   spinlock_init(&memzone.lock);
 
+  pvoffset = VMM_SECTION_BASE - at_hva2pa(VMM_SECTION_BASE);
+
   // TODO: determine by fdt 
-  u64 start_phys = 0x400000;
-  u64 end_phys = 0x600000;
+  u64 pend = V2P(vmm_end);
+
+  pend = ALIGN_UP(pend, SZ_2MiB);
+
+  u64 start_phys = pend;
+  u64 end_phys = pend + SZ_2MiB;
 
   early_map_earlymem(start_phys, end_phys);
 

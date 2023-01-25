@@ -155,7 +155,7 @@ void dump_par_el1(void) {
   }
 } 
 
-static u64 at_hva2pa(u64 hva) {
+u64 at_hva2pa(u64 hva) {
   u64 tmp = read_sysreg(par_el1);
 
   asm volatile ("at s1e2r, %0" :: "r"(hva));
@@ -228,8 +228,6 @@ void early_map_earlymem(u64 pstart, u64 pend) {
 
   early_phys_start = pstart; 
   early_phys_end = pend;
-
-  pvoffset = VMM_SECTION_BASE - at_hva2pa(VMM_SECTION_BASE);
 
   /* map earlymem */
   epud = &__boot_pgt_l1[PIDX(1, vstart)];
