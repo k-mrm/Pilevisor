@@ -469,18 +469,21 @@ static void gicv3_init_cpu() {
 }
 
 static int gicv3_dt_init(struct device_node *dev) {
-  u64 reg[4];
-  int rc = dt_node_propa64(dev, "reg", reg);
-  if(rc < 0)
+  u64 dbase, dsize, rbase, rsize;
+
+  if(dt_node_prop_addr(dev, 0, &dbase, &dsize) < 0)
     return -1;
 
-  u64 dist_base = reg[0];
-  u64 dist_size = reg[1];
-  u64 redist_base = reg[2];
-  u64 redist_size = reg[3];
+  if(dt_node_prop_addr(dev, 1, &rbase, &rsize) < 0)
+    return -1;
 
-  gicd_base = iomap(dist_base, dist_size);
-  gicr_base = iomap(redist_base, redist_size);
+  gicd_base = iomap(dbase, dsize);
+  if(!gicd_base)
+    return -1;
+
+  gicr_base = iomap(rbase, rsize);
+  if(!gicr_base)
+    return -1;
 
   gicv3_d_init();
   gicv3_h_init();
