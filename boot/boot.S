@@ -2,14 +2,14 @@
 #include "mm.h"
 #include "memlayout.h"
 
-#include "earlypl011-rpi.S.inc"
-
 .section ".text.head"
 
 _head:
   b _start
 
 .section ".text.boot"
+
+#include "earlypl011-rpi.S.inc"
 
 /*
  *  volatile x19, x20, x21
@@ -74,6 +74,9 @@ startup0:
   ldr x30, =vmm_init_cpu0
   b enable_boot_mmu   // return to x30: vmm_init_cpu0 (init.c)
 
+  /* unreachable */
+  brk #0
+
 startupothers:
   bl setup_idmap_pagetable
 
@@ -81,6 +84,9 @@ startupothers:
 
   ldr x30, =vmm_init_secondary
   b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
+
+  /* unreachable */
+  brk #0
 
 .macro set_block_r, xpgt, idx, addr, level, memtype
   bic x9, \addr, #((1 << (39 - \level * 9)) - 1)
@@ -109,9 +115,13 @@ startupothers:
   str \tmp1, [\xpgt, \idx, lsl #3]
 .endm
 
-.macro get_slot, pgt, idx, ent
-  adrp x8, \pgt
-  ldr \ent, [x8, \idx, lsl #3]
+.macro get_slot, pgt, idx, ent, tmp
+  adrp \tmp, \pgt
+  ldr \ent, [\tmp, \idx, lsl #3]
+.endm
+
+.macro get_slot_r, xpgt, idx, ent
+  ldr \ent, [\xpgt, \idx, lsl #3]
 .endm
 
 .macro get_slot_nl, pgt, idx, nl
@@ -139,36 +149,25 @@ startupothers:
 .endm 
 
 /*
- *  make identity mapping pa(vmm_start) to pa(vmm_end)
+ *  make identity mapping pa(__idmap_start) to pa(__idmap_end)
  *                        pa(EATLY_PL011_BASE)
  */
 setup_idmap_pagetable:
-  adrp x1, vmm_start
-  adrp x2, vmm_end
+  adrp x1, __idmap_start
 
-  pgt_index x3, x1, 1     // x3 = PIDX(x1, 1)
-
+  pgt_index x3, x1, 1     // x3 = PIDX(1, x1)
   set_table __boot_pgt_l1, x3, __idmap_pgt_l2_1, x9, x10
 
-  pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
-  pgt_index x5, x2, 2     // x5 = PIDX(x2, 2)
+  pgt_index x4, x1, 2     // x4 = PIDX(2, x1)
+  set_table __idmap_pgt_l2_1, x4, __idmap_pgt_l3_1, x9, x10
 
-1:
-  set_block __idmap_pgt_l2_1, x4, x1, 2, PTE_NORMAL
-
-  add x4, x4, #1
-  add x1, x1, #0x200000   // next block
-  cmp x4, x5
-  b.ls 1b
-
-2:
-  pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
-  set_block_r x3, x4, x1, 2, PTE_NORMAL
+  pgt_index x5, x1, 3     // x5 = PIDX(3, x1)
+  set_entry __idmap_pgt_l3_1, x5, x1, PTE_NORMAL
 
   /* map earlyconsole */
   ldr x1, =EARLY_PL011_BASE
 
-  pgt_index x2, x1, 1                   // x2 = PIDX(x1, 1)
+  pgt_index x2, x1, 1                   // x2 = PIDX(1, x1)
   get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
   cbnz x3, 2f
  
@@ -176,13 +175,13 @@ setup_idmap_pagetable:
   adrp x3, __idmap_pgt_l2_2
 
 2:
-  pgt_index x4, x1, 2     // x4 = PIDX(x1, 2)
+  pgt_index x4, x1, 2     // x4 = PIDX(2, x1)
 
-  adrp x9, __idmap_pgt_l3
+  adrp x9, __idmap_pgt_l3_2
   set_table_r x3, x4, x9, x10
 
-  pgt_index x5, x1, 3     // x5 = PIDX(x1, 3)
-  set_entry __idmap_pgt_l3, x5, x1, PTE_DEVICE_nGnRE
+  pgt_index x5, x1, 3     // x5 = PIDX(3, x1)
+  set_entry __idmap_pgt_l3_2, x5, x1, PTE_DEVICE_nGnRE
 
   ret
 
@@ -194,7 +193,7 @@ setup_boot_pagetable:
   ldr x2, =vmm_start        // x2 = va(vmm_start)
   ldr x3, =vmm_end          // x3 = va(vmm_end)
 
-  pgt_index x4, x2, 1       // x4 = PIDX(x2, 1)
+  pgt_index x4, x2, 1       // x4 = PIDX(1, x2)
 
   get_slot_nl __boot_pgt_l1, x4, x5    // x5 = next_level_addr(__boot_pgt_l1[x4])
   cbnz x5, 1f
@@ -207,8 +206,8 @@ setup_boot_pagetable:
    *  x5: level 2 page table address
    */
 1:
-  pgt_index x6, x2, 2       // x6 = PIDX(x2, 2) 
-  pgt_index x7, x3, 2       // x7 = PIDX(x3, 2)
+  pgt_index x6, x2, 2       // x6 = PIDX(2, x2) 
+  pgt_index x7, x3, 2       // x7 = PIDX(2, x3)
 
   adrp x8, __boot_pgt_l3
 
@@ -216,10 +215,10 @@ setup_boot_pagetable:
   set_table_r x5, x6, x8, x9
 
   /* x8 - level 3 table */
-  pgt_index x9, x2, 3       // x9 = PIDX(x2, 3)
+  pgt_index x9, x2, 3       // x9 = PIDX(3, x2)
 
 3:
-  set_entry_r x8, x9, x1, PTE_NORMAL, x10, x11
+  set_entry_r x8, x9, x1, PTE_NORMAL, x11, x12
 
   add x9, x9, #1
   add x1, x1, #PAGESIZE
@@ -235,7 +234,7 @@ setup_boot_pagetable:
 
 pt_crashed:
   earlyputs "abort: crashed pagetable\r\n"
-  b .
+  brk #0    // goto earlypanic
 
 enable_boot_mmu:
   earlyputs "enable boot mmu...\r\n"
@@ -252,8 +251,6 @@ enable_boot_mmu:
   msr sctlr_el2, x1
 
   isb
-
-  earlyputs "go to C world\r\n"
 
   ret
 
@@ -318,6 +315,8 @@ initcpu:
 
   ret
 
+.section ".text"
+
 .macro ventry, label
 .balign 0x80
   b \label
@@ -356,8 +355,6 @@ early_panic:
   mrs x13, far_el2
   mrs x14, esr_el2
   b .
-
-.section ".text"
 
 /*
  *  x0: ttbr0_el2

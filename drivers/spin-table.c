@@ -34,7 +34,7 @@ static int spintable_init(int cpu) {
   if(rc < 0)
     return -1;
 
-  printf("cpu%d: release addr %p", cpu, release_addr[cpu]);
+  printf("cpu%d: release addr %p\n", cpu, release_addr[cpu]);
 
   return 0;
 }

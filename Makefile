@@ -3,7 +3,7 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
-RPI = 1
+#RPI = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
@@ -18,7 +18,8 @@ MAC_H = $(shell date '+%H')
 MAC_M = $(shell date '+%M')
 MAC_S = $(shell date '+%S')
 
-QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
+#QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
+QEMUPREFIX = ~/qemu/build/
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
 
 GIC_VERSION = 3
@@ -44,11 +45,14 @@ endif
 QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic
+
+ifdef RPI
 QEMUOPTS += -dtb ./guest/bcm2711-rpi-4-b.dtb
-ifndef RPI
+else
 QEMUOPTS += -netdev tap,id=net0,ifname=tap$(TAP_NUM),script=no,downscript=no
 QEMUOPTS += -device virtio-net-device,netdev=net0,mac=70:32:17:$(MAC_H):$(MAC_M):$(MAC_S),bus=virtio-mmio-bus.0
 endif
+
 QEMUOPTS += -kernel
 
 # directory

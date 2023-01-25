@@ -193,10 +193,18 @@ void early_allocator_init() {
   u64 start_phys = pend;
   u64 end_phys = pend + SZ_2MiB;
 
+  earlycon_puts("pvoffset: ");
+  earlycon_putn(pvoffset);
+  earlycon_puts("pend: ");
+  earlycon_putn(pend);
+
   early_map_earlymem(start_phys, end_phys);
 
   u64 vstart = start_phys + VIRT_BASE;
   u64 vend = end_phys + VIRT_BASE;
+
+  earlycon_puts("vstart: ");
+  earlycon_putn(vstart);
 
   for(; vstart < vend; vstart += PAGESIZE) {
     free_page((void *)vstart);

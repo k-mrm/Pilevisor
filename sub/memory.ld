@@ -2,12 +2,11 @@ OUTPUT_ARCH("aarch64")
 ENTRY(_start)
 
 SECTIONS {
-    . = 0x40000000;
+    . = 0x80000000;
     PROVIDE(vmm_start = .);
 
-    ASSERT(vmm_start % 0x1000 == 0, "vmm misaligned")
-
     __text_start = .;
+    __idmap_start = .;
 
     .text.head : {
       KEEP(*(.text.head))
@@ -16,6 +15,9 @@ SECTIONS {
     .text.boot : {
       KEEP(*(.text.boot))
     }
+
+    . = ALIGN(4096);
+    __idmap_end = .;
 
     /*
     /DISCARD/ : {
@@ -71,7 +73,9 @@ SECTIONS {
       . += 4096;
       __idmap_pgt_l2_2 = .;
       . += 4096;
-      __idmap_pgt_l3 = .;
+      __idmap_pgt_l3_1 = .;
+      . += 4096;
+      __idmap_pgt_l3_2 = .;
       . += 4096;
       __boot_pgt_l2 = .;
       . += 4096;
@@ -95,3 +99,6 @@ SECTIONS {
 }
 
 __bss_size = (__bss_end - __bss_start) >> 3;
+
+ASSERT(vmm_start % 0x1000 == 0, "vmm misaligned")
+ASSERT(__idmap_end - __idmap_start == 4096, "idmap too big")

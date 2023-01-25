@@ -99,7 +99,8 @@ static int memmap_huge(u64 va, u64 pa, u64 memflags, u64 size) {
     u64 *pte = &pgt[PIDX(lv, va)];
 
     if((*pte & PTE_VALID) && (*pte & PTE_TABLE)) {
-      pgt = (u64 *)PTE_PA(*pte);
+      u64 pgt_pa = PTE_PA(*pte);
+      pgt = P2V(pgt_pa);
     } else {
       pgt = alloc_page();
       if(!pgt)
@@ -234,13 +235,9 @@ void early_map_earlymem(u64 pstart, u64 pend) {
 
   pgt_set_table_entry(epud, V2P(earlymem_pgt_l2));
 
-  earlycon_putn(*epud);
-
   epmd = &earlymem_pgt_l2[PIDX(2, vstart)];
 
   pgt_set_block(epmd, pstart, PTE_NORMAL | PTE_SH_INNER);
-
-  earlycon_putn(*epmd);
 }
 
 static void remap_kernel() {
