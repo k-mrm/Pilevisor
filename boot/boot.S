@@ -80,8 +80,6 @@ startup0:
 startupothers:
   bl initcpu
 
-  earlyputs "startup others...\r\n"
-
   ldr x30, =vmm_init_secondary
   b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
 

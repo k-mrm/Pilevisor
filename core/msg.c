@@ -277,16 +277,10 @@ struct msg *send_msg(struct msg *msg) {
     dst_mac = node_macaddr(msg->dst_id);
   }
 
-  struct iobuf *buf = alloc_iobuf(64);
+  struct iobuf *buf = alloc_iobuf_headsize(64, sizeof(struct etherheader));
+  u16 type = POCV2_MSG_ETH_PROTO | (msg->hdr->type << 8);
 
-  struct etherheader *eth = (struct etherheader *)buf->data;
-  memcpy(eth->dst, dst_mac, 6);
-  memcpy(eth->src, localnode.nic->mac, 6);
-  eth->type = POCV2_MSG_ETH_PROTO | (msg->hdr->type << 8);
-
-  buf->eth = eth;
-
-  memcpy((u8 *)buf->data + sizeof(struct etherheader), msg->hdr, msg_hdr_size(msg));
+  memcpy((u8 *)buf->data, msg->hdr, msg_hdr_size(msg));
 
   if(msg->body) {
     buf->body = alloc_page();
@@ -294,7 +288,7 @@ struct msg *send_msg(struct msg *msg) {
     buf->body_len = msg->body_len;
   }
 
-  ether_send_packet(localnode.nic, buf);
+  ether_send_packet(localnode.nic, dst_mac, type, buf);
 
   if(msg->flags & M_WAITREPLY) {
     struct msg *reply;

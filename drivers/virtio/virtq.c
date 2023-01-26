@@ -7,6 +7,7 @@
 #include "virtq.h"
 #include "panic.h"
 #include "malloc.h"
+#include "memlayout.h"
 
 int virtq_reg_to_dev(struct virtq *vq) {
   return vtmmio_set_virtq(vq->dev, vq, vq->qsel);
@@ -44,7 +45,7 @@ void virtq_enqueue(struct virtq *vq, struct qlist *qs, int nqs, void *x, bool in
 
     desc = &vq->desc[idx];
 
-    desc->addr = (u64)qs[i].buf;
+    desc->addr = V2P(qs[i].buf);
     desc->len = qs[i].len;
 
     desc->flags = 0;

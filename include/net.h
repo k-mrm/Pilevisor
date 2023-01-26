@@ -26,6 +26,7 @@ struct nic {
 struct iobuf {
   void *head;
   void *data;
+  void *tail;
 
   struct etherheader *eth;
 
@@ -35,8 +36,14 @@ struct iobuf {
   u32 body_len;
 };
 
-struct iobuf *alloc_iobuf(u32 size);
+struct iobuf *alloc_iobuf_headsize(u32 size, u32 headsize);
+
+static inline struct iobuf *alloc_iobuf(u32 size) {
+  return alloc_iobuf_headsize(size, 0);
+}
+
 void free_iobuf(struct iobuf *buf);
+void *iobuf_push(struct iobuf *buf, u32 size);
 void *iobuf_pull(struct iobuf *buf, u32 size);
 void iobuf_set_len(struct iobuf *buf, u32 len);
 

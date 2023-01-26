@@ -26,11 +26,17 @@ void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
   vmm_log("found nic: %s %m @%p\n", name, mac, &netdev);
 }
 
-struct iobuf *alloc_iobuf(u32 size) {
+struct iobuf *alloc_iobuf_headsize(u32 size, u32 headsize) {
+  if(size < headsize)
+    return NULL;
+
   struct iobuf *buf = malloc(sizeof(*buf));
 
-  buf->head = buf->data = malloc(size);
-  buf->len = size;
+  buf->head = malloc(size);
+  buf->data = (u8 *)buf->head + headsize;
+  buf->tail = (u8 *)buf->head + size;
+
+  buf->len = size - headsize;
 
   buf->body = NULL;
   buf->body_len = 0;
@@ -50,16 +56,24 @@ void free_iobuf(struct iobuf *buf) {
 void *iobuf_push(struct iobuf *buf, u32 size) {
   void *old = buf->data;
 
-  buf->data = (u8 *)buf->data - size;
+  void *data = (u8 *)buf->data - size;
+  if(data < buf->head)
+    return NULL;
+
+  buf->data = data;
   buf->len += size;
 
-  return old;
+  return data;
 }
 
 void *iobuf_pull(struct iobuf *buf, u32 size) {
   void *old = buf->data;
 
-  buf->data = (u8 *)buf->data + size;
+  void *data = (u8 *)buf->data + size;
+  if(data >= buf->tail)
+    return NULL;
+
+  buf->data = data;
   buf->len -= size;
 
   return old;

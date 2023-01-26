@@ -35,11 +35,11 @@ NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 4
+GUEST_NCPU = 8
 endif
 
 ifndef GUEST_MEMORY
-GUEST_MEMORY = 256
+GUEST_MEMORY = 512
 endif
 
 QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G

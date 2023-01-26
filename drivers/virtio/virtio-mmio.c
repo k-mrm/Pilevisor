@@ -9,6 +9,7 @@
 #include "malloc.h"
 #include "mm.h"
 #include "panic.h"
+#include "memlayout.h"
 
 #define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
 #define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)
@@ -124,14 +125,18 @@ int vtmmio_set_virtq(struct virtio_mmio_dev *dev, struct virtq *vq, int qsel) {
 
   vtmmio_write(dev, VIRTIO_MMIO_QUEUE_NUM, NQUEUE);
 
-  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DESC_LOW, LO(vq->desc));
-  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DESC_HIGH, HI(vq->desc));
+  u64 p_desc = V2P(vq->desc);
+  u64 p_avail = V2P(vq->avail);
+  u64 p_used = V2P(vq->used);
 
-  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DRIVER_LOW, LO(vq->avail));
-  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DRIVER_HIGH, HI(vq->avail));
+  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DESC_LOW, LO(p_desc));
+  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DESC_HIGH, HI(p_desc));
 
-  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DEVICE_LOW, LO(vq->used));
-  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DEVICE_HIGH, HI(vq->used));
+  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DRIVER_LOW, LO(p_avail));
+  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DRIVER_HIGH, HI(p_avail));
+
+  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DEVICE_LOW, LO(p_used));
+  vtmmio_write(dev, VIRTIO_MMIO_QUEUE_DEVICE_HIGH, HI(p_used));
 
   vtmmio_vqlist_add(dev, vq);
 

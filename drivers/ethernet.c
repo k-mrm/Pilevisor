@@ -1,4 +1,5 @@
 #include "ethernet.h"
+#include "aarch64.h"
 #include "net.h"
 #include "mm.h"
 #include "lib.h"
@@ -6,12 +7,20 @@
 #include "malloc.h"
 #include "log.h"
 #include "msg.h"
-#include "aarch64.h"
+#include "localnode.h"
 
 u8 bcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-void ether_send_packet(struct nic *nic, struct iobuf *buf) {
-  iobuf_push(buf, sizeof(struct etherheader));
+void ether_send_packet(struct nic *nic, u8 *dst_mac, u16 type, struct iobuf *buf) {
+  struct etherheader *eth = iobuf_push(buf, sizeof(struct etherheader));
+  if(!eth)
+    panic("eth");
+
+  memcpy(eth->dst, dst_mac, 6);
+  memcpy(eth->src, localnode.nic->mac, 6);
+  eth->type = type;
+
+  buf->eth = eth;
 
   nic->ops->xmit(nic, buf);
 }

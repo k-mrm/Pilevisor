@@ -12,6 +12,7 @@
 #include "msg.h"
 #include "irq.h"
 #include "panic.h"
+#include "memlayout.h"
 
 static struct virtio_net vtnet_dev;
 
