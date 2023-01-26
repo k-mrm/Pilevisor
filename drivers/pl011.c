@@ -87,9 +87,6 @@ static int pl011_dt_init(struct device_node *dev) {
 
   uartbase = iomap(base, size);
 
-  earlycon_putn(base);
-  earlycon_putn(uartbase);
-
   /* disable uart */
   pl011_write(CR, 0);
   pl011_write(LCRH, 0);

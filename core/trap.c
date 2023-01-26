@@ -172,8 +172,6 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   vcpu->dabt.reg = r;
   vcpu->dabt.accbyte = 1 << sas;
 
-  printf("dabort ipa: %p va: %p elr: %p %s %d\n", ipa, far, vcpu->reg.elr, wnr ? "write" : "read", r);
-
   void *pa;
   if(wnr)
     pa = vsm_write_fetch_page(fipa_page);

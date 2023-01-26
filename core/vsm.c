@@ -396,13 +396,14 @@ int vsm_fetch_and_cache_dummy(u64 page_ipa) {
 
 static void vsm_set_cache_fast(u64 ipa_page, u8 *page, u64 copyset) {
   u64 *vttbr = localvm.vttbr;
+  u64 page_phys = V2P(page);
 
   vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
 
   // printf("vsm: cache @%p(%p) copyset: %p count%d\n", ipa_page, page, copyset, ++count);
 
   /* set access permission later */
-  pagemap(vttbr, ipa_page, (u64)page, PAGESIZE, PTE_NORMAL|S2PTE_COPYSET(copyset));
+  pagemap(vttbr, ipa_page, page_phys, PAGESIZE, PTE_NORMAL|S2PTE_COPYSET(copyset));
 }
 
 /*
@@ -629,7 +630,7 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
 
   pte = vsm_wait_for_recv_timeout(vttbr, page_ipa);
 
-  vmm_log("write request %p: get remote page\n", page_ipa);
+  vmm_log("write request %p: get remote page!\n", page_ipa);
 
 inv_phase:
   /* invalidate request to copyset */
@@ -638,6 +639,8 @@ inv_phase:
   s2pte_clear_copyset(pte);
 
   page_pa = PTE_PA(*pte);
+
+  vmm_log("write request: page_pa %p\n", page_pa);
 
   /* write data */
   if(unlikely(d))

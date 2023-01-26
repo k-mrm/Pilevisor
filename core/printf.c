@@ -235,7 +235,7 @@ int printf(const char *fmt, ...) {
 
   spin_lock_irqsave(&prlock, flags);
 
-  if(level <= LLOG) {
+  if(level <= LWARN) {
     putcf = localnode.uart ? uart_putc : earlycon_putc;
   } else {
     putcf = lputc;
