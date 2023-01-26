@@ -3,7 +3,7 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
-#RPI = 1
+RPI = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
@@ -18,8 +18,12 @@ MAC_H = $(shell date '+%H')
 MAC_M = $(shell date '+%M')
 MAC_S = $(shell date '+%S')
 
-#QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
+ifdef RPI
+QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
+else
 QEMUPREFIX = ~/qemu/build/
+endif
+
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
 
 GIC_VERSION = 3
@@ -31,11 +35,11 @@ MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 endif
 
 ifndef NCPU
-NCPU = 1
+NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 2
+GUEST_NCPU = 8
 endif
 
 ifndef GUEST_MEMORY

@@ -10,6 +10,12 @@ typedef signed short i16;
 typedef unsigned char u8;
 typedef signed char i8;
 
+/* physical address */
+typedef u64 physaddr_t;
+
+/* intermediate physical address */
+typedef u64 ipa_t;
+
 #define NULL ((void *)0)
 
 typedef _Bool bool;
