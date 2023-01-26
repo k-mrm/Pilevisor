@@ -35,7 +35,7 @@ NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 1
+GUEST_NCPU = 4
 endif
 
 ifndef GUEST_MEMORY

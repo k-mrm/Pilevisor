@@ -13,6 +13,7 @@
 #include "spinlock.h"
 #include "panic.h"
 #include "assert.h"
+#include "memlayout.h"
 
 void _start(void);
 
@@ -106,7 +107,7 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
     if(localcpu(localid)->wakeup) {  /* pcpu already wakeup */
       status = PSCI_SUCCESS;
     } else {    /* pcpu sleeping... */
-      int c = cpu_boot(localid, (u64)_start);
+      int c = cpu_boot(localid, (u64)V2P(_start));
       if(c < 0) {
         vmm_warn("cpu%d wakeup failed", localid);
         status = PSCI_DENIED;

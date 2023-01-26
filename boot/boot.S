@@ -78,9 +78,9 @@ startup0:
   brk #0
 
 startupothers:
-  bl setup_idmap_pagetable
-
   bl initcpu
+
+  earlyputs "startup others...\r\n"
 
   ldr x30, =vmm_init_secondary
   b enable_mmu_secondary   // return to x30: vmm_init_secondary (init.c)
@@ -255,8 +255,7 @@ enable_boot_mmu:
   ret
 
 enable_mmu_secondary:
-  ldr x1, =vmm_pagetable
-  ldr x1, [x1]
+  adrp x1, __boot_pgt_l1
   msr ttbr0_el2, x1
 
   tlbi alle2

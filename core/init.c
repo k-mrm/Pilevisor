@@ -47,7 +47,7 @@ static void hcr_setup() {
 }
 
 int vmm_init_secondary() {
-  vmm_log("cpu%d activated...\n", cpuid());
+  setup_pagetable_secondary();
 
   trapinit();
   pcpu_init_core();

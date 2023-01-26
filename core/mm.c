@@ -315,6 +315,10 @@ static void map_memory() {
   }
 }
 
+void setup_pagetable_secondary() {
+  set_ttbr0_el2(V2P(vmm_pagetable));
+}
+
 void *setup_pagetable(u64 fdt_base) {
   void *virt_fdt;
 

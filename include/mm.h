@@ -194,6 +194,8 @@ void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
 void map_guest_image(u64 *pgt, struct guest *img, u64 ipa);
 void alloc_guestmem(u64 *pgt, u64 ipa, u64 size);
 
+void setup_pagetable_secondary(void);
+
 u64 at_hva2pa(u64 hva);
 
 void dump_par_el1(void);
