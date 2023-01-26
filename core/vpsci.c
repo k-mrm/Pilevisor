@@ -77,7 +77,7 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
   ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
   int ret = ack->ret;
 
-  vmm_log("remote vcpu wakeup status: %d(=%s)\n", ret, psci_status_map(ret));
+  printf("remote vcpu%d wakeup status: %d(=%s)\n", target_cpuid, ret, psci_status_map(ret));
 
   free_recv_msg(reply);
 

@@ -704,6 +704,7 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
   */
 
   msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, 0);
+  vmm_log("send read fetch reply %p\n", page);
 
   send_msg(&msg);
 }
@@ -756,7 +757,7 @@ static void vsm_read_server_process(struct vsm_server_proc *proc) {
     vmm_log("read server %p: %d -> %d: I am owner!\n", page_ipa, req_nodeid, local_nodeid());
 
     /* send p */
-    send_read_fetch_reply(req_nodeid, page_ipa, (void *)pa);
+    send_read_fetch_reply(req_nodeid, page_ipa, P2V(pa));
   } else if(local_nodeid() == manager) {  /* I am manager */
     struct manager_page *p = ipa_manager_page(page_ipa);
     int p_owner = p->owner;
