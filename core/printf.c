@@ -6,6 +6,7 @@
 #include "panic.h"
 #include "localnode.h"
 #include "log.h"
+#include "earlycon.h"
 
 #define PRINT_NBUF    (32 * 1024)
 
@@ -182,10 +183,13 @@ void logflush() {
 
 int vprintf(const char *fmt, va_list ap) {
   u64 flags;
+  void (*putcf)(char);
 
   spin_lock_irqsave(&prlock, flags);
 
-  int rc = __vprintf(fmt, ap, uart_putc);
+  putcf = localnode.uart ? uart_putc : earlycon_putc;
+
+  int rc = __vprintf(fmt, ap, putcf);
 
   spin_unlock_irqrestore(&prlock, flags);
 
@@ -194,10 +198,10 @@ int vprintf(const char *fmt, va_list ap) {
 
 static void levelprefix(int level, void (*cf)(char)) {
   switch(level) {
-    case 1:     // WARN
+    case LWARN:
       __printf(cf, "[warning]: Node%d:cpu%d: ", local_nodeid(), cpuid());
       return;
-    case 2:     // LOG
+    case LLOG:
       __printf(cf, "[log]: Node%d:cpu%d: ", local_nodeid(), cpuid());
       return;
   }
@@ -231,7 +235,11 @@ int printf(const char *fmt, ...) {
 
   spin_lock_irqsave(&prlock, flags);
 
-  putcf = level <= 1 ? uart_putc : lputc;
+  if(level <= LLOG) {
+    putcf = localnode.uart ? uart_putc : earlycon_putc;
+  } else {
+    putcf = lputc;
+  }
 
   if(level)
     levelprefix(level, putcf);

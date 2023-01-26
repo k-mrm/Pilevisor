@@ -23,7 +23,7 @@ void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
 
   localnode.nic = &netdev;
 
-  vmm_log("found nic: %s %m @%p\n", name, mac, &netdev);
+  printf("found nic: %s %m @%p\n", name, mac, &netdev);
 }
 
 struct iobuf *alloc_iobuf_headsize(u32 size, u32 headsize) {

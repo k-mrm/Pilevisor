@@ -5,8 +5,13 @@
 
 // #define NDEBUG
 
-#define WARN      "\001" "1"
-#define LOG       "\001" "2"
+#define LWARN     1
+#define LLOG      2
+
+#define LOGPREFIX(l)    "\001" #l
+
+#define WARN      LOGPREFIX(1)
+#define LOG       LOGPREFIX(2)
 
 #define vmm_warn(...) printf(WARN __VA_ARGS__)
 

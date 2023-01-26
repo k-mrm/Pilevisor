@@ -192,7 +192,6 @@ static void *remap_fdt(u64 fdt_phys) {
     return NULL;
 
   size = fdt_totalsize(fdt);
-  earlycon_putn(size);
 
   return fdt;
 }
@@ -259,8 +258,6 @@ static void remap_image() {
     __pagemap(v, p, memflags);
   }
 
-  earlycon_putn(V2P(vmm_start));
-  earlycon_putn(V2P(vmm_end));
   system_memory_reserve(start_phys, start_phys + i, "vmm image");
 }
 
@@ -288,8 +285,6 @@ static void map_memory() {
   u64 memflags;
   struct memblock *mem;
   int nslot = system_memory.nslot;
-
-  earlycon_putn(system_memory.allsize);
 
   for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
     u64 vbase = VIRT_BASE + mem->phys_start;

@@ -6,6 +6,7 @@
 
 #ifndef __ASSEMBLER__
 
+void earlycon_putc(char c);
 void earlycon_puts(const char *s);
 
 #endif  /* __ASSEMBLER__ */

@@ -35,4 +35,6 @@ void uart_init() {
 
   if(!n)
     panic("no serial device");
+  if(!localnode.uart)
+    panic("uart???");
 }

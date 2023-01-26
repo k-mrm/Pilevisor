@@ -39,7 +39,7 @@ volatile static int cpu0_ready = 0;
 
 static void hcr_setup() {
   u64 hcr = HCR_VM | HCR_SWIO | HCR_FMO | HCR_IMO |
-            HCR_RW | HCR_TSC /* | HCR_TDZ */;
+            HCR_RW | HCR_TSC | HCR_TDZ;
 
   write_sysreg(hcr_el2, hcr);
 
@@ -67,7 +67,7 @@ int vmm_init_secondary() {
 
 int vmm_init_cpu0(void *fdt_phys) {
   // void *fdt;
-  earlycon_puts("vmm init cpu0\n");
+  printf("vmm init cpu0\n");
 
   early_allocator_init();
   // fdt = early_fdt_map(fdt_phys);

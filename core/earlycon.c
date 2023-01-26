@@ -10,7 +10,7 @@ static inline void w(u64 addr, u32 val) {
   *(volatile u32 *)addr = val;
 }
 
-static inline void earlycon_putc(char c) {
+void earlycon_putc(char c) {
   while(r(EARLY_PL011_BASE + FR) & FR_TXFF)
     ;
 
