@@ -1,8 +1,8 @@
 /*
- *  dcache_invalidate(void *va_start, void *va_end)
+ *  void dcache_inval_poc(void *va_start, void *va_end)
  */
-.global dcache_invalidate
-dcache_invalidate:
+.global dcache_inval_poc
+dcache_inval_poc:
   mrs x2, ctr_el0
   ubfx x4, x2, #16, #4
   mov x3, #4

@@ -2,6 +2,8 @@
 #include "device.h"
 #include "pcpu.h"
 #include "param.h"
+#include "mm.h"
+#include "cache.h"
 
 static u64 release_addr[NCPU_MAX];
 
@@ -11,14 +13,19 @@ static int spintable_boot(int cpu, u64 entrypoint) {
     return -1;
   }
 
-  volatile void *rel_addr = (volatile void *)release_addr[cpu];
+  u64 addr = release_addr[cpu];
+
+  volatile void *rel_addr = iomap(addr, sizeof(addr));
+  if(!rel_addr)
+    return -1;
+
+  printf("rel addr %p\n", rel_addr);
 
   *(volatile u64 *)rel_addr = entrypoint;
 
-  isb();
   dsb(sy);
 
-  // TODO: invalidate dcache point of coherency
+  dcache_inval_poc((u64)rel_addr, (u64)rel_addr + sizeof(u64));
 
   sev();
 
