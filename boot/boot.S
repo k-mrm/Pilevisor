@@ -19,7 +19,7 @@ _head:
 1:
   ldrb w20, [x19], #1
   cbz w20, 3f
-  earlycon_tx x21, w20
+  earlycon_tx x21, w20, w22
   b 1b
 
   .pushsection .rodata.str, "aS"

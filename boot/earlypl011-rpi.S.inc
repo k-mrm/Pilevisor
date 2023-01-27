@@ -28,9 +28,23 @@ earlycon_init:
   mov w2, #0x301       // RXE, TXE, UARTEN
   str w2, [x1, #CR]
 
+  /* enable GPIO 14, 15 */
+  ldr x1, =EARLY_GPIO_BASE
+
+  ldr w2, [x1, #GPFSEL(1)]
+  orr w2, w2, #(4 << 12)
+  orr w2, w2, #(4 << 15)
+  str w2, [x1, #GPFSEL(1)]
+
   ret
 
-.macro earlycon_tx, base, c
+.macro earlycon_tx, base, c, tmp
   ldr \base, =EARLY_PL011_BASE
+
+99:
+  ldrh \tmp, [\base, #FR]
+  tst  \tmp, #0x8
+  b.ne 99b
+
   strb \c, [\base, #DR]
 .endm
