@@ -321,7 +321,6 @@ struct device_node *dt_find_node_path_fullname(const char *fullname) {
 
   do {
     len = strchrlen(fullname, '/');
-    printf("fulll %s %d\n", fullname, len);
 
     for(struct device_node *child = left->child; child; child = child->next) {
       if(node_name_is_len(child, fullname, len)) {
@@ -357,7 +356,7 @@ struct device_node *dt_find_node_path(const char *path) {
 
     do {
       len = strchrlen(path, '/');
-      printf("path%s\n", path);
+      printf("path%s %d\n", path, len);
 
       for(struct device_node *child = left->child; child; child = child->next) {
         if(node_name_is_len(child, path, len)) {
