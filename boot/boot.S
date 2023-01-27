@@ -62,12 +62,11 @@ prestartup:
 startup0:
   bl bss_clear
 
+  bl earlycon_init
+  earlyputs "boot cpu init...\r\n"
+
   bl setup_idmap_pagetable
   bl setup_boot_pagetable
-
-  bl earlycon_init
-
-  earlyputs "boot cpu init...\r\n"
 
   bl initcpu
 

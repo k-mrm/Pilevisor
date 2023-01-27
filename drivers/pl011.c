@@ -11,6 +11,7 @@
 #include "mm.h"
 #include "localnode.h"
 #include "compiler.h"
+#include "gpio.h"
 
 static void *uartbase;
 
@@ -86,6 +87,9 @@ static int pl011_dt_init(struct device_node *dev) {
     return -1;
 
   uartbase = iomap(base, size);
+
+  rpi_gpio_set_pinmode(14, ALT0);
+  rpi_gpio_set_pinmode(15, ALT0);
 
   /* disable uart */
   pl011_write(CR, 0);

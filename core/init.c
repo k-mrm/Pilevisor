@@ -78,6 +78,9 @@ int vmm_init_cpu0(void *fdt_phys) {
   irqchip_init();
   irqchip_init_core();
 
+  gpio_init();
+  mailbox_init();
+
   uart_init();
   printf("vmm booting...\n");
 
@@ -85,8 +88,6 @@ int vmm_init_cpu0(void *fdt_phys) {
 
   pageallocator_init();
 
-  gpio_init();
-  mailbox_init();
   psci_init();
 
   pcpu_init();

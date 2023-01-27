@@ -1,5 +1,6 @@
 #include "pl011.h"
 #include "earlycon.h"
+#include "gpio.h"
 
 /*
  *  early console pl011
@@ -15,12 +16,16 @@ earlycon_init:
   str wzr, [x1, #IFLS]
   str wzr, [x1, #IMSC]
 
-  /* TODO: set baudrate */
+  /* set baudrate to 115200 */
+  mov w2, #26
+  str w2, [x1, #IBRD]
+  mov w2, #3
+  str w2, [x1, #FBRD]
 
   mov w2, #LCRH_WLEN_8BIT
   str w2, [x1, #LCRH] 
 
-  mov w2, 0x301   /* RXE, TXE, UARTEN */
+  mov w2, #0x301       // RXE, TXE, UARTEN
   str w2, [x1, #CR]
 
   ret

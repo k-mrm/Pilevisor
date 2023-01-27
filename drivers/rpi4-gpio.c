@@ -6,10 +6,6 @@
 
 static void *gpio_base;
 
-#define GPFSEL(n)   (0x4 * (n))
-#define GPSET(n)    (0x1c + 0x4 * (n))
-#define GPCLR(n)    (0x28 + 0x4 * (n))
-
 static void gpio_write(u32 offset, u32 val) {
   *(volatile u32 *)((u64)gpio_base + offset) = val;
 }

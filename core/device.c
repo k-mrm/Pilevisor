@@ -427,7 +427,6 @@ int compat_dt_device_init(struct dt_device *table, struct device_node *node,
 }
 
 static void setup_system_memory() {
-  u64 base, size;
   u32 len, nranges, na, ns, oneroom;
   fdt32 *memranges;
 
