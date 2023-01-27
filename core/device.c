@@ -267,6 +267,14 @@ struct device_node *dt_find_node_type_cont(const char *type, struct device_node 
   return NULL;
 }
 
+static bool node_fullname_is(struct device_node *node, const char *fullname) {
+  return !strcmp(node->name, fullname);
+}
+
+static bool node_name_is_len(struct device_node *node, const char *name, int len) {
+  return !strncmp(node->name, name, len);
+}
+
 static bool node_name_is(struct device_node *node, const char *name) {
   const char *at;
 
@@ -281,21 +289,91 @@ static bool node_name_is(struct device_node *node, const char *name) {
   }
 }
 
+static const char *alias(const char *path) {
+  struct device_node *aliases = dt_find_node_path("/aliases");
+  if(!aliases)
+    return NULL;
+
+  for(struct property *p = aliases->prop; p; p = p->next) {
+    if(strcmp(p->name, path) == 0) {
+      return (const char *)p->data;
+    }
+  }
+}
+
+struct device_node *dt_find_node_alias(const char *a) {
+  const char *truename = alias(a);
+
+  return dt_find_node_path_fullname(truename);
+}
+
+struct device_node *dt_find_node_path_fullname(const char *fullname) {
+  struct device_node *root = localnode.device_tree;
+  struct device_node *left = root;
+  int len;
+  const char *efullname = fullname + strlen(fullname);
+
+  if(strcmp(fullname, "/") == 0)
+    return root;
+
+  while(*fullname == '/')
+    fullname++;
+
+  do {
+    len = strchrlen(fullname, '/');
+    printf("fulll %s %d\n", fullname, len);
+
+    for(struct device_node *child = left->child; child; child = child->next) {
+      if(node_name_is_len(child, fullname, len)) {
+        left = child;
+        goto found;
+      }
+    }
+    /* not found */
+    return NULL;
+
+found:
+    fullname += len + 1;
+  } while(fullname < efullname);
+
+  return left;
+}
+
 struct device_node *dt_find_node_path(const char *path) {
   struct device_node *root = localnode.device_tree;
+  struct device_node *left = root;
+  int len;
+  const char *pathe = path + strlen(path);
 
   if(strcmp(path, "/") == 0)
     return root;
 
-  while(*path == '/')
-    path++;
+  if(*path != '/') {
+    /* traverse aliases */
+    return dt_find_node_alias(path);
+  } else {
+    while(*path == '/')
+      path++;
 
-  for(struct device_node *child = root->child; child; child = child->next) {
-    if(node_name_is(child, path))
-      return child;
+    do {
+      len = strchrlen(path, '/');
+      printf("path%s\n", path);
+
+      for(struct device_node *child = left->child; child; child = child->next) {
+        if(node_name_is_len(child, path, len)) {
+          left = child;
+          goto found;
+        }
+      }
+      /* not found */
+      return NULL;
+
+found:
+      path += len + 1;
+    } while(path < pathe);
   }
 
-  return NULL;
+  return left;
 }
 
 struct device_node *next_match_node(struct dt_device *table, struct dt_device **dev,

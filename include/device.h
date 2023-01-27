@@ -63,6 +63,8 @@ struct device_node *next_match_node(struct dt_device *table, struct dt_device **
                                     struct device_node *prev);
 
 bool dt_node_device_type_is(struct device_node *node, const char *type);
+struct device_node *dt_find_node_path_fullname(const char *fullname);
+struct device_node *dt_find_node_alias(const char *a);
 
 struct device_node *dt_next_cpu_device(struct device_node *prev);
 

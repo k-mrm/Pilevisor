@@ -38,6 +38,8 @@ struct device_node *fdt_parse(struct fdt *fdt) {
 
         node->name = hdr->name;
 
+        printf("node: node->name %s\n", node->name);
+
         u32 nlen = strlen(hdr->name) + 1;
         int next = ((nlen + 4 - 1) & ~(4 - 1)) >> 2;
 

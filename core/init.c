@@ -85,6 +85,7 @@ int vmm_init_cpu0(void *fdt_phys) {
 
   pageallocator_init();
 
+  gpio_init();
   psci_init();
 
   pcpu_init();

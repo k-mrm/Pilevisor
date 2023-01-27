@@ -13,6 +13,7 @@ u64 strlen(const char *s);
 char *strcpy(char *dst, const char *src);
 char *strchr(const char *s, int c);
 char *strtok(char *s1, const char *s2);
+int strchrlen(const char *s, int c);
 
 void bin_dump(void *p, u64 size);
 

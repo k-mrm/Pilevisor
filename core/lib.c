@@ -75,6 +75,18 @@ char *strchr(const char *s, int c) {
   return NULL;
 }
 
+int strchrlen(const char *s, int c) {
+  char *p = (char *)s;
+  while(*p) {
+    if(*p == c) {
+      return p - s;
+    }
+    p++;
+  }
+
+  return p - s;
+}
+
 char *strtok(char *s1, const char *s2) {
   static char *save = "";
   if(s1)
