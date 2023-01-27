@@ -2,8 +2,53 @@
 #include "device.h" 
 #include "printf.h"
 #include "log.h"
+#include "mm.h"
 
 static void *gpio_base;
+
+#define GPFSEL(n)   (0x4 * (n))
+#define GPSET(n)    (0x1c + 0x4 * (n))
+#define GPCLR(n)    (0x28 + 0x4 * (n))
+
+static void gpio_write(u32 offset, u32 val) {
+  *(volatile u32 *)((u64)gpio_base + offset) = val;
+}
+
+static u32 gpio_read(u32 offset) {
+  return *(volatile u32 *)((u64)gpio_base + offset);
+}
+
+void rpi_gpio_set(int pin) {
+  int ch = pin / 32;
+  int n = pin % 32;
+  u32 gp;
+
+  gp = gpio_read(GPSET(ch));
+
+  gpio_write(GPSET(ch), gp | (1 << n));
+}
+
+void rpi_gpio_clr(int pin) {
+  int ch = pin / 32;
+  int n = pin % 32;
+  u32 gp;
+
+  gp = gpio_read(GPCLR(ch));
+
+  gpio_write(GPCLR(ch), gp | (1 << n));
+}
+
+void rpi_gpio_set_pinmode(int pin, enum pinmode mode) {
+  int ch = pin / 10;
+  int n = pin % 10 * 3;
+
+  u32 gpf = gpio_read(GPFSEL(ch));
+
+  gpf &= ~(7 << n);
+  gpf |= mode << n;
+
+  gpio_write(GPFSEL(ch), gpf);
+}
 
 static int rpi_gpio_dt_init(struct device_node *dev) {
   const char *compat;
