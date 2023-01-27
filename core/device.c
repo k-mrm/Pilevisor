@@ -299,10 +299,14 @@ static const char *alias(const char *path) {
       return (const char *)p->data;
     }
   }
+
+  return NULL;
 }
 
 struct device_node *dt_find_node_alias(const char *a) {
   const char *truename = alias(a);
+  if(!truename)
+    return NULL;
 
   return dt_find_node_path_fullname(truename);
 }
@@ -356,7 +360,6 @@ struct device_node *dt_find_node_path(const char *path) {
 
     do {
       len = strchrlen(path, '/');
-      printf("path%s %d\n", path, len);
 
       for(struct device_node *child = left->child; child; child = child->next) {
         if(node_name_is_len(child, path, len)) {

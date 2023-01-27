@@ -28,6 +28,8 @@ static int bcm2835_mbox_init(struct device_node *dev) {
 
 void mailbox_init() {
   struct device_node *dev = dt_find_node_path("mailbox");
+  if(!dev)
+    return;
 
   bcm2835_mbox_init(dev);
 }

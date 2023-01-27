@@ -77,6 +77,8 @@ static int rpi_gpio_dt_init(struct device_node *dev) {
 
 int gpio_init() {
   struct device_node *dev = dt_find_node_path("gpio");
+  if(!dev)
+    return -1;
 
   return rpi_gpio_dt_init(dev);
 }
