@@ -14,7 +14,7 @@ extern char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 
 struct cpu_enable_method {
   int (*init)(int cpu);
-  int (*boot)(int cpu, u64 entrypoint);
+  int (*boot)(int cpu, physaddr_t entrypoint);
 };
 
 struct pcpu {

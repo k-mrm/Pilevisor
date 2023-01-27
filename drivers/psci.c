@@ -48,7 +48,7 @@ static char *psci_status_map(int status) {
   }
 }
 
-static int psci_cpu_boot(int cpuid, u64 ep_phys) {
+static int psci_cpu_boot(int cpuid, physaddr_t ep_phys) {
   i64 status = psci_call(psci_info.cpu_on, cpuid, ep_phys, 0);
 
   if(status == PSCI_SUCCESS) {

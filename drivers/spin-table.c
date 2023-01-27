@@ -7,7 +7,7 @@
 
 static u64 release_addr[NCPU_MAX];
 
-static int spintable_boot(int cpu, u64 entrypoint) {
+static int spintable_boot(int cpu, physaddr_t entrypoint) {
   if(cpu >= NCPU_MAX) {
     vmm_warn("no cpu");
     return -1;
