@@ -1,0 +1,3 @@
+arm_64bit=1
+arm_boost=1
+enable_uart=1
