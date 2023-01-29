@@ -15,7 +15,11 @@ earlycon_init:
   str wzr, [x1, #IFLS]
   str wzr, [x1, #IMSC]
 
-  /* TODO: set baudrate */
+  /* set baudrate to 115200 */
+  mov w2, #26
+  str w2, [x1, #IBRD]
+  mov w2, #3
+  str w2, [x1, #FBRD]
 
   mov w2, #LCRH_WLEN_8BIT
   str w2, [x1, #LCRH] 
@@ -25,7 +29,13 @@ earlycon_init:
 
   ret
 
-.macro earlycon_tx, base, c
-  ldr \base, =EARLY_PL011_BASE
-  strb \c, [\base, #DR]
+.macro earlycon_tx, c, tmp1, tmp2
+  ldr \tmp1, =EARLY_PL011_BASE
+
+99:
+  ldrh \tmp2, [\tmp1, #FR]
+  tst  \tmp2, #0x8
+  b.ne 99b
+
+  strb \c, [\tmp1, #DR]
 .endm

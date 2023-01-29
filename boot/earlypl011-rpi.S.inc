@@ -38,13 +38,13 @@ earlycon_init:
 
   ret
 
-.macro earlycon_tx, base, c, tmp
-  ldr \base, =EARLY_PL011_BASE
+.macro earlycon_tx, c, tmp1, tmp2
+  ldr \tmp1, =EARLY_PL011_BASE
 
 99:
-  ldrh \tmp, [\base, #FR]
-  tst  \tmp, #0x8
+  ldrh \tmp2, [\tmp1, #FR]
+  tst  \tmp2, #0x8
   b.ne 99b
 
-  strb \c, [\base, #DR]
+  strb \c, [\tmp1, #DR]
 .endm

@@ -67,6 +67,8 @@ SECTIONS {
 
     . = ALIGN(4096);
     .boot_pagetable : {
+      __boot_pagetable_start = .;
+
       __boot_pgt_l1 = .;
       . += 4096;
       __idmap_pgt_l2_1 = .;
@@ -81,6 +83,8 @@ SECTIONS {
       . += 4096;
       __boot_pgt_l3 = .;
       . += 4096 * (((vmm_end - vmm_start + 0x200000-1) & ~(0x200000-1)) >> 21);
+
+      __boot_pagetable_end = .;
     }
 
     . = ALIGN(4096);

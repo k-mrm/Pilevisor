@@ -9,17 +9,18 @@ _head:
 
 .section ".text.boot"
 
-#include "earlypl011-rpi.S.inc"
+// #include "earlypl011-rpi.S.inc"
+#include "earlypl011.S.inc"
 
 /*
- *  volatile x19, x20, x21
+ *  volatile x19, x20, x21, x22
  */
 .macro earlyputs, s
   adr x19, 2f
 1:
   ldrb w20, [x19], #1
   cbz w20, 3f
-  earlycon_tx x21, w20, w22
+  earlycon_tx w20, x21, w22
   b 1b
 
   .pushsection .rodata.str, "aS"
@@ -28,6 +29,28 @@ _head:
 
 3:
 .endm
+
+.macro earlyputn, n
+  adr x19, hexstr
+  mov x20, #60
+
+1:
+  mov x21, \n
+  lsr x21, x21, x20
+  and x21, x21, #0xf
+  ldrb w22, [x19, x21]
+  earlycon_tx w22, x23, w24
+  cbz x20, 2f
+  sub x20, x20, 4
+  b 1b
+2:
+  mov w22, #10        // \n
+  earlycon_tx w22, x23, w24
+.endm
+
+.pushsection .rodata.str, "aS"
+hexstr: .asciz "0123456789abcdef"
+.popsection
 
 /*
  *  x0: dtb pointer
@@ -60,10 +83,12 @@ prestartup:
   b startupothers     /* others */
 
 startup0:
-  bl bss_clear
+  bl clear_bss
 
   bl earlycon_init
   earlyputs "boot cpu init...\r\n"
+
+  bl clear_pgts
 
   bl setup_idmap_pagetable
   bl setup_boot_pagetable
@@ -161,20 +186,31 @@ setup_idmap_pagetable:
   pgt_index x5, x1, 3     // x5 = PIDX(3, x1)
   set_entry __idmap_pgt_l3_1, x5, x1, PTE_NORMAL
 
+  earlyputs "setup idmap pagetable\r\n"
+
   /* map earlyconsole */
   ldr x1, =EARLY_PL011_BASE
 
   pgt_index x2, x1, 1                   // x2 = PIDX(1, x1)
   get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
+  earlyputs "!!!!!:"
+  earlyputn x3
   cbnz x3, 2f
- 
+
   set_table __boot_pgt_l1, x2, __idmap_pgt_l2_2, x9, x10
   adrp x3, __idmap_pgt_l2_2
+  earlyputs ">>>>>:"
+  earlyputn x3
 
 2:
   pgt_index x4, x1, 2     // x4 = PIDX(2, x1)
 
   adrp x9, __idmap_pgt_l3_2
+  earlyputn x3
+  earlyputs "!!!!!!!!!!!wwwwwwww\n"
+  earlyputn x4
+  earlyputn x9
+  earlyputn x10
   set_table_r x3, x4, x9, x10
 
   pgt_index x5, x1, 3     // x5 = PIDX(3, x1)
@@ -186,6 +222,8 @@ setup_idmap_pagetable:
  *  make linear mapping pa(vmm_start)-pa(vmm_end) to va(vmm_start)-va(vmm_end) 
  */
 setup_boot_pagetable:
+  earlyputs "setup boot pagetable...\r\n"
+
   adrp x1, vmm_start        // x1 = pa(vmm_start)
   ldr x2, =vmm_start        // x2 = va(vmm_start)
   ldr x3, =vmm_end          // x3 = va(vmm_end)
@@ -267,7 +305,7 @@ enable_mmu_secondary:
 
   ret
 
-bss_clear:
+clear_bss:
   adrp x1, __bss_start
   ldr w2, =__bss_size
 1:
@@ -278,7 +316,23 @@ bss_clear:
 2:
   ret
 
+clear_pgts:
+  adrp x1, __boot_pagetable_start
+  adrp x2, __boot_pagetable_end
+
+  earlyputn x1
+  earlyputn x2
+1: 
+  str xzr, [x1], #8
+  cmp x1, x2
+  b.eq 2f
+  b 1b
+2:
+  ret
+
 initcpu:
+  earlyputs "initcpu...\r\n"
+
   /* setup vector table */
   ldr x1, =early_vectable
   msr vbar_el2, x1
@@ -348,8 +402,11 @@ early_panic:
   earlyputs "earlypanic!\r\n"
 
   mrs x12, elr_el2
+  earlyputn x12
   mrs x13, far_el2
+  earlyputn x13
   mrs x14, esr_el2
+  earlyputn x14
   b .
 
 /*
