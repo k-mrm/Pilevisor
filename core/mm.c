@@ -16,8 +16,6 @@
 
 u64 vmm_pagetable[512] __aligned(4096);
 
-extern u64 __boot_pgt_l1[];
-
 static u64 earlymem_pgt_l2[512] __aligned(4096);
 static u64 bootfdt_pgt_l2[512] __aligned(4096);
 static u64 bootfdt_pgt_l2_2[512] __aligned(4096);
@@ -29,6 +27,8 @@ u64 pvoffset;
 
 void set_ttbr0_el2(u64 ttbr0_el2);
 static void pgt_set_block(u64 *pe, u64 phys, u64 memflags);
+
+extern u64 __boot_pgt_l1[];
 
 u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   for(int level = root; level < 3; level++) {
@@ -322,6 +322,9 @@ void *setup_pagetable(u64 fdt_base) {
   assert(PAGE_ALIGNED(vmm_pagetable));
 
   memset(vmm_pagetable, 0, PAGESIZE);
+  memset(earlymem_pgt_l2, 0, PAGESIZE);
+  memset(bootfdt_pgt_l2, 0, PAGESIZE);
+  memset(bootfdt_pgt_l2_2, 0, PAGESIZE);
 
   remap_image();
   remap_earlymem();

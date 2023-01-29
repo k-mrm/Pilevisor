@@ -407,6 +407,7 @@ early_panic:
   earlyputn x13
   mrs x14, esr_el2
   earlyputn x14
+  earlyputn x30
   b .
 
 /*
