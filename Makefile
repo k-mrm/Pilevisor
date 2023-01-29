@@ -39,11 +39,11 @@ NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 8
+GUEST_NCPU = 1
 endif
 
 ifndef GUEST_MEMORY
-GUEST_MEMORY = 512
+GUEST_MEMORY = 256
 endif
 
 QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
@@ -103,7 +103,7 @@ vmm-boot.img: poc-main
 vmm.img: poc-sub
 	$(OBJCOPY) -O binary $^ $@
 
-SDPATH = /media/k-mrm/BOOT/
+SDPATH = /media/k-mrm/system-boot/
 
 install-main: vmm-boot.img
 	cp vmm-boot.img $(SDPATH)kernel8.img
@@ -111,25 +111,25 @@ install-main: vmm-boot.img
 install-sub: vmm.img
 	cp vmm.img $(SDPATH)kernel8.img
 
-poc-main: $(MAINOBJS) $(M)/memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
+poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
-	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
+	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
-poc-main-vsm: $(MAINOBJS) $(M)/memory.ld guest/vsmtest.img
-	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
-	$(LD) $(LDFLAGS) -T $(M)/memory.ld -o $@ $(MAINOBJS) hello-img.o
-
-poc-sub: $(SUBOBJS) $(S)/memory.ld dtb-numa
+poc-sub: $(SUBOBJS) memory.ld dtb-numa
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
-	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o
+	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(SUBOBJS) virt.dtb.o
 
-poc-sub-vsm: $(SUBOBJS) $(S)/memory.ld
+poc-main-vsm: $(MAINOBJS) memory.ld guest/vsmtest.img
 	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
-	$(LD) $(LDFLAGS) -T $(S)/memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
+	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) hello-img.o
+
+poc-sub-vsm: $(SUBOBJS) memory.ld
+	$(LD) -r -b binary guest/vsmtest.img -o hello-img.o
+	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(SUBOBJS) virt.dtb.o rootfs.img.o image.o
 
 dev-main: vmm-boot.img
 	sudo ip link add br4poc type bridge || true

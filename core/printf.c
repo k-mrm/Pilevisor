@@ -149,7 +149,9 @@ static int __vprintf(const char *fmt, va_list ap, void (*putc)(char)) {
           break;
         }
         case 'm': /* print mac address */
-          prmacaddr(va_arg(ap, u8 *), putc);
+          s = va_arg(ap, u8 *);
+          if(s)
+            prmacaddr(va_arg(ap, u8 *), putc);
           break;
         case '%':
           putc('%');

@@ -19,12 +19,6 @@ SECTIONS {
     . = ALIGN(4096);
     __idmap_end = .;
 
-    /*
-    /DISCARD/ : {
-      *(.text.node0)
-    }
-    */
-
     .text : {
       *(.text) *(.text.*)
     }

@@ -32,7 +32,7 @@ static void __subnode recv_cluster_info_intr(struct msg *msg);
 
 static int cluster_node_me_setup();
 
-struct cluster_node cluster[NODE_MAX];
+struct cluster_node cluster[NODE_MAX] = {0};
 int nr_cluster_nodes = 0;
 int nr_cluster_vcpus = 0;
 
@@ -99,12 +99,13 @@ static void __node0 node0_ack_node(u8 *mac, int nvcpus, u64 allocated) {
   int nodeid = alloc_nodeid();
   struct cluster_node *c = cluster_node(nodeid);
 
-  vmm_log("node0 ack Node%d %m %d vcpu %p byte\n", nodeid, mac, nvcpus, allocated);
+  printf("node0 ack Node%d %m %d vcpu %p byte\n", nodeid, mac, nvcpus, allocated);
   
   node_set_online(nodeid, true);
 
   c->nodeid = nodeid;
-  memcpy(c->mac, mac, 6);
+  if(mac)
+    memcpy(c->mac, mac, 6);
   setup_vsm_memrange(&c->mem, allocated);
   c->nvcpu = nvcpus;
   for(int i = 0; i < nvcpus; i++)
@@ -140,7 +141,22 @@ static void __node0 cluster_node0_init(u8 *mac, int nvcpu, u64 allocated) {
  */
 
 void __node0 cluster_init() {
-  cluster_node0_init(localnode.nic->mac, localvm.nvcpu, localvm.nalloc);
+  u8 *mac;
+
+  if(localnode.nic) {
+    mac = localnode.nic->mac;
+  } else {
+    vmm_warn("nic?\n");
+    mac = NULL;
+  }
+
+  cluster_node0_init(mac, localvm.nvcpu, localvm.nalloc);
+
+  if(cluster_node_me_setup() < 0)
+    panic("my node failed");
+
+  if(!mac)
+    return;
 
   intr_enable();
 
@@ -151,9 +167,6 @@ void __node0 cluster_init() {
 
   /* 3. broadcast cluster information to sub-node */
   broadcast_cluster_info();
-
-  if(cluster_node_me_setup() < 0)
-    panic("my node failed");
 
   wait_for_all_node_ready();
 }
