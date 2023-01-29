@@ -489,7 +489,7 @@ void device_tree_init(void *fdt_base) {
 
   const char *mach = dt_node_props(root, "compatible");
   if(mach)
-    earlycon_puts(mach);
+    printf("%s\n", mach);
 
   setup_system_memory();
 }

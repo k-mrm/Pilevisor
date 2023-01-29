@@ -31,6 +31,9 @@ static int vtmmio_probe(void *base, int intid) {
   struct virtio_mmio_dev *dev = malloc(sizeof(*dev));
 
   dev->base = iomap((u64)base, 0x200);
+  if(!dev->base)
+    return -1;
+
   dev->intid = intid;
   dev->vqs = NULL;
 

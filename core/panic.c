@@ -63,6 +63,7 @@ void panic(const char *fmt, ...) {
     sp = next;
   }
 
+  buddydump();
   printf("stack trace done\n");
 
   irqstats();

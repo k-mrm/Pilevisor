@@ -29,7 +29,8 @@ void cpu_stop_all() {
     .mode = ROUTE_BROADCAST,
   };
 
-  localnode.irqchip->send_sgi(&sgi);
+  if(localnode.irqchip)
+    localnode.irqchip->send_sgi(&sgi);
 }
 
 void cpu_stop_local() {

@@ -317,6 +317,8 @@ static void map_memory() {
   struct memblock *mem;
   int nslot = system_memory.nslot;
 
+  system_memory_dump();
+
   for(mem = system_memory.slots; mem < &system_memory.slots[nslot]; mem++) {
     u64 vbase = VIRT_BASE + mem->phys_start;
     u64 size = mem->size;
@@ -366,6 +368,7 @@ void *setup_pagetable(u64 fdt_base) {
   virt_fdt = remap_fdt(fdt_base);
 
   device_tree_init(virt_fdt);
+  printf("map memory");
   map_memory();
 
   return virt_fdt;

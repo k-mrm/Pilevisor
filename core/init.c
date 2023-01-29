@@ -96,7 +96,7 @@ int vmm_init_cpu0(void *fdt_phys) {
   arch_timer_init();
   arch_timer_init_core();
 
-  virtio_mmio_init();
+  // virtio_mmio_init();
 
   hcr_setup();
 

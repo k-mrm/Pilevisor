@@ -148,7 +148,7 @@ static void init_free_pages(struct memzone *z, void *pages, int order) {
   ((struct header *)pages)->order = order;
 }
 
-static void buddydump(void) {
+void buddydump(void) {
   printf("----------buddy allocator debug----------\n");
   for(int i = 0; i <= MAX_ORDER; i++) {
     struct free_chunk *f = &memzone.chunks[i];
@@ -160,13 +160,11 @@ static void buddydump(void) {
 
 static void pageallocator_test() {
   void *p = alloc_page();
-  printf("alloc_page0 %p\n", p);
-  free_page(p);
-  p = alloc_page();
-  printf("alloc_page1 %p\n", p);
-  free_page(p);
-
+  void *q = alloc_page();
   buddydump();
+
+  free_page(p);
+  free_page(q);
 
   p = alloc_pages(1);
 
@@ -188,7 +186,7 @@ void early_allocator_init() {
   pend = ALIGN_UP(pend, SZ_2MiB);
 
   u64 start_phys = pend;
-  u64 end_phys = pend + SZ_2MiB * 3;
+  u64 end_phys = pend + SZ_2MiB * 4;
 
   early_map_earlymem(start_phys, end_phys);
 
@@ -204,8 +202,6 @@ void early_allocator_init() {
 }
 
 void pageallocator_init() {
-  system_memory_dump();
-
   struct memblock *mem;
   int nslot = system_memory.nslot;
   int total = 0;

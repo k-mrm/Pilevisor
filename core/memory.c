@@ -3,9 +3,9 @@
 #include "printf.h"
 #include "mm.h"
 
-struct system_memory system_memory;
-static struct memblock reserved[NBLOCK_MAX];
-static int nreserved;
+struct system_memory system_memory = {0};
+static struct memblock reserved[NBLOCK_MAX] = {0};
+static int nreserved = 0;
 
 void system_memory_dump() {
   struct memblock *mem;
