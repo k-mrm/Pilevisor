@@ -198,13 +198,13 @@ void setup_pagetable_secondary(void);
 
 u64 at_hva2pa(u64 hva);
 
-void dump_par_el1(void);
-
 u64 faulting_ipa_page(void);
 
 void *iomap(u64 pa, u64 size);
 
 void *setup_pagetable(u64 fdt_base);
+
+extern const char *xabort_xfsc_enc[64];
 
 #endif  /* __ASSEMBLER__ */
 

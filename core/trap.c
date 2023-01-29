@@ -30,27 +30,6 @@ struct hyp_context {
   u64 elr;
 } __packed;
 
-static const char *xabort_xfsc_enc[64] = {
-  [0x0]   "Address size fault Level0 or translation table base register",
-  [0x1]   "Address size fault Level1",
-  [0x2]   "Address size fault Level2",
-  [0x3]   "Address size fault Level3",
-  [0x4]   "Translation fault Level0",
-  [0x5]   "Translation fault Level1",
-  [0x6]   "Translation fault Level2",
-  [0x7]   "Translation fault Level3",
-  [0x8]   "Access flag fault Level0",
-  [0x9]   "Access flag fault Level1",
-  [0xa]   "Access flag fault Level2",
-  [0xb]   "Access flag fault Level3",
-  [0xc]   "Permission fault Level0",
-  [0xd]   "Permission fault Level1",
-  [0xe]   "Permission fault Level2",
-  [0xf]   "Permission fault Level3",
-  [0x10]  "Synchronous external abort",
-  [0x21]  "Alignment fault",
-};
-
 void hyp_sync_handler(struct hyp_context *ctx) {
   u64 esr = read_sysreg(esr_el2);
   u64 elr = read_sysreg(elr_el2);

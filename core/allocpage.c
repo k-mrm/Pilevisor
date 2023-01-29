@@ -134,7 +134,6 @@ void free_pages(void *pages, int order) {
   if((u64)pages & ((PAGESIZE << order) - 1))
     panic("alignment %p %d", pages, order);
 
-
   spin_lock_irqsave(&memzone.lock, flags);
 
   __free_pages(&memzone, pages, order);
@@ -196,8 +195,11 @@ void early_allocator_init() {
   u64 vstart = start_phys + VIRT_BASE;
   u64 vend = end_phys + VIRT_BASE;
 
+  printf("pend: %p earlymem start_phys: %p end_phys: %p\n", pend, start_phys, end_phys);
+  printf("vstart: %p vend: %p pa: %p\n", vstart, vend, at_hva2pa(vstart));
+
   for(; vstart < vend; vstart += PAGESIZE) {
-    free_page((void *)vstart);
+    __free_pages(&memzone, (void *)vstart, 0);
   }
 }
 

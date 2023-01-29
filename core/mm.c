@@ -13,6 +13,7 @@
 #include "compiler.h"
 #include "assert.h"
 #include "fdt.h"
+#include "localnode.h"
 
 u64 vmm_pagetable[512] __aligned(4096);
 
@@ -29,6 +30,27 @@ void set_ttbr0_el2(u64 ttbr0_el2);
 static void pgt_set_block(u64 *pe, u64 phys, u64 memflags);
 
 extern u64 __boot_pgt_l1[];
+
+const char *xabort_xfsc_enc[64] = {
+  [0x0]   "Address size fault Level0 or translation table base register",
+  [0x1]   "Address size fault Level1",
+  [0x2]   "Address size fault Level2",
+  [0x3]   "Address size fault Level3",
+  [0x4]   "Translation fault Level0",
+  [0x5]   "Translation fault Level1",
+  [0x6]   "Translation fault Level2",
+  [0x7]   "Translation fault Level3",
+  [0x8]   "Access flag fault Level0",
+  [0x9]   "Access flag fault Level1",
+  [0xa]   "Access flag fault Level2",
+  [0xb]   "Access flag fault Level3",
+  [0xc]   "Permission fault Level0",
+  [0xd]   "Permission fault Level1",
+  [0xe]   "Permission fault Level2",
+  [0xf]   "Permission fault Level3",
+  [0x10]  "Synchronous external abort",
+  [0x21]  "Alignment fault",
+};
 
 u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   for(int level = root; level < 3; level++) {
@@ -141,12 +163,14 @@ void *iomap(u64 pa, u64 size) {
   return (void *)va;
 }
 
-void dump_par_el1(void) {
-  u64 par = read_sysreg(par_el1);
+static void dump_par_el1(u64 par) {
+  u32 fst;
 
   if(par & 1) {
+    u32 fst = (par >> 1) & 0x3f;
+
     printf("translation fault\n");
-    printf("FST : %p\n", (par >> 1) & 0x3f);
+    printf("FST : %s\n", xabort_xfsc_enc[fst]);
     printf("PTW : %p\n", (par >> 8) & 1);
     printf("S   : %p\n", (par >> 9) & 1);
   } else {
@@ -164,6 +188,7 @@ u64 at_hva2pa(u64 hva) {
   write_sysreg(par_el1, tmp);
 
   if(par & 1) {
+    dump_par_el1(par);
     return 0;
   } else {
     return (par & 0xfffffffff000ul) | PAGE_OFFSET(hva);
@@ -217,7 +242,7 @@ void *early_fdt_map(void *fdt_phys) {
 
 void early_map_earlymem(u64 pstart, u64 pend) {
   u64 size = pend - pstart;
-  u64 *epmd, *epud;
+  u64 *pmd, *epmd, *epud;
   u64 vstart = pstart + VIRT_BASE;
 
   assert(pstart % SZ_2MiB == 0);
@@ -229,11 +254,17 @@ void early_map_earlymem(u64 pstart, u64 pend) {
   early_memsize = size;
 
   epud = &__boot_pgt_l1[PIDX(1, vstart)];
-  pgt_set_table_entry(epud, V2P(earlymem_pgt_l2));
+
+  if(*epud) {
+    pmd = (u64 *)phys2kern(PTE_PA(*epud));
+  } else {
+    pgt_set_table_entry(epud, V2P(earlymem_pgt_l2));
+    pmd = earlymem_pgt_l2;
+  }
 
   /* map earlymem */
   for(u64 i = 0; i < size; i += SZ_2MiB) {
-    epmd = &earlymem_pgt_l2[PIDX(2, vstart + i)];
+    epmd = &pmd[PIDX(2, vstart + i)];
     pgt_set_block(epmd, pstart + i, PTE_NORMAL | PTE_SH_INNER);
   }
 }

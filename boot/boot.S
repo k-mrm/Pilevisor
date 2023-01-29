@@ -193,24 +193,15 @@ setup_idmap_pagetable:
 
   pgt_index x2, x1, 1                   // x2 = PIDX(1, x1)
   get_slot_nl  __boot_pgt_l1, x2, x3    // x3 = next_level_addr(__boot_pgt_l1[x2])
-  earlyputs "!!!!!:"
-  earlyputn x3
   cbnz x3, 2f
 
   set_table __boot_pgt_l1, x2, __idmap_pgt_l2_2, x9, x10
   adrp x3, __idmap_pgt_l2_2
-  earlyputs ">>>>>:"
-  earlyputn x3
 
 2:
   pgt_index x4, x1, 2     // x4 = PIDX(2, x1)
 
   adrp x9, __idmap_pgt_l3_2
-  earlyputn x3
-  earlyputs "!!!!!!!!!!!wwwwwwww\n"
-  earlyputn x4
-  earlyputn x9
-  earlyputn x10
   set_table_r x3, x4, x9, x10
 
   pgt_index x5, x1, 3     // x5 = PIDX(3, x1)
@@ -399,15 +390,21 @@ early_vectable:
   ventry  .
 
 early_panic:
+  mrs x12, elr_el2
+  mrs x13, far_el2
+  mrs x14, esr_el2
+
   earlyputs "earlypanic!\r\n"
 
-  mrs x12, elr_el2
+  earlyputs "elr_el2: "
   earlyputn x12
-  mrs x13, far_el2
+  earlyputs "far_el2: "
   earlyputn x13
-  mrs x14, esr_el2
+  earlyputs "esr_el2: "
   earlyputn x14
+  earlyputs "x30(lr): "
   earlyputn x30
+
   b .
 
 /*

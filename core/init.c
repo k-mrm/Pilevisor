@@ -75,6 +75,8 @@ int vmm_init_cpu0(void *fdt_phys) {
   iomem_init();
   setup_pagetable((u64)fdt_phys);
 
+  trapinit();
+
   irqchip_init();
   irqchip_init_core();
 
@@ -83,8 +85,6 @@ int vmm_init_cpu0(void *fdt_phys) {
 
   uart_init();
   printf("vmm booting...\n");
-
-  trapinit();
 
   pageallocator_init();
 
