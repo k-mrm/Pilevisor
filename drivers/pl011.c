@@ -88,8 +88,10 @@ static int pl011_dt_init(struct device_node *dev) {
 
   uartbase = iomap(base, size);
 
+#ifdef RPI4
   rpi_gpio_set_pinmode(14, ALT0);
   rpi_gpio_set_pinmode(15, ALT0);
+#endif
 
   /* disable uart */
   pl011_write(CR, 0);

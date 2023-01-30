@@ -3,13 +3,17 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
-RPI = 1
+#RPI = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
 
 CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
 CFLAGS += -I ./include/
+ifdef RPI
+CFLAGS += -DRPI4
+endif
+
 LDFLAGS = -nostdlib #-nostartfiles
 
 TAP_NUM = $(shell date '+%s')
@@ -118,6 +122,7 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
+	cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
@@ -240,7 +245,9 @@ dts-numa:
 	dtc -I dtb -O dts -o virtn.dts virtn.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
+	  -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
+	  -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
 
 dtb-numa:
 	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb \

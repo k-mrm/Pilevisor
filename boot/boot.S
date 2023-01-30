@@ -9,8 +9,11 @@ _head:
 
 .section ".text.boot"
 
-// #include "earlypl011-rpi.S.inc"
+#ifdef RPI4
+#include "earlypl011-rpi.S.inc"
+#else   /* !RPI4 */
 #include "earlypl011.S.inc"
+#endif  /* RPI4 */
 
 /*
  *  volatile x19, x20, x21, x22

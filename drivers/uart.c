@@ -23,7 +23,7 @@ void uart_init() {
   for(n = next_match_node(__dt_serial_device, &dev, NULL); n;
       n = next_match_node(__dt_serial_device, &dev, n)) {
     if(!dev) {
-      earlycon_puts("uart: dev?\n");
+      printf("uart: dev?\n");
       continue;
     }
 
