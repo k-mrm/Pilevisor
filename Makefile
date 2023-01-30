@@ -103,12 +103,14 @@ vmm-boot.img: poc-main
 vmm.img: poc-sub
 	$(OBJCOPY) -O binary $^ $@
 
-SDPATH = /media/k-mrm/system-boot/
+SDPATH = /media/k-mrm/boot/
 
-install-main: vmm-boot.img
+install-main: vmm-boot.img boot/config.txt
+	cp boot/config.txt $(SDPATH)
 	cp vmm-boot.img $(SDPATH)kernel8.img
 
-install-sub: vmm.img
+install-sub: vmm.img boot/config.txt
+	cp boot/config.txt $(SDPATH)
 	cp vmm.img $(SDPATH)kernel8.img
 
 poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
