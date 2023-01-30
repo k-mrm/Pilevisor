@@ -100,6 +100,8 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(fnv)
     panic("fnv");
 
+  iabort_iss_dump(iss);
+
   u64 faultpage = faulting_ipa_page();
 
   if(vcpu->reg.elr == 0)
@@ -261,6 +263,8 @@ void vm_sync_handler() {
   u64 far = read_sysreg(far_el2);
   u64 ec = (esr >> 26) & 0x3f;
   u64 iss = esr & 0x1ffffff;
+
+  printf("vmsync: %p %p %p %p\n", elr, esr, far, ec);
 
   switch(ec) {
     case 0x1:     /* trap WF* */

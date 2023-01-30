@@ -67,10 +67,10 @@ void vcpu_entry() {
 
   write_sysreg(vtcr_el2, localvm.vtcr);
 
+
   u64 vttbr = V2P(localvm.vttbr);
-  write_sysreg(vttbr_el2, vttbr);
-  tlb_s2_flush_all();
-  dsb(sy);
+
+  switch_vttbr(vttbr);
 
   write_sysreg(sctlr_el1, current->sctlr_el1);
 

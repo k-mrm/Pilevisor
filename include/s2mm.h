@@ -25,6 +25,8 @@ void s2mmu_init(void);
 #define S2PTE_COPYSET(c)    (((u64)(c) & 0xf) << S2PTE_COPYSET_SHIFT)
 #define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0xf)
 
+void switch_vttbr(physaddr_t vttbr);
+
 u64 *s2_readable_pte(u64 *s2pgt, u64 ipa);
 void *ipa2hva(u64 *pgt, u64 ipa);
 

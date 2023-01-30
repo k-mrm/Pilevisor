@@ -3,7 +3,7 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
-#RPI = 1
+RPI = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
