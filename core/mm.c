@@ -72,6 +72,20 @@ u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   return &pgt[PIDX(3, va)];
 }
 
+u64 *page_accessible_pte(u64 *pgt, u64 va) {
+  if(!PAGE_ALIGNED(va))
+    panic("page accessible pte");
+
+  u64 *pte = pagewalk(pgt, va, root_level, 0);
+  if(!pte)
+    return NULL;
+
+  if(*pte & PTE_AF)
+    return pte;
+    
+  return NULL;
+}
+
 static void __memmap(u64 va, u64 pa, u64 size, u64 memflags) {
   if(!PAGE_ALIGNED(pa) || !PAGE_ALIGNED(va) || size % PAGESIZE != 0)
     panic("__memmap");

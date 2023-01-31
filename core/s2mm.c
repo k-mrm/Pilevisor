@@ -52,7 +52,7 @@ void vmiomap_passthrough(u64 *s2pgt, u64 va, u64 size) {
     if(*pte & PTE_AF)
       panic("this entry has been used: va %p", va);
 
-    *pte = PTE_PA(pa) | PTE_AF | S2PTE_RW | PTE_DEVICE_nGnRE | PTE_XN | PTE_V;
+    pte_set_entry(pte, pa, S2PTE_RW | PTE_DEVICE_nGnRE | PTE_XN);
   }
 }
 
@@ -67,7 +67,8 @@ void pageunmap(u64 *pgt, u64 va, u64 size) {
 
     u64 pa = PTE_PA(*pte);
     free_page(P2V(pa));
-    *pte = 0;
+
+    pte_clear(pte);
   }
 }
 
@@ -110,20 +111,6 @@ void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
 
   pageunmap(pgt, va, size);
   pagemap(pgt, va, pa, size, attr);
-}
-
-u64 *page_accessible_pte(u64 *pgt, u64 va) {
-  if(!PAGE_ALIGNED(va))
-    panic("page accessible pte");
-
-  u64 *pte = pagewalk(pgt, va, root_level, 0);
-  if(!pte)
-    return NULL;
-
-  if(*pte & PTE_AF)
-    return pte;
-    
-  return NULL;
 }
 
 u64 *page_rwable_pte(u64 *pgt, u64 va) {

@@ -207,27 +207,26 @@ void *setup_pagetable(u64 fdt_base);
 
 extern const char *xabort_xfsc_enc[64];
 
+static inline void pte_update(u64 *pte, physaddr_t pa, u64 flags)  {
+  *pte = PTE_PA(pa) | flags;
+  dcache_flush_poc_range(pte, sizeof(*pte));
+}
+
 static inline void pte_clear(u64 *pte) {
-  /* TODO */
-  ;
+  *pte = 0;
+  dcache_flush_poc_range(pte, sizeof(*pte));
 }
 
 static inline void pte_set_entry(u64 *pte, physaddr_t pa, u64 flags) {
-  *pte = PTE_PA(pa) | flags | PTE_V | PTE_AF;
-
-  dcache_flush_poc_range(pte, sizeof(*pte));
+  pte_update(pte, pa, flags | PTE_V | PTE_AF);
 }
 
 static inline void pte_set_block(u64 *pte, physaddr_t block, u64 flags) {
-  *pte = PTE_PA(block) | flags | PTE_AF | PTE_VALID;
-
-  dcache_flush_poc_range(pte, sizeof(*pte));
+  pte_update(pte, block, flags | PTE_AF | PTE_VALID);
 }
 
 static inline void pte_set_table(u64 *pte, physaddr_t next_table) {
-  *pte = PTE_PA(next_table) | PTE_TABLE | PTE_VALID;
-
-  dcache_flush_poc_range(pte, sizeof(*pte));
+  pte_update(pte, next_table, PTE_TABLE | PTE_VALID);
 }
 
 #endif  /* __ASSEMBLER__ */
