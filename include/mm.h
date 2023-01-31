@@ -136,7 +136,7 @@
 #define PTE_DEVICE_nGnRnE   PTE_INDX(AI_DEVICE_nGnRnE_IDX)
 #define PTE_DEVICE_nGnRE    PTE_INDX(AI_DEVICE_nGnRE_IDX)
 #define PTE_NORMAL_NC       PTE_INDX(AI_NORMAL_NC_IDX)
-#define PTE_NORMAL          PTE_INDX(AI_NORMAL_IDX)
+#define PTE_NORMAL          (PTE_INDX(AI_NORMAL_IDX) | PTE_SH_INNER)
 
 #define PTE_PA(pte)         ((u64)(pte) & 0xfffffffff000)
 
@@ -209,7 +209,7 @@ extern const char *xabort_xfsc_enc[64];
 
 static inline void pte_update(u64 *pte, physaddr_t pa, u64 flags)  {
   *pte = PTE_PA(pa) | flags;
-  dcache_flush_poc_range(pte, sizeof(*pte));
+  // dcache_flush_poc_range(pte, sizeof(*pte));
 }
 
 static inline void pte_clear(u64 *pte) {

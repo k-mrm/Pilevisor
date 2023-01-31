@@ -209,7 +209,7 @@ u64 at_hva2pa(u64 hva) {
 }
 
 static void *remap_fdt(u64 fdt_phys) {
-  u64 memflags = PTE_NORMAL | PTE_SH_INNER | PTE_RO | PTE_XN;
+  u64 memflags = PTE_NORMAL | PTE_RO | PTE_XN;
   u64 offset, size, fdt_base;
   int rc;
   void *fdt;
@@ -264,7 +264,7 @@ void early_map_earlymem(u64 pstart, u64 pend) {
   /* map earlymem */
   for(u64 i = 0; i < size; i += SZ_2MiB) {
     epmd = &pmd[PIDX(2, vstart + i)];
-    pte_set_block(epmd, pstart + i, PTE_NORMAL | PTE_SH_INNER);
+    pte_set_block(epmd, pstart + i, PTE_NORMAL);
   }
 }
 
@@ -277,7 +277,7 @@ static void remap_image() {
     u64 p = start_phys + i;
     u64 v = VMM_SECTION_BASE + i;
 
-    memflags = PTE_NORMAL | PTE_SH_INNER;
+    memflags = PTE_NORMAL;
 
     if(!is_vmm_text(v))
       memflags |= PTE_XN;
@@ -294,7 +294,7 @@ static void remap_image() {
 static void remap_earlymem() {
   u64 vstart = early_phys_start + VIRT_BASE;
   u64 size = early_memsize;
-  u64 i, memflags = PTE_NORMAL | PTE_SH_INNER;
+  u64 i, memflags = PTE_NORMAL;
 
   for(i = 0; i < size; i += PAGESIZE) {
     __pagemap(vstart + i, early_phys_start + i, memflags);
@@ -326,7 +326,7 @@ static void map_memory() {
       u64 p = mem->phys_start + i;
       u64 v = vbase + i;
       u64 kv = phys2kern(p);
-      memflags = PTE_NORMAL | PTE_SH_INNER;
+      memflags = PTE_NORMAL;
 
       if(early_phys_start <= p && p < early_phys_end)   // already mapped
         continue;
