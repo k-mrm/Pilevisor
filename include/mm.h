@@ -6,6 +6,7 @@
 #include "types.h"
 #include "guest.h"
 #include "allocpage.h"
+#include "cache.h"
 
 #endif  /* __ASSEMBLER__ */
 
@@ -171,7 +172,7 @@ struct dabort_info {
 };
 
 u64 *pagewalk(u64 *pgt, u64 va, int root_level, int alloc);
-void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr);
+void pagemap(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 attr);
 void pageunmap(u64 *pgt, u64 va, u64 size);
 
 void *early_fdt_map(void *fdt_phys);
@@ -205,6 +206,29 @@ void *iomap(u64 pa, u64 size);
 void *setup_pagetable(u64 fdt_base);
 
 extern const char *xabort_xfsc_enc[64];
+
+static inline void pte_clear(u64 *pte) {
+  /* TODO */
+  ;
+}
+
+static inline void pte_set_entry(u64 *pte, physaddr_t pa, u64 flags) {
+  *pte = PTE_PA(pa) | flags | PTE_V | PTE_AF;
+
+  dcache_flush_poc_range(pte, sizeof(*pte));
+}
+
+static inline void pte_set_block(u64 *pte, physaddr_t block, u64 flags) {
+  *pte = PTE_PA(block) | flags | PTE_AF | PTE_VALID;
+
+  dcache_flush_poc_range(pte, sizeof(*pte));
+}
+
+static inline void pte_set_table(u64 *pte, physaddr_t next_table) {
+  *pte = PTE_PA(next_table) | PTE_TABLE | PTE_VALID;
+
+  dcache_flush_poc_range(pte, sizeof(*pte));
+}
 
 #endif  /* __ASSEMBLER__ */
 

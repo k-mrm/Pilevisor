@@ -23,7 +23,7 @@ static int parange_map[] = {
   32, 36, 40, 42, 44, 48, 52,
 };
 
-void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
+void pagemap(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 attr) {
   if(va % PAGESIZE != 0 || pa % PAGESIZE != 0 || size % PAGESIZE != 0)
     panic("invalid pagemap");
 
@@ -32,7 +32,7 @@ void pagemap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
     if(*pte & PTE_AF)
       panic("this entry has been used: va %p", va);
 
-    *pte = PTE_PA(pa) | PTE_AF | attr | PTE_V;
+    pte_set_entry(pte, pa, attr);
   }
 }
 

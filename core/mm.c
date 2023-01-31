@@ -27,7 +27,6 @@ static u64 early_phys_start, early_phys_end, early_memsize;
 u64 pvoffset;
 
 void set_ttbr0_el2(u64 ttbr0_el2);
-static void pgt_set_block(u64 *pe, u64 phys, u64 memflags);
 
 extern u64 __boot_pgt_l1[];
 
@@ -63,7 +62,7 @@ u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
       if(!pgt)
         panic("nomem");
 
-      *pte = PTE_PA(V2P(pgt)) | PTE_TABLE | PTE_VALID;
+      pte_set_table(pte, V2P(pgt));
     } else {
       /* unmapped */
       return NULL;
@@ -136,7 +135,7 @@ static int memmap_huge(u64 va, u64 pa, u64 memflags, u64 size) {
   if((*hugepte & PTE_TABLE) || (*hugepte & PTE_AF))
     return -1;
 
-  pgt_set_block(hugepte, pa, memflags);
+  pte_set_block(hugepte, pa, memflags);
 
   return 0;
 }
@@ -221,20 +220,6 @@ static void *remap_fdt(u64 fdt_phys) {
   return fdt;
 }
 
-static void pgt_set_table_entry(u64 *pe, u64 next_table_phys) {
-  if(!pe)
-    return;
-  
-  *pe = PTE_PA(next_table_phys) | PTE_TABLE | PTE_VALID;
-}
-
-static void pgt_set_block(u64 *pe, u64 phys, u64 memflags) {
-  if(!pe)
-    return;
-
-  *pe = phys | memflags | PTE_AF | PTE_VALID;
-}
-
 void *early_fdt_map(void *fdt_phys) {
   // TODO
   return fdt_phys;
@@ -258,14 +243,14 @@ void early_map_earlymem(u64 pstart, u64 pend) {
   if(*epud) {
     pmd = (u64 *)phys2kern(PTE_PA(*epud));
   } else {
-    pgt_set_table_entry(epud, V2P(earlymem_pgt_l2));
+    pte_set_table(epud, V2P(earlymem_pgt_l2));
     pmd = earlymem_pgt_l2;
   }
 
   /* map earlymem */
   for(u64 i = 0; i < size; i += SZ_2MiB) {
     epmd = &pmd[PIDX(2, vstart + i)];
-    pgt_set_block(epmd, pstart + i, PTE_NORMAL | PTE_SH_INNER);
+    pte_set_block(epmd, pstart + i, PTE_NORMAL | PTE_SH_INNER);
   }
 }
 

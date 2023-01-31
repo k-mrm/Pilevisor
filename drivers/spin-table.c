@@ -25,7 +25,7 @@ static int spintable_boot(int cpu, physaddr_t entrypoint) {
 
   dsb(sy);
 
-  dcache_flush_range((u64)rel_addr, sizeof(u64));
+  dcache_flush_poc_range(rel_addr, sizeof(u64));
 
   sev();
 
