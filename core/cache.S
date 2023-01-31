@@ -1,8 +1,8 @@
 /*
- *  void dcache_inval_poc(void *va_start, void *va_end)
+ *  void dcache_clear_poc(u64 va_start, u64 va_end)
  */
-.global dcache_inval_poc
-dcache_inval_poc:
+.global dcache_clear_poc
+dcache_clear_poc:
   mrs x2, ctr_el0
   ubfx x4, x2, #16, #4
   mov x3, #4

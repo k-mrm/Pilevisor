@@ -102,6 +102,8 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   iabort_iss_dump(iss);
 
+  printf("aaaa %p %p\n", localvm.vttbr, ipa2pa(localvm.vttbr, far));
+
   u64 faultpage = faulting_ipa_page();
 
   if(vcpu->reg.elr == 0)

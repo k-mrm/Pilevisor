@@ -23,6 +23,7 @@
 #include "compiler.h"
 #include "vsm-log.h"
 #include "memlayout.h"
+#include "cache.h"
 
 #define ipa_to_pfn(ipa)       (((ipa) - 0x40000000) >> PAGESHIFT)
 #define ipa_to_desc(ipa)      (&ptable[ipa_to_pfn(ipa)])

@@ -17,7 +17,6 @@
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len);
 
-static u64 vtcr;
 static int root_level;
 
 static int parange_map[] = {
@@ -318,9 +317,26 @@ u64 faulting_ipa_page() {
   return ipa_page & ~(PAGESIZE-1);
 }
 
+static int root_level_sl0(int root) {
+  switch(root) {
+    case 3:
+      return 3;
+    case 2:
+      return 0;
+    case 1:
+      return 1;
+    case 0:
+      return 2;
+  }
+
+  return -1;
+}
+
 void s2mmu_init() {
-  u64 mmf_parange = read_sysreg(id_aa64mmfr0_el1) & 0xf;
+  u64 vtcr, mmf_parange = read_sysreg(id_aa64mmfr0_el1) & 0xf;
   int parange = parange_map[mmf_parange];
+  int sl0;
+  u32 ps;
 
   printf("id_aa64mmfr0_el1.parange = %d bit\n", parange);
 
@@ -334,9 +350,10 @@ void s2mmu_init() {
   if(t0sz < min_t0sz)
     panic("t0sz %d < min t0sz %pd", t0sz, min_t0sz);
 
-  vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_16T | VTCR_SL0(2);
-
   root_level = 0;
+  sl0 = root_level_sl0(root_level);
+
+  vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_16T | VTCR_SL0(sl0);
 
   u64 *vttbr = alloc_page();
   if(!vttbr)
