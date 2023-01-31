@@ -3,11 +3,11 @@
 
 #include "types.h"
 
-void dcache_clear_poc(u64 va_start, u64 va_end);
+void dcache_flush_poc(u64 va_start, u64 va_end);
 
-static inline void dcache_clear_range(u64 va, u64 size) {
+static inline void dcache_flush_range(u64 va, u64 size) {
   u64 end = va + size;
-  dcache_clear_poc(va, end);
+  dcache_flush_poc(va, end);
 }
 
 #endif

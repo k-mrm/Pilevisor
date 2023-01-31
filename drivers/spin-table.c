@@ -19,13 +19,13 @@ static int spintable_boot(int cpu, physaddr_t entrypoint) {
   if(!rel_addr)
     return -1;
 
-  printf("rel addr %p\n", rel_addr);
+  printf("spintable boot %d %p\n", cpu, rel_addr);
 
   *(volatile u64 *)rel_addr = entrypoint;
 
   dsb(sy);
 
-  dcache_clear_poc((u64)rel_addr, sizeof(u64));
+  dcache_flush_range((u64)rel_addr, sizeof(u64));
 
   sev();
 
