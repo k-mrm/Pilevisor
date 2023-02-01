@@ -97,13 +97,13 @@ u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   return &pgt[PIDX(3, va)];
 }
 
-void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags) {
+void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags, int root) {
   assert(PAGE_ALIGNED(va));
   assert(PAGE_ALIGNED(pa));
   assert(PAGE_ALIGNED(size));
 
   for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
-    u64 *pte = pagewalk(pgt, va, root_level, 1);
+    u64 *pte = pagewalk(pgt, va, root, 1);
     if(*pte & PTE_AF)
       panic("this entry has been used: va %p", va);
 
@@ -130,7 +130,7 @@ bool page_accessible(u64 *pgt, u64 va) {
 }
 
 static inline void __pagemap(u64 va, u64 pa, u64 memflags) {
-  mappages(vmm_pagetable, va, pa, PAGESIZE, memflags);
+  mappages(vmm_pagetable, va, pa, PAGESIZE, memflags, root_level);
 }
 
 static inline int hugepage_level(u64 size) {

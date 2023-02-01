@@ -147,7 +147,7 @@ struct dabort_info {
 };
 
 u64 *pagewalk(u64 *pgt, u64 va, int root_level, int alloc);
-void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags);
+void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags, int root);
 void pageunmap(u64 *pgt, u64 va, u64 size);
 
 void *early_fdt_map(void *fdt_phys);

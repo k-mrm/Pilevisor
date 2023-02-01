@@ -128,7 +128,7 @@ static int __vcpu_stacktrace(u64 sp, u64 bsp, u64 *next) {
   if(sp_pa == 0)
     return -1;
 
-  sp = P2V(sp_pa);
+  sp = (u64)P2V(sp_pa);
   u64 x29 = *(u64 *)sp;
   u64 x30 = *(u64 *)(sp + 8);
   u64 caller = x30 - 4;

@@ -65,10 +65,11 @@ static inline u64 pageflag_to_s2pte_flags(enum pageflag flags) {
 static void __s2_map_pages(ipa_t ipa, physaddr_t pa, u64 size, enum pageflag flags) {
   u64 f = pageflag_to_s2pte_flags(flags);
 
-  mappages(vttbr, ipa, pa, size, f);
+  mappages(vttbr, ipa, pa, size, f, root_level);
 }
 
 void guest_map_page(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
+  printf("");
   __s2_map_pages(ipa, pa, PAGESIZE, flags);
 }
 
@@ -129,7 +130,7 @@ void map_guest_peripherals() {
 void s2_map_page_copyset(ipa_t ipa, physaddr_t pa, u64 copyset) {
   u64 flags = S2PTE_NORMAL | S2PTE_COPYSET(copyset);
 
-  return mappages(vttbr, ipa, pa, PAGESIZE, flags);
+  return mappages(vttbr, ipa, pa, PAGESIZE, flags, root_level);
 }
 
 u64 *s2_rwable_pte(ipa_t ipa) {
