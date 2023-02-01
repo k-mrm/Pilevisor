@@ -87,6 +87,7 @@ void copy_from_guest(char *to, ipa_t from_ipa, u64 len);
 void guest_map_page(ipa_t ipa, physaddr_t pa, enum pageflag flags);
 void map_guest_image(struct guest *img, ipa_t ipa);
 void alloc_guestmem(ipa_t ipa, u64 size);
+void s2_map_page_copyset(ipa_t ipa, physaddr_t pa, u64 copyset);
 
 void map_guest_peripherals(void);
 

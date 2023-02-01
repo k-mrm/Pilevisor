@@ -278,7 +278,7 @@ void vm_sync_handler() {
   u64 ec = (esr >> 26) & 0x3f;
   u64 iss = esr & 0x1ffffff;
 
-  printf("vmsync: %p %p %p %p\n", elr, esr, far, ec);
+  printf("vmsync: elr %p esr %p far %p ec %p\n", elr, esr, far, ec);
 
   switch(ec) {
     case 0x1:     /* trap WF* */

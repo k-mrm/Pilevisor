@@ -146,7 +146,7 @@ struct dabort_info {
   int accbyte;  /* when isv == 1 */
 };
 
-u64 *pagewalk(u64 *pgt, u64 va, int root_level, int alloc);
+u64 *pagewalk(u64 *pgt, u64 va, int root, int alloc);
 void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags, int root);
 void pageunmap(u64 *pgt, u64 va, u64 size);
 

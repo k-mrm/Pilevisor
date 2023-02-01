@@ -69,7 +69,6 @@ static void __s2_map_pages(ipa_t ipa, physaddr_t pa, u64 size, enum pageflag fla
 }
 
 void guest_map_page(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
-  printf("");
   __s2_map_pages(ipa, pa, PAGESIZE, flags);
 }
 

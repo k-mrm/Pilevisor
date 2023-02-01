@@ -13,6 +13,7 @@
 #include "log.h"
 #include "guest.h"
 #include "arch-timer.h"
+#include "s2mm.h"
 
 #define KiB   (1024)
 #define MiB   (1024 * 1024)
@@ -47,18 +48,18 @@ static void initvm(struct vm_desc *desc) {
   printf("initvm: allocated ram: %d (%d M) byte\n", desc->nallocate, desc->nallocate >> 20);
   printf("initvm: img_start %p img_size %p byte\n", os->start, os->size);
 
-  map_guest_image(localvm.vttbr, os, desc->entrypoint);
+  map_guest_image(os, desc->entrypoint);
 
   if(fdt) {
     printf("initvm: fdt_start %p fdt_size %p byte\n", fdt->start, fdt->size);
-    map_guest_image(localvm.vttbr, fdt, vm_desc.fdt_base);
+    map_guest_image(fdt, vm_desc.fdt_base);
   } else {
     vmm_warn("initvm: fdt not found\n");
   }
 
   if(initrd) {
     printf("initvm: initrd_start %p initrd_size %p byte\n", initrd->start, initrd->size);
-    map_guest_image(localvm.vttbr, initrd, vm_desc.initrd_base);
+    map_guest_image(initrd, vm_desc.initrd_base);
   } else {
     vmm_warn("initvm: initrd not found\n");
   }
