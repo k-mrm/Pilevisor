@@ -155,10 +155,6 @@ void early_map_earlymem(u64 pstart, u64 pend);
 
 void page_access_invalidate(u64 *pgt, u64 va);
 void page_access_ro(u64 *pgt, u64 val);
-bool page_accessible(u64 *pgt, u64 va);
-u64 *page_accessible_pte(u64 *pgt, u64 va);
-u64 *page_rwable_pte(u64 *pgt, u64 va);
-u64 *page_ro_pte(u64 *pgt, u64 va);
 
 void setup_pagetable_secondary(void);
 u64 at_hva2pa(u64 hva);
@@ -185,7 +181,7 @@ static inline void pte_update(u64 *pte, physaddr_t pa, u64 flags)  {
 
 static inline void pte_clear(u64 *pte) {
   *pte = 0;
-  dcache_flush_poc_range(pte, sizeof(*pte));
+  /* TODO: flush tlb */
 }
 
 static inline void pte_set_entry(u64 *pte, physaddr_t pa, u64 flags) {

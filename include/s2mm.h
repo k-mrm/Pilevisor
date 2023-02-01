@@ -4,12 +4,6 @@
 #include "types.h"
 #include "mm.h"
 
-void map_guest_peripherals(u64 *pgt);
-void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size);
-
-void s2mmu_init_core(void);
-void s2mmu_init(void);
-
 #define VTCR_T0SZ(n)  ((n) & 0x3f)
 #define VTCR_SL0(n)   (((n) & 0x3) << 6)
 #define VTCR_IRGN0(n) (((n) & 0x3) << 8)
@@ -74,18 +68,29 @@ void s2mmu_init(void);
 void switch_vttbr(physaddr_t vttbr);
 ipa_t faulting_ipa_page(void);
 
-u64 *s2_readable_pte(ipa_t ipa);
 void *ipa2hva(ipa_t ipa);
+physaddr_t ipa2pa(ipa_t ipa);
+physaddr_t at_uva2pa(u64 uva);
+ipa_t at_uva2ipa(u64 uva);
 
-u64 ipa2pa(u64 ipa);
-u64 at_uva2pa(u64 uva);
-u64 at_uva2ipa(u64 uva);
+u64 *s2_rwable_pte(ipa_t ipa);
+u64 *s2_readable_pte(ipa_t ipa);
+u64 *s2_ro_pte(ipa_t ipa);
+void s2_page_invalidate(ipa_t ipa);
+void s2_page_ro(ipa_t ipa);
 
-void copy_to_guest(ipa_t to_ipa, char *from, u64 len);
+void copy_to_guest(ipa_t to_ipa, char *from, u64 len, bool alloc);
 void copy_from_guest(char *to, ipa_t from_ipa, u64 len);
 
 void map_guest_image(struct guest *img, ipa_t ipa);
 void alloc_guestmem(ipa_t ipa, u64 size);
+
+void map_guest_peripherals(void);
+
+void s2_pte_dump(ipa_t ipa);
+
+void s2mmu_init_core(void);
+void s2mmu_init(void);
 
 static inline int s2pte_perm(u64 *pte) {
   return (*pte & S2PTE_S2AP_MASK) >> 6;

@@ -14,10 +14,9 @@
 #include "guest.h"
 #include "panic.h"
 #include "tlb.h"
+#include "assert.h"
 
-void copy_to_guest_alloc(u64 to_ipa, char *from, u64 len);
 static u64 *vttbr;
-
 static int root_level;
 
 static int parange_map[] = {
@@ -64,21 +63,21 @@ static inline u64 pageflag_to_s2pte_flags(enum pageflag flags) {
   return f;
 }
 
-static void __guest_mappages(ipa_t ipa, physaddr_t pa, u64 size, enum pageflag flags) {
+static void __s2_map_pages(ipa_t ipa, physaddr_t pa, u64 size, enum pageflag flags) {
   u64 f = pageflag_to_s2pte_flags(flags);
 
   mappages(vttbr, ipa, pa, size, f);
 }
 
 void guest_mappage(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
-  __guest_mappages(ipa, pa, PAGESIZE, flags);
+  __s2_map_pages(ipa, pa, PAGESIZE, flags);
 }
 
 /* make identity map */
 void vmiomap_passthrough(ipa_t ipa, u64 size) {
   u64 pa = ipa;
 
-  __guest_mappages(ipa, pa, size, PAGE_RW | PAGE_DEVICE);
+  __s2_map_pages(ipa, pa, size, PAGE_RW | PAGE_DEVICE);
 }
 
 void s2pageunmap(ipa_t ipa, u64 size) {
@@ -117,7 +116,7 @@ void map_guest_image(struct guest *img, u64 ipa) {
 }
 
 void map_guest_peripherals() {
-  vmiomap_passthrough(vttbr, 0x09000000, PAGESIZE);   // UART
+  vmiomap_passthrough(0x09000000, PAGESIZE);   // UART
   // vmiomap_passthrough(vttbr, 0x09010000, PAGESIZE);   // RTC
   // vmiomap_passthrough(vttbr, 0x09030000, PAGESIZE);   // GPIO
 
@@ -193,9 +192,8 @@ void s2_page_invalidate(ipa_t ipa) {
   free_page(P2V(pa));
 }
 
-void page_access_ro(u64 *pgt, u64 va) {
-  if(!PAGE_ALIGNED(va))
-    panic("page_access_ro");
+void s2_page_ro(ipa_t ipa) {
+  assert(PAGE_ALIGNED(ipa));
 
   u64 *pte = pagewalk(pgt, va, root_level, 0);
   if(!pte)
@@ -203,10 +201,10 @@ void page_access_ro(u64 *pgt, u64 va) {
 
   s2pte_ro(pte);
 
-  tlb_s2_flush_all();
+  tlb_s2_flush_ipa(ipa);
 }
 
-void copy_to_guest(u64 to_ipa, char *from, u64 len, bool alloc) {
+void copy_to_guest(ipa_t to_ipa, char *from, u64 len, bool alloc) {
   while(len > 0) {
     void *hva = ipa2hva(to_ipa);
     if(hva == 0) {
@@ -235,7 +233,7 @@ void copy_to_guest(u64 to_ipa, char *from, u64 len, bool alloc) {
   }
 }
 
-void copy_from_guest(char *to, u64 from_ipa, u64 len) {
+void copy_from_guest(char *to, ipa_t from_ipa, u64 len) {
   while(len > 0) {
     void *hva = ipa2hva(from_ipa);
     if(hva == 0)
@@ -253,7 +251,7 @@ void copy_from_guest(char *to, u64 from_ipa, u64 len) {
   }
 }
 
-u64 ipa2pa(u64 ipa) {
+physaddr_t ipa2pa(ipa_t ipa) {
   u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
   u32 off;
 
@@ -266,15 +264,7 @@ u64 ipa2pa(u64 ipa) {
 }
 
 void *ipa2hva(ipa_t ipa) {
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
-  u32 off;
-
-  if(!pte)
-    return NULL;
-
-  off = PAGE_OFFSET(ipa);
-
-  return P2V(PTE_PA(*pte) + off);
+  return P2V(ipa2pa(ipa));
 }
 
 u64 at_uva2pa(u64 uva) {

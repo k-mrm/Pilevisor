@@ -103,8 +103,8 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   iabort_iss_dump(iss);
 
-  u64 pa = ipa2pa(localvm.vttbr, far);
-  printf("aaaa %p %p\n", localvm.vttbr, ipa2pa(localvm.vttbr, far));
+  physaddr_t pa = ipa2pa(far);
+  printf("aaaa pa %p\n", pa);
 
   s2_pte_dump(far);
 
