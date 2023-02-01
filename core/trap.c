@@ -10,6 +10,7 @@
 #include "vcpu.h"
 #include "log.h"
 #include "mm.h"
+#include "s2mm.h"
 #include "vmmio.h"
 #include "vpsci.h"
 #include "node.h"
@@ -136,6 +137,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     vmm_warn("acqrel %p\n", vcpu->reg.elr);
     */
   u64 fipa_page = faulting_ipa_page();
+  printf("faulting ipa page... %p %p\n", fipa_page, read_sysreg(hpfar_el2));
 
   if(s1ptw) {
     /* fetch pagetable */
@@ -194,6 +196,11 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   }
 
   printf("dabort ipa: %p va: %p elr: %p %s %d %d\n", ipa, far, vcpu->reg.elr, wnr ? "write" : "read", r, accsz);
+  u64 at_ipa = at_uva2ipa(far);
+  u64 at_pa = at_uva2pa(far);
+  void *va = P2V(at_pa);
+  vmm_dump_pte((u64)va);
+  printf("at_ipa %p at_pa %p \n", at_ipa, at_pa);
 
   return -1;
 }

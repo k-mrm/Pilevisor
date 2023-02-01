@@ -68,7 +68,10 @@
 #define PTE_VALID     1   /* level 0,1,2 descriptor */
 #define PTE_TABLE     2   /* level 0,1,2 descriptor */
 #define PTE_V         3   /* level 3 descriptor */
-#define PTE_INDX(idx) (((idx) & 7) << 2)
+
+#define PTE_INDX_MASK 7
+#define PTE_INDX(idx) (((idx) & PTE_INDX_MASK) << 2)
+
 #define PTE_NS        (1 << 5)
 #define PTE_AP(ap)    (((ap) & 3) << 6)
 #define PTE_SH(sh)    (((sh) & 3) << 8)
@@ -168,14 +171,12 @@ void map_guest_image(u64 *pgt, struct guest *img, u64 ipa);
 void alloc_guestmem(u64 *pgt, u64 ipa, u64 size);
 
 void setup_pagetable_secondary(void);
-
 u64 at_hva2pa(u64 hva);
-
-u64 faulting_ipa_page(void);
 
 void *iomap(u64 pa, u64 size);
 
 void *setup_pagetable(u64 fdt_base);
+void dump_par_el1(u64 par);
 
 extern const char *xabort_xfsc_enc[64];
 

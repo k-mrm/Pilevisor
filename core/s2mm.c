@@ -323,14 +323,13 @@ void s2mmu_init() {
   u64 vtcr, mmf_parange = read_sysreg(id_aa64mmfr0_el1) & 0xf;
   int parange = parange_map[mmf_parange];
   int sl0;
-  u32 ps;
 
   printf("id_aa64mmfr0_el1.parange = %d bit\n", parange);
 
   int min_t0sz = 64 - parange;
 
   vtcr = VTCR_INNERSH | VTCR_HA | VTCR_HD | VTCR_TG_4K |
-         VTCR_ORGN0_WBRW | VTCR_IRGN0_WBRW | VTCR_NSW |
+         VTCR_ORGN0_WBWA | VTCR_IRGN0_WBWA | VTCR_NSW |
          VTCR_NSA | VTCR_RES1;
 
   /* PS = 16TB (44 bit) */

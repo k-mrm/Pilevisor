@@ -51,6 +51,29 @@ const char *xabort_xfsc_enc[64] = {
   [0x21]  "Alignment fault",
 };
 
+static inline u64 *vmm_pagewalk(u64 va) {
+  return pagewalk(vmm_pagetable, va, root_level, 0);
+}
+
+void vmm_dump_pte(u64 va) {
+  u64 *pte = vmm_pagewalk(va);
+  if(!pte) {
+    printf("unmapped\n");
+    return;
+  }
+
+  u64 e = *pte; 
+  int v = (e & PTE_V) == PTE_V;
+  int af = !!(e & PTE_AF);
+  int ai = (e >> 2) & PTE_INDX_MASK;
+
+  printf("pte@%p: %p\n"
+         "\tphysical address: %p\n"
+         "\tv: %d\n"
+         "\taccess flag: %d\n"
+         "\tattrindex: %d\n", va, e, PTE_PA(e), v, af, ai);
+}
+
 u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   for(int level = root; level < 3; level++) {
     u64 *pte = &pgt[PIDX(level, va)];
@@ -176,7 +199,7 @@ void *iomap(u64 pa, u64 size) {
   return (void *)va;
 }
 
-static void dump_par_el1(u64 par) {
+void dump_par_el1(u64 par) {
   u32 fst;
 
   if(par & 1) {

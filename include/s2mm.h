@@ -41,14 +41,14 @@ void s2mmu_init(void);
 #define VTCR_PS_4P    VTCR_PS(6)
 
 #define VTCR_IRGN0_NC     VTCR_IRGN0(0)
-#define VTCR_IRGN0_WBRW   VTCR_IRGN0(1)
-#define VTCR_IRGN0_WTRA   VTCR_IRGN0(2)
-#define VTCR_IRGN0_WBRA   VTCR_IRGN0(3)
+#define VTCR_IRGN0_WBWA   VTCR_IRGN0(1)
+#define VTCR_IRGN0_WT     VTCR_IRGN0(2)
+#define VTCR_IRGN0_WB     VTCR_IRGN0(3)
 
 #define VTCR_ORGN0_NC     VTCR_ORGN0(0)
-#define VTCR_ORGN0_WBRW   VTCR_ORGN0(1)
-#define VTCR_ORGN0_WTRA   VTCR_ORGN0(2)
-#define VTCR_ORGN0_WBRA   VTCR_ORGN0(3)
+#define VTCR_ORGN0_WBWA   VTCR_ORGN0(1)
+#define VTCR_ORGN0_WT     VTCR_ORGN0(2)
+#define VTCR_ORGN0_WB     VTCR_ORGN0(3)
 
 /* stage 2 attribute */
 #define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
@@ -66,6 +66,7 @@ void s2mmu_init(void);
 #define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0xf)
 
 void switch_vttbr(physaddr_t vttbr);
+u64 faulting_ipa_page(void);
 
 u64 *s2_readable_pte(u64 *s2pgt, u64 ipa);
 void *ipa2hva(u64 *pgt, u64 ipa);
