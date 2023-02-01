@@ -125,6 +125,10 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
   return NULL;
 }
 
+bool page_accessible(u64 *pgt, u64 va) {
+  return !!page_accessible_pte(pgt, va);
+}
+
 static inline void __pagemap(u64 va, u64 pa, u64 memflags) {
   mappages(vmm_pagetable, va, pa, PAGESIZE, memflags);
 }

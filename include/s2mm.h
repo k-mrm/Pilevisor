@@ -72,10 +72,20 @@ void s2mmu_init(void);
 #define S2PTE_COPYSET_MASK    S2PTE_COPYSET(0xf)
 
 void switch_vttbr(physaddr_t vttbr);
-u64 faulting_ipa_page(void);
+ipa_t faulting_ipa_page(void);
 
-u64 *s2_readable_pte(u64 *s2pgt, u64 ipa);
-void *ipa2hva(u64 *pgt, u64 ipa);
+u64 *s2_readable_pte(ipa_t ipa);
+void *ipa2hva(ipa_t ipa);
+
+u64 ipa2pa(u64 ipa);
+u64 at_uva2pa(u64 uva);
+u64 at_uva2ipa(u64 uva);
+
+void copy_to_guest(ipa_t to_ipa, char *from, u64 len);
+void copy_from_guest(char *to, ipa_t from_ipa, u64 len);
+
+void map_guest_image(struct guest *img, ipa_t ipa);
+void alloc_guestmem(ipa_t ipa, u64 size);
 
 static inline int s2pte_perm(u64 *pte) {
   return (*pte & S2PTE_S2AP_MASK) >> 6;

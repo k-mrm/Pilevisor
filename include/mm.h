@@ -153,22 +153,12 @@ void pageunmap(u64 *pgt, u64 va, u64 size);
 void *early_fdt_map(void *fdt_phys);
 void early_map_earlymem(u64 pstart, u64 pend);
 
-u64 ipa2pa(u64 *pgt, u64 ipa);
-u64 at_uva2pa(u64 uva);
-u64 at_uva2ipa(u64 uva);
-
 void page_access_invalidate(u64 *pgt, u64 va);
 void page_access_ro(u64 *pgt, u64 val);
 bool page_accessible(u64 *pgt, u64 va);
 u64 *page_accessible_pte(u64 *pgt, u64 va);
 u64 *page_rwable_pte(u64 *pgt, u64 va);
 u64 *page_ro_pte(u64 *pgt, u64 va);
-
-void copy_to_guest(u64 *pgt, u64 to_ipa, char *from, u64 len);
-void copy_from_guest(u64 *pgt, char *to, u64 from_ipa, u64 len);
-
-void map_guest_image(u64 *pgt, struct guest *img, u64 ipa);
-void alloc_guestmem(u64 *pgt, u64 ipa, u64 size);
 
 void setup_pagetable_secondary(void);
 u64 at_hva2pa(u64 hva);

@@ -4,14 +4,20 @@ LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
 RPI = 1
+#QEMU = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
 
 CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
 CFLAGS += -I ./include/
+
 ifdef RPI
 CFLAGS += -DRPI4
+endif
+
+ifdef QEMU
+CFLAGS += -DBUILD_QEMU
 endif
 
 LDFLAGS = -nostdlib #-nostartfiles
