@@ -18,12 +18,12 @@ static int __stacktrace(u64 sp, u64 bsp, u64 *nextsp) {
 
   u64 x29 = *(u64 *)(sp);
   u64 x30 = *(u64 *)(sp + 8);
-  u64 callee = x30 - 4;
+  u64 caller = x30 - 4;
 
-  if(!is_vmm_text(callee))
+  if(!is_vmm_text(caller))
     return -1;
 
-  printf("\tfrom: %p\n", x30 - 4);
+  printf("\tfrom: %p\n", caller);
 
   *nextsp = x29;
 

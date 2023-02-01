@@ -10,6 +10,46 @@ void vmiomap_passthrough(u64 *s2pgt, u64 pa, u64 size);
 void s2mmu_init_core(void);
 void s2mmu_init(void);
 
+#define VTCR_T0SZ(n)  ((n) & 0x3f)
+#define VTCR_SL0(n)   (((n) & 0x3) << 6)
+#define VTCR_IRGN0(n) (((n) & 0x3) << 8)
+#define VTCR_ORGN0(n) (((n) & 0x3) << 10)
+#define VTCR_SH0(n)   (((n) & 0x3) << 12)
+#define VTCR_TG0(n)   (((n) & 0x3) << 14)
+#define VTCR_PS(n)    (((n) & 0x7) << 16)
+#define VTCR_HA       (1 << 21)
+#define VTCR_HD       (1 << 22)
+#define VTCR_NSW      (1 << 29)
+#define VTCR_NSA      (1 << 30)
+
+#define VTCR_RES1     (1ul << 31)
+
+#define VTCR_TG_4K    VTCR_TG0(0)
+#define VTCR_TG_64K   VTCR_TG0(1)
+#define VTCR_TG_16K   VTCR_TG0(2)
+
+#define VTCR_NOSH     VTCR_SH0(0)
+#define VTCR_OUTERSH  VTCR_SH0(2)
+#define VTCR_INNERSH  VTCR_SH0(3)
+
+#define VTCR_PS_4G    VTCR_PS(0)
+#define VTCR_PS_64G   VTCR_PS(1)
+#define VTCR_PS_1T    VTCR_PS(2)
+#define VTCR_PS_4T    VTCR_PS(3)
+#define VTCR_PS_16T   VTCR_PS(4)
+#define VTCR_PS_256T  VTCR_PS(5)
+#define VTCR_PS_4P    VTCR_PS(6)
+
+#define VTCR_IRGN0_NC     VTCR_IRGN0(0)
+#define VTCR_IRGN0_WBRW   VTCR_IRGN0(1)
+#define VTCR_IRGN0_WTRA   VTCR_IRGN0(2)
+#define VTCR_IRGN0_WBRA   VTCR_IRGN0(3)
+
+#define VTCR_ORGN0_NC     VTCR_ORGN0(0)
+#define VTCR_ORGN0_WBRW   VTCR_ORGN0(1)
+#define VTCR_ORGN0_WTRA   VTCR_ORGN0(2)
+#define VTCR_ORGN0_WBRA   VTCR_ORGN0(3)
+
 /* stage 2 attribute */
 #define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
 

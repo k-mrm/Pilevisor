@@ -50,34 +50,6 @@
   (TCR_T0SZ(25) | TCR_IRGN0_WBWA | TCR_ORGN0_WBWA | TCR_TG0_4K | \
    TCR_INNERSH | TCR_RES1 | TCR_PS_1T)
 
-#define VTCR_T0SZ(n)  ((n) & 0x3f)
-#define VTCR_SL0(n)   (((n) & 0x3) << 6)
-#define VTCR_SH0(n)   (((n) & 0x3) << 12)
-#define VTCR_TG0(n)   (((n) & 0x3) << 14)
-#define VTCR_PS(n)    (((n) & 0x7) << 16)
-#define VTCR_HA       (1 << 21)
-#define VTCR_HD       (1 << 22)
-#define VTCR_NSW      (1 << 29)
-#define VTCR_NSA      (1 << 30)
-
-#define VTCR_RES1     (1ul << 31)
-
-#define VTCR_TG_4K    VTCR_TG0(0)
-#define VTCR_TG_64K   VTCR_TG0(1)
-#define VTCR_TG_16K   VTCR_TG0(2)
-
-#define VTCR_NOSH     VTCR_SH0(0)
-#define VTCR_OUTERSH  VTCR_SH0(2)
-#define VTCR_INNERSH  VTCR_SH0(3)
-
-#define VTCR_PS_4G    VTCR_PS(0)
-#define VTCR_PS_64G   VTCR_PS(1)
-#define VTCR_PS_1T    VTCR_PS(2)
-#define VTCR_PS_4T    VTCR_PS(3)
-#define VTCR_PS_16T   VTCR_PS(4)
-#define VTCR_PS_256T  VTCR_PS(5)
-#define VTCR_PS_4P    VTCR_PS(6)
-
 /*
  *  48bit Virtual Address
  *

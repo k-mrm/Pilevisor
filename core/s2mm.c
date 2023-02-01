@@ -330,7 +330,8 @@ void s2mmu_init() {
   int min_t0sz = 64 - parange;
 
   vtcr = VTCR_INNERSH | VTCR_HA | VTCR_HD | VTCR_TG_4K |
-         VTCR_NSW | VTCR_NSA | VTCR_RES1;
+         VTCR_ORGN0_WBRW | VTCR_IRGN0_WBRW | VTCR_NSW |
+         VTCR_NSA | VTCR_RES1;
 
   /* PS = 16TB (44 bit) */
   int t0sz = 64 - 44;

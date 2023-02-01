@@ -120,6 +120,40 @@ void vcpu_preinit() {
   }
 }
 
+static int __vcpu_stacktrace(u64 sp, u64 bsp, u64 *next) {
+  if(bsp > sp)
+    return -1;
+
+  u64 sp_pa = at_uva2pa(sp);
+  if(sp_pa == 0)
+    return -1;
+
+  sp = P2V(sp_pa);
+  u64 x29 = *(u64 *)sp;
+  u64 x30 = *(u64 *)(sp + 8);
+  u64 caller = x30 - 4;
+
+  printf("\tfrom: %p\n", caller);
+
+  *next = x29;
+
+  return 0;
+}
+
+static void vcpu_stacktrace(struct vcpu *vcpu) {
+  u64 sp, bsp, next;
+  sp = bsp = vcpu->reg.sp;
+
+  printf("guest OS stacktrace:\n");
+
+  while(1) {
+    if(__vcpu_stacktrace(sp, bsp, &next) < 0)
+      break;
+
+    sp = next;
+  }
+}
+
 void vcpu_dump(struct vcpu *vcpu) {
   if(!vcpu) {
     printf("null vcpu\n");
@@ -149,4 +183,6 @@ void vcpu_dump(struct vcpu *vcpu) {
          read_sysreg(ttbr0_el1), read_sysreg(ttbr1_el1), read_sysreg(tcr_el1));
   printf("vbar_el1  %18p  sctlr_el1 %18p  cntv_ctl_el0 %18p\n",
          read_sysreg(vbar_el1), read_sysreg(sctlr_el1), read_sysreg(cntv_ctl_el0));
+
+  vcpu_stacktrace(vcpu);
 }
