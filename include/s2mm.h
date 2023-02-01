@@ -4,6 +4,8 @@
 #include "types.h"
 #include "mm.h"
 
+u64 *vttbr;
+
 #define VTCR_T0SZ(n)  ((n) & 0x3f)
 #define VTCR_SL0(n)   (((n) & 0x3) << 6)
 #define VTCR_IRGN0(n) (((n) & 0x3) << 8)
@@ -82,6 +84,7 @@ void s2_page_ro(ipa_t ipa);
 void copy_to_guest(ipa_t to_ipa, char *from, u64 len, bool alloc);
 void copy_from_guest(char *to, ipa_t from_ipa, u64 len);
 
+void guest_map_page(ipa_t ipa, physaddr_t pa, enum pageflag flags);
 void map_guest_image(struct guest *img, ipa_t ipa);
 void alloc_guestmem(ipa_t ipa, u64 size);
 
@@ -91,6 +94,14 @@ void s2_pte_dump(ipa_t ipa);
 
 void s2mmu_init_core(void);
 void s2mmu_init(void);
+
+static inline bool s2_accessible(ipa_t ipa) {
+  return page_accessible(vttbr, ipa);
+}
+
+static inline u64 *s2_accessible_pte(ipa_t ipa) {
+  return page_accessible_pte(vttbr, ipa);
+}
 
 static inline int s2pte_perm(u64 *pte) {
   return (*pte & S2PTE_S2AP_MASK) >> 6;

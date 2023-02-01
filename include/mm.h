@@ -147,14 +147,14 @@ struct dabort_info {
 };
 
 u64 *pagewalk(u64 *pgt, u64 va, int root_level, int alloc);
-void pagemap(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 attr);
+void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags);
 void pageunmap(u64 *pgt, u64 va, u64 size);
 
 void *early_fdt_map(void *fdt_phys);
 void early_map_earlymem(u64 pstart, u64 pend);
 
-void page_access_invalidate(u64 *pgt, u64 va);
-void page_access_ro(u64 *pgt, u64 val);
+u64 *page_accessible_pte(u64 *pgt, u64 va);
+bool page_accessible(u64 *pgt, u64 va);
 
 void setup_pagetable_secondary(void);
 u64 at_hva2pa(u64 hva);

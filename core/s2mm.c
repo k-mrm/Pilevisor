@@ -16,7 +16,6 @@
 #include "tlb.h"
 #include "assert.h"
 
-static u64 *vttbr;
 static int root_level;
 
 static int parange_map[] = {
@@ -24,7 +23,7 @@ static int parange_map[] = {
 };
 
 void s2_pte_dump(ipa_t ipa) {
-  u64 *pte = pagewalk(localvm.vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
   if(!pte) {
     printf("unmapped\n");
     return;
@@ -50,15 +49,15 @@ static inline u64 pageflag_to_s2pte_flags(enum pageflag flags) {
   if(flags & PAGE_NORMAL)
     f = S2PTE_NORMAL;
   else if(flags & PAGE_DEVICE)
-    f = S2PTE_DEVICE_nGnRE | S2PTE_XN;
+    f = S2PTE_DEVICE_nGnRE | PTE_XN;
 
   if(flags & PAGE_RW)
     f |= S2PTE_RW;
-  else(flags & PAGE_RO)
+  else if(flags & PAGE_RO)
     f |= S2PTE_RO;
 
   if(flags & PAGE_NOEXEC)
-    f |= S2PTE_XN;
+    f |= PTE_XN;
 
   return f;
 }
@@ -69,7 +68,7 @@ static void __s2_map_pages(ipa_t ipa, physaddr_t pa, u64 size, enum pageflag fla
   mappages(vttbr, ipa, pa, size, f);
 }
 
-void guest_mappage(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
+void guest_map_page(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
   __s2_map_pages(ipa, pa, PAGESIZE, flags);
 }
 
@@ -81,10 +80,10 @@ void vmiomap_passthrough(ipa_t ipa, u64 size) {
 }
 
 void s2pageunmap(ipa_t ipa, u64 size) {
-  if(va % PAGESIZE != 0 || size % PAGESIZE != 0)
+  if(ipa % PAGESIZE != 0 || size % PAGESIZE != 0)
     panic("invalid pageunmap");
 
-  for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE) {
+  for(u64 p = 0; p < size; p += PAGESIZE, ipa += PAGESIZE) {
     u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
     if(*pte == 0)
       panic("already unmapped");
@@ -105,14 +104,14 @@ void alloc_guestmem(u64 ipa, u64 size) {
     if(!p)
       panic("p");
 
-    guest_mappage(ipa + i, V2P(p), PAGE_NORMAL | PAGE_RW);
+    guest_map_page(ipa + i, V2P(p), PAGE_NORMAL | PAGE_RW);
   }
 }
 
 void map_guest_image(struct guest *img, u64 ipa) {
   printf("map guest image %p - %p\n", ipa, ipa + img->size);
 
-  copy_to_guest(ipa, (char *)img->start, img->size);
+  copy_to_guest(ipa, (char *)img->start, img->size, false);
 }
 
 void map_guest_peripherals() {
@@ -127,14 +126,10 @@ void map_guest_peripherals() {
   // vmiomap_passthrough(vttbr, 0x8000000000ul, 0x100000);         // PCIE HIGH MMIO
 }
 
-void pageremap(ipa_t ipa, physaddr_t pa, u64 size, u64 attr) {
-  if(va % PAGESIZE != 0 || size % PAGESIZE != 0)
-    panic("invalid pageremap");
+void s2_map_page_copyset(ipa_t ipa, physaddr_t pa, u64 copyset) {
+  u64 flags = S2PTE_NORMAL | S2PTE_COPYSET(copyset);
 
-  /* TODO: copy old page */
-
-  s2pageunmap(ipa, size);
-  pagemap(ipa, pa, size, attr);
+  return mappages(vttbr, ipa, pa, PAGESIZE, flags);
 }
 
 u64 *s2_rwable_pte(ipa_t ipa) {
@@ -186,7 +181,6 @@ void s2_page_invalidate(ipa_t ipa) {
   u64 pa = PTE_PA(*pte);
 
   s2pte_invalidate(pte);
-
   tlb_s2_flush_ipa(ipa);
 
   free_page(P2V(pa));
@@ -195,12 +189,11 @@ void s2_page_invalidate(ipa_t ipa) {
 void s2_page_ro(ipa_t ipa) {
   assert(PAGE_ALIGNED(ipa));
 
-  u64 *pte = pagewalk(pgt, va, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
   if(!pte)
     panic("no entry");
 
   s2pte_ro(pte);
-
   tlb_s2_flush_ipa(ipa);
 }
 
@@ -215,7 +208,7 @@ void copy_to_guest(ipa_t to_ipa, char *from, u64 len, bool alloc) {
       if(!page)
         panic("page");
 
-      guest_pagemap(PAGE_ADDRESS(to_ipa), V2P(page), PAGE_NORMAL | PAGE_RW);
+      guest_map_page(PAGE_ADDRESS(to_ipa), V2P(page), PAGE_NORMAL | PAGE_RW);
 
       hva = page;
     }
