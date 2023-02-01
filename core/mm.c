@@ -71,7 +71,9 @@ void vmm_dump_pte(u64 va) {
          "\tphysical address: %p\n"
          "\tv: %d\n"
          "\taccess flag: %d\n"
-         "\tattrindex: %d\n", va, e, PTE_PA(e), v, af, ai);
+         "\tattrindex: %d\n"
+         "\t", va, e, PTE_PA(e), v, af, ai);
+  printf("mair %p %p\n", read_sysreg(mair_el2), read_sysreg(mair_el1));
 }
 
 u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
@@ -95,6 +97,20 @@ u64 *pagewalk(u64 *pgt, u64 va, int root, int create) {
   return &pgt[PIDX(3, va)];
 }
 
+void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags) {
+  assert(PAGE_ALIGNED(va));
+  assert(PAGE_ALIGNED(pa));
+  assert(PAGE_ALIGNED(size));
+
+  for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
+    u64 *pte = pagewalk(pgt, va, root_level, 1);
+    if(*pte & PTE_AF)
+      panic("this entry has been used: va %p", va);
+
+    pte_set_entry(pte, pa, flags);
+  }
+}
+
 u64 *page_accessible_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page accessible pte");
@@ -109,26 +125,8 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
   return NULL;
 }
 
-static void __memmap(u64 va, u64 pa, u64 size, u64 memflags) {
-  if(!PAGE_ALIGNED(pa) || !PAGE_ALIGNED(va) || size % PAGESIZE != 0)
-    panic("__memmap");
-
-  for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
-    u64 *pte = pagewalk(vmm_pagetable, va, root_level, 1);
-
-    if(*pte & PTE_AF)
-      panic("this entry has been used: %p", va);
-
-    *pte = PTE_PA(pa) | PTE_AF | PTE_V | memflags;
-  }
-}
-
-static void __pagemap(u64 va, u64 pa, u64 memflags) {
-  u64 *pte = pagewalk(vmm_pagetable, va, root_level, 1);
-  if(*pte & PTE_AF)
-      panic("this entry has been used: %p", va);
-
-  *pte = PTE_PA(pa) | PTE_AF | PTE_V | memflags;
+static inline void __pagemap(u64 va, u64 pa, u64 memflags) {
+  mappages(vmm_pagetable, va, pa, PAGESIZE, memflags);
 }
 
 static inline int hugepage_level(u64 size) {

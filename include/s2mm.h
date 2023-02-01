@@ -51,19 +51,25 @@ void s2mmu_init(void);
 #define VTCR_ORGN0_WB     VTCR_ORGN0(3)
 
 /* stage 2 attribute */
-#define S2PTE_S2AP(ap)    (((ap) & 3) << 6)
+#define S2PTE_MEMATTR(ap)     (((ap) & 0xf) << 2)
+#define S2PTE_S2AP(ap)        (((ap) & 3) << 6)
 
-#define S2PTE_S2AP_MASK   (3ul << 6)
-#define S2PTE_RO          S2PTE_S2AP(1ul)
-#define S2PTE_WO          S2PTE_S2AP(2ul)
-#define S2PTE_RW          S2PTE_S2AP(3ul)
+#define S2PTE_NORMAL          S2PTE_MEMATTR(0xf)
+#define S2PTE_NORMAL_NC       S2PTE_MEMATTR(0x5)
+#define S2PTE_DEVICE_nGnRnE   S2PTE_MEMATTR(0x0)
+#define S2PTE_DEVICE_nGnRE    S2PTE_MEMATTR(0x1)
 
-#define S2PTE_DBM         (1ul << 51)
+#define S2PTE_S2AP_MASK       (3ul << 6)
+#define S2PTE_RO              S2PTE_S2AP(1ul)
+#define S2PTE_WO              S2PTE_S2AP(2ul)
+#define S2PTE_RW              S2PTE_S2AP(3ul)
+
+#define S2PTE_DBM             (1ul << 51)
 
 /* use bit[58:55] to keep page's copyset  */
-#define S2PTE_COPYSET_SHIFT 55
-#define S2PTE_COPYSET(c)    (((u64)(c) & 0xf) << S2PTE_COPYSET_SHIFT)
-#define S2PTE_COPYSET_MASK  S2PTE_COPYSET(0xf)
+#define S2PTE_COPYSET_SHIFT   55
+#define S2PTE_COPYSET(c)      (((u64)(c) & 0xf) << S2PTE_COPYSET_SHIFT)
+#define S2PTE_COPYSET_MASK    S2PTE_COPYSET(0xf)
 
 void switch_vttbr(physaddr_t vttbr);
 u64 faulting_ipa_page(void);

@@ -8,7 +8,7 @@
 
 #else   /* !RPI4 */
 
-#define EARLY_PL011_BASE    0x09000000
+#define EARLY_PL011_BASE      0x09000000
 
 #endif  /* RPI4 */
 

@@ -16,6 +16,7 @@
 #include "tlb.h"
 
 void copy_to_guest_alloc(u64 *pgt, u64 to_ipa, char *from, u64 len);
+static u64 *vttbr;
 
 static int root_level;
 
@@ -23,37 +24,61 @@ static int parange_map[] = {
   32, 36, 40, 42, 44, 48, 52,
 };
 
-void pagemap(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 attr) {
-  if(va % PAGESIZE != 0 || pa % PAGESIZE != 0 || size % PAGESIZE != 0)
-    panic("invalid pagemap");
-
-  for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
-    u64 *pte = pagewalk(pgt, va, root_level, 1);
-    if(*pte & PTE_AF)
-      panic("this entry has been used: va %p", va);
-
-    pte_set_entry(pte, pa, attr);
+void s2_pte_dump(ipa_t ipa) {
+  u64 *pte = pagewalk(localvm.vttbr, ipa, root_level, 0);
+  if(!pte) {
+    printf("unmapped\n");
+    return;
   }
+
+  u64 e = *pte;
+  int v = (e & PTE_V) == PTE_V;
+  int af = !!(e & PTE_AF);
+  int ai = (e >> 2) & PTE_INDX_MASK;
+
+  printf("pte@%p: %p\n"
+         "\tphysical address: %p\n"
+         "\tv: %d\n"
+         "\taccess flag: %d\n"
+         "\tattrindex: %d\n"
+         "\t", ipa, e, PTE_PA(e), v, af, ai);
+  printf("mair %p %p\n", read_sysreg(mair_el2), read_sysreg(mair_el1));
 }
 
-void vmmemmap(u64 *s2pgt, u64 va, u64 pa, u64 size, u64 attr) {
-  ;
+static inline u64 pageflag_to_s2pte_flags(enum pageflag flags) {
+  u64 f = 0;
+
+  if(flags & PAGE_NORMAL)
+    f = S2PTE_NORMAL;
+  else if(flags & PAGE_DEVICE)
+    f = S2PTE_DEVICE_nGnRE | S2PTE_XN;
+
+  if(flags & PAGE_RW)
+    f |= S2PTE_RW;
+  else(flags & PAGE_RO)
+    f |= S2PTE_RO;
+
+  if(flags & PAGE_NOEXEC)
+    f |= S2PTE_XN;
+
+  return f;
+}
+
+static void __guest_mappages(ipa_t ipa, physaddr_t pa, u64 size, enum pageflag flags) {
+  u64 f = pageflag_to_s2pte_flags(flags);
+
+  mappages(vttbr, ipa, pa, size, f);
+}
+
+void guest_mappage(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
+  __guest_mappages(ipa, pa, PAGESIZE, flags);
 }
 
 /* make identity map */
-void vmiomap_passthrough(u64 *s2pgt, u64 va, u64 size) {
-  u64 pa = va;
+void vmiomap_passthrough(ipa_t ipa, u64 size) {
+  u64 pa = ipa;
 
-  if(va % PAGESIZE != 0 || size % PAGESIZE != 0)
-    panic("vmiomap");
-
-  for(u64 p = 0; p < size; p += PAGESIZE, va += PAGESIZE, pa += PAGESIZE) {
-    u64 *pte = pagewalk(s2pgt, va, root_level, 1);
-    if(*pte & PTE_AF)
-      panic("this entry has been used: va %p", va);
-
-    pte_set_entry(pte, pa, S2PTE_RW | PTE_DEVICE_nGnRE | PTE_XN);
-  }
+  __guest_mappages(ipa, pa, size, PAGE_RW | PAGE_DEVICE);
 }
 
 void pageunmap(u64 *pgt, u64 va, u64 size) {
@@ -72,7 +97,7 @@ void pageunmap(u64 *pgt, u64 va, u64 size) {
   }
 }
 
-void alloc_guestmem(u64 *pgt, u64 ipa, u64 size) {
+void alloc_guestmem(u64 ipa, u64 size) {
   if(size % PAGESIZE)
     panic("invalid size");
 
@@ -81,7 +106,7 @@ void alloc_guestmem(u64 *pgt, u64 ipa, u64 size) {
     if(!p)
       panic("p");
 
-    pagemap(pgt, ipa+i, V2P(p), PAGESIZE, PTE_NORMAL|S2PTE_RW);
+    guest_mappage(ipa + i, V2P(p), PAGE_NORMAL | PAGE_RW);
   }
 }
 
@@ -113,7 +138,7 @@ void pageremap(u64 *pgt, u64 va, u64 pa, u64 size, u64 attr) {
   pagemap(pgt, va, pa, size, attr);
 }
 
-u64 *page_rwable_pte(u64 *pgt, u64 va) {
+u64 *s2_rwable_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page rwable pte");
 
@@ -141,7 +166,7 @@ u64 *s2_readable_pte(u64 *s2pgt, u64 ipa) {
   return NULL;
 }
 
-u64 *page_ro_pte(u64 *pgt, u64 va) {
+u64 *s2_ro_pte(u64 *pgt, u64 va) {
   if(!PAGE_ALIGNED(va))
     panic("page_invalidate");
 
@@ -275,7 +300,8 @@ u64 at_uva2pa(u64 uva) {
   par = read_sysreg(par_el1);
 
   if(par & 1) {
-    // dump_par_el1();
+    printf("uva2pa: %p ", uva);
+    dump_par_el1(par);
     return 0;
   } else {
     return (par & 0xfffffffff000) | PAGE_OFFSET(uva);
@@ -290,7 +316,8 @@ u64 at_uva2ipa(u64 uva) {
   par = read_sysreg(par_el1);
 
   if(par & 1) {
-    // dump_par_el1();
+    printf("uva2ipa: %p ", uva);
+    dump_par_el1(par);
     return 0;
   } else {
     return (par & 0xfffffffff000) | PAGE_OFFSET(uva);
@@ -342,7 +369,7 @@ void s2mmu_init() {
 
   vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_16T | VTCR_SL0(sl0);
 
-  u64 *vttbr = alloc_page();
+  vttbr = alloc_page();
   if(!vttbr)
     panic("vttbr failed");
 

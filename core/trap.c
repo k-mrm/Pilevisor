@@ -103,7 +103,10 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   iabort_iss_dump(iss);
 
+  u64 pa = ipa2pa(localvm.vttbr, far);
   printf("aaaa %p %p\n", localvm.vttbr, ipa2pa(localvm.vttbr, far));
+
+  s2_pte_dump(far);
 
   u64 faultpage = faulting_ipa_page();
 
@@ -197,10 +200,12 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
   printf("dabort ipa: %p va: %p elr: %p %s %d %d\n", ipa, far, vcpu->reg.elr, wnr ? "write" : "read", r, accsz);
   u64 at_ipa = at_uva2ipa(far);
+  u64 at_ipa0 = at_uva2ipa(0);
   u64 at_pa = at_uva2pa(far);
   void *va = P2V(at_pa);
   vmm_dump_pte((u64)va);
-  printf("at_ipa %p at_pa %p \n", at_ipa, at_pa);
+  printf("at_ipa %p %p at_pa %p \n", at_ipa, at_ipa0, at_pa);
+  printf("sctlr %p\n", read_sysreg(sctlr_el2));
 
   return -1;
 }

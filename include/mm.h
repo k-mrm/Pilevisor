@@ -103,10 +103,10 @@
 
 #define AI(attr, idx)           ((attr) << ((idx) * 8))
 
-#define MAIR_VALUE        (AI(ATTR_DEVICE_nGnRnE, AI_DEVICE_nGnRnE_IDX) | \
-                          AI(ATTR_DEVICE_nGnRE, AI_DEVICE_nGnRE_IDX) |    \
-                          AI(ATTR_NORMAL_NC, AI_NORMAL_NC_IDX) |          \
-                          AI(ATTR_NORMAL, AI_NORMAL_IDX))
+#define MAIR_VALUE          (AI(ATTR_DEVICE_nGnRnE, AI_DEVICE_nGnRnE_IDX) | \
+                            AI(ATTR_DEVICE_nGnRE, AI_DEVICE_nGnRE_IDX) |    \
+                            AI(ATTR_NORMAL_NC, AI_NORMAL_NC_IDX) |          \
+                            AI(ATTR_NORMAL, AI_NORMAL_IDX))
 
 #define PTE_DEVICE_nGnRnE   PTE_INDX(AI_DEVICE_nGnRnE_IDX)
 #define PTE_DEVICE_nGnRE    PTE_INDX(AI_DEVICE_nGnRE_IDX)
@@ -115,19 +115,19 @@
 
 #define PTE_PA(pte)         ((u64)(pte) & 0xfffffffff000)
 
-#define PAGESIZE          4096  /* 4KB */
-#define PAGESHIFT         12    /* 1 << 12 */
+#define PAGESIZE            4096  /* 4KB */
+#define PAGESHIFT           12    /* 1 << 12 */
 
-#define SZ_2MiB           0x200000
-#define SZ_1GiB           0x40000000
+#define SZ_2MiB             0x200000
+#define SZ_1GiB             0x40000000
 
-#define BLOCKSIZE_L2      SZ_2MiB
-#define BLOCKSIZE_L1      SZ_1GiB
+#define BLOCKSIZE_L2        SZ_2MiB
+#define BLOCKSIZE_L1        SZ_1GiB
 
-#define PAGE_ADDRESS(p)   ((u64)(p) & ~(PAGESIZE-1))
-#define PAGE_ALIGNED(p)   ((u64)(p) % PAGESIZE == 0)
-#define PAGE_ALIGN(p)     (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
-#define PAGE_OFFSET(p)    ((u64)(p) & (PAGESIZE-1))
+#define PAGE_ADDRESS(p)     ((u64)(p) & ~(PAGESIZE-1))
+#define PAGE_ALIGNED(p)     ((u64)(p) % PAGESIZE == 0)
+#define PAGE_ALIGN(p)       (((u64)(p) + PAGESIZE-1) & ~(PAGESIZE-1))
+#define PAGE_OFFSET(p)      ((u64)(p) & (PAGESIZE-1))
 
 #define ALIGN_DOWN(p, align)  \
   ((u64)(p) & ~((align) - 1))
@@ -179,6 +179,14 @@ void *setup_pagetable(u64 fdt_base);
 void dump_par_el1(u64 par);
 
 extern const char *xabort_xfsc_enc[64];
+
+enum pageflag {
+  PAGE_RW       = 1 << 0,
+  PAGE_RO       = 1 << 1,
+  PAGE_NOEXEC   = 1 << 2,
+  PAGE_DEVICE   = 1 << 3,
+  PAGE_NORMAL   = 1 << 4,
+};
 
 static inline void pte_update(u64 *pte, physaddr_t pa, u64 flags)  {
   *pte = PTE_PA(pa) | flags;

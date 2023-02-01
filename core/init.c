@@ -38,8 +38,8 @@ void _start(void);
 volatile static int cpu0_ready = 0;
 
 static void hcr_setup() {
-  u64 hcr = HCR_VM | HCR_SWIO | HCR_FMO | HCR_IMO |
-            HCR_RW | HCR_TSC /* | HCR_TDZ */;
+  u64 hcr = HCR_VM | HCR_SWIO | HCR_AMO | HCR_FMO | HCR_IMO |
+            HCR_PTW | HCR_RW | HCR_TSC /* | HCR_TDZ */;
 
   write_sysreg(hcr_el2, hcr);
 

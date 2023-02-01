@@ -52,19 +52,21 @@
 #define sev()     asm volatile("sev");
 #define sevl()    asm volatile("sevl");
 
-#define HCR_VM    (1 << 0)
-#define HCR_SWIO  (1 << 1)
-#define HCR_FMO   (1 << 3)
-#define HCR_IMO   (1 << 4)
-#define HCR_TWI   (1 << 13)
-#define HCR_TWE   (1 << 14)
-#define HCR_TID3  (1 << 18)
-#define HCR_TSC   (1 << 19)
-#define HCR_TGE   (1 << 27)
-#define HCR_TDZ   (1 << 28)
-#define HCR_RW    (1u << 31)
+#define HCR_VM            (1u << 0)
+#define HCR_SWIO          (1u << 1)
+#define HCR_PTW           (1u << 2)
+#define HCR_FMO           (1u << 3)
+#define HCR_IMO           (1u << 4)
+#define HCR_AMO           (1u << 5)
+#define HCR_TWI           (1u << 13)
+#define HCR_TWE           (1u << 14)
+#define HCR_TID3          (1u << 18)
+#define HCR_TSC           (1u << 19)
+#define HCR_TGE           (1u << 27)
+#define HCR_TDZ           (1u << 28)
+#define HCR_RW            (1u << 31)
 
-#define HPFAR_FIPA_MASK   0xfffffffffff
+#define HPFAR_FIPA_MASK   0xffffffffffful
 
 #define MPIDR_AFFINITY_LEVEL0(m)    ((m) & 0xff)
 #define MPIDR_AFFINITY_LEVEL1(m)    (((m) >> 8) & 0xff)

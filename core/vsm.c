@@ -897,6 +897,8 @@ void vsm_node_init(struct memrange *mem) {
     if(!page)
       panic("ram");
 
+    guest_memmap(vttbr, start + p, V2P(page), PAGESIZE);
+
     pagemap(vttbr, start+p, V2P(page), PAGESIZE, PTE_NORMAL|S2PTE_RW);
   }
 

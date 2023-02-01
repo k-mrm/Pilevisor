@@ -51,12 +51,12 @@ void irqchip_init() {
   for(n = next_match_node(__dt_irqchip_device, &dev, NULL); n;
       n = next_match_node(__dt_irqchip_device, &dev, n)) {
     if(!dt_node_propb(n, "interrupt-controller")) {
-      earlycon_puts("interrupt-controller?\n");
+      printf("interrupt-controller?\n");
       continue;
     }
 
     if(!dev) {
-      earlycon_puts("dev?\n");
+      printf("dev?\n");
       continue;
     }
 
