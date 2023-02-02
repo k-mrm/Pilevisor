@@ -99,11 +99,11 @@ static void vgicd_icpidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   mmio->val = 0x2 << GICD_ICPIDR2_ArchRev_SHIFT;
 }
 
-static int vgicv2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+static int vgic_v2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   ;
 }
 
-static int vgicv2_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
+static int vgic_v2_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   ;
 }
 

@@ -17,6 +17,59 @@
 #include "node.h"
 #include "panic.h"
 #include "assert.h"
+#include "msg.h"
+
+static void vgicd_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  struct vgic *vgic = localvm.vgic;
+  u32 val = GICD_CTLR_SS_ARE | GICD_CTLR_DS;
+
+  spin_lock(&vgic->lock);
+
+  if(vgic->enabled)
+    val |= GICD_CTLR_SS_ENGRP1;
+
+  mmio->val = val;
+
+  spin_unlock(&vgic->lock);
+}
+
+static void vgicd_ctlr_write(struct vcpu *vcpu, struct mmio_access *mmio) {
+  struct vgic *vgic = localvm.vgic;
+
+  spin_lock(&vgic->lock);
+
+  if(mmio->val & GICD_CTLR_SS_ENGRP1)
+    vgic->enabled = true;
+  else
+    vgic->enabled = false;
+
+  spin_unlock(&vgic->lock);
+}
+
+static void vgicd_pidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  struct vgic *vgic = localvm.vgic;
+
+  mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
+}
+
+static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  struct vgic *vgic = localvm.vgic;
+
+  spin_lock(&vgic->lock);
+
+  /* ITLinesNumber */
+  u32 val = ((vgic->nspis + 32) >> 5) - 1;
+  /* CPU Number */
+  val |= (8 - 1) << GICD_TYPER_CPUNum_SHIFT;
+  /* MBIS LPIS disabled */
+  /* IDbits */
+  val |= (10 - 1) << GICD_TYPER_IDbits_SHIFT;
+  /* A3V disabled */
+
+  mmio->val = val;
+
+  spin_unlock(&vgic->lock);
+}
 
 static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
@@ -292,9 +345,8 @@ static void vgic_set_irouter(struct vgic_irq *virq, u64 irouter) {
 
   if(irouter & GICD_IROUTER_IRM) {
     vcpuid = local_vcpu(0)->vcpuid;
-  } else {
+  else
     vcpuid = irouter_to_vcpuid(irouter);
-  }
 
   virq_set_target(virq, vcpuid);
 }
@@ -335,54 +387,28 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
   return vgic_emulate_sgir(vcpu, sgir);
 }
 
-static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
-  u16 targets = ICC_SGI1R_TARGETS(sgir);
-  u8 intid = ICC_SGI1R_INTID(sgir);
-  int irm = ICC_SGI1R_IRM(sgir);
+static int vgic_v3_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  case GICD_IROUTER(0) ... GICD_IROUTER(31)+3:
+    goto reserved;
+  case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3:
+  case GICD_PIDR2:
+    goto end;
+}
 
-  if(irm == 1)
-    panic("broadcast");
+static int vgic_v3_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
+  case GICD_IROUTER(0) ... GICD_IROUTER(31)+7:
+    goto reserved;
 
-  struct cluster_node *node;
-  foreach_cluster_node(node) {
-    for(int i = 0; i < node->nvcpu; i++) {
-      int vcpuid = node->vcpus[i];
+  case GICD_IROUTER(32) ... GICD_IROUTER(1019)+7:
 
-      /* TODO: consider Affinity */
-      if((1u << vcpuid) & targets) {
-        // vmm_log("vgic: sgi to vcpu%d\n", vcpuid);
-        struct vcpu *vcpu = node_vcpu(vcpuid);
-
-        if(vcpu) {
-          vmm_log("vgic injection!!!!!!!!!!!!!!!!!%d\n", intid);
-          /* vcpu in localnode */
-          if(vgic_inject_virq(vcpu, intid) < 0)
-            panic("sgi failed");
-        } else {
-          struct msg msg;
-          struct sgi_msg_hdr hdr;
-
-          vmm_log("vgic: route sgi(%d) to remote vcpu%d@%d (%p)\n",
-                  intid, vcpuid, node->nodeid, current->reg.elr);
-
-          hdr.target = vcpuid;
-          hdr.sgi_id = intid;
-
-          msg_init(&msg, node->nodeid, MSG_SGI, &hdr, NULL, 0, 0);
-
-          send_msg(&msg);
-        }
-      }
-    }
-  }
-
-  return 0;
+  case GICD_PIDR2:
+    goto readonly;
 }
 
 void vgic_v3_init(struct vgic *vgic) {
   vgic->archrev = 3;
 
-  vmmio_reg_handler(0x08000000, 0x10000, vgicd_mmio_read, vgicd_mmio_write);
+  vmmio_reg_handler(0x08000000, 0x10000, vgic_v3_d_mmio_read, vgic_v3_d_mmio_write);
   vmmio_reg_handler(0x080a0000, 0xf60000, vgicr_mmio_read, vgicr_mmio_write);
   vmmio_reg_handler(0x08080000, 0x20000, vgits_mmio_read, vgits_mmio_write);
 }
