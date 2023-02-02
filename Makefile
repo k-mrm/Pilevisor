@@ -128,7 +128,6 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
-	cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
@@ -233,25 +232,14 @@ linux-rpi:
 	  -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0 nokaslr" -m 1G
 
-dts:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
-	  -cpu $(QCPU) -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
+dts: dtb
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
-dts-numa:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virtn.dtb -smp 8 \
-	  -cpu $(QCPU)	\
-	  -numa node,memdev=r0,cpus=0-3,nodeid=0 \
-	  -numa node,memdev=r1,cpus=4-7,nodeid=1 \
-	  -object memory-backend-ram,id=r0,size=256M \
-	  -object memory-backend-ram,id=r1,size=256M \
-	  -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
-	dtc -I dtb -O dts -o virtn.dts virtn.dtb
+dts-numa: dtb-numa
+	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
+	$(QEMU) -M virt,gic-version=2,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
 	  -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
 

@@ -3,6 +3,9 @@
 
 #include "gic.h"
 
+#define GICD_CTLR_EnableGrp0                (1 << 0)
+#define GICD_CTLR_EnableGrp1                (1 << 1)
+
 #define GICD_SGIR_TargetList_SHIFT          16
 #define GICD_SGIR_TargetListFilter_SHIFT    24
 

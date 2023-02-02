@@ -450,7 +450,6 @@ static void send_invalidate_ack(int from_nodeid, u64 ipa) {
 static void vsm_invalidate_server_process(struct vsm_server_proc *proc) {
   u64 ipa = proc->page_ipa;
   struct page_desc *page = ipa_to_desc(ipa);
-  u64 copyset = proc->copyset;
   u64 from_nodeid = proc->req_nodeid;
   u64 *pte;
 

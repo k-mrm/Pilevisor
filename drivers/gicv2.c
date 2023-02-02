@@ -335,6 +335,7 @@ static struct gic_irqchip gicv2_irqchip = {
 
 static struct dt_compatible gicv2_compat[] = {
   { "arm,gic-400" },
+  { "arm,cortex-a15-gic" },
   {},
 };
 

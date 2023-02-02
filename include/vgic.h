@@ -21,6 +21,8 @@ struct vgic_irq {
   bool enabled: 1;
   u8 igroup: 1;
   u8 cfg: 1;
+
+  spinlock_t lock;
 };
 
 struct vgic {
@@ -32,8 +34,21 @@ struct vgic {
   spinlock_t lock;
 };
 
+struct vgic_v2_cpu {
+
+};
+
+struct vgic_v3_cpu {
+  
+};
+
 /* vgic cpu interface */
 struct vgic_cpu {
+  union {
+    struct vgic_v2_cpu v2;
+    struct vgic_v3_cpu v3;
+  };
+
   struct vgic_irq sgis[GIC_NSGI];
   struct vgic_irq ppis[GIC_NPPI];
 };
@@ -42,7 +57,11 @@ void vgic_cpu_init(struct vcpu *vcpu);
 int vgic_inject_virq(struct vcpu *vcpu, u32 intid);
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr);
 
+void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq);
+void vgic_disable_irq(struct vcpu *vcpu, struct vgic_irq *irq);
 void vgic_inject_pending_irqs(void);
+
+struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
 
 void vgic_init(void);
 
