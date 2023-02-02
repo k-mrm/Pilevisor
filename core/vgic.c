@@ -23,8 +23,6 @@
 
 static struct vgic vgic_dist;
 
-static struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
-
 struct sgi_msg_hdr {
   POCV2_MSG_HDR_STRUCT;
   int target;
@@ -378,18 +376,6 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
     }
 
     case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3: {
-      u32 itar = 0;
-      panic("itargetsr");
-      /*
-      intid = offset - GICD_ITARGETSR(0);
-      for(int i = 0; i < 4; i++) {
-        irq = vgic_get_irq(vcpu, intid+i);
-        u32 t = irq->target->vmpidr;
-        itar |= (u32)t << (i * 8);
-      }
-      */
-
-      mmio->val = itar;
       goto end;
     }
 
@@ -412,16 +398,7 @@ static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICD_IROUTER(0) ... GICD_IROUTER(31)+3:
       goto reserved;
 
-    case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3: {
-      intid = (offset - GICD_IROUTER(0)) / sizeof(u64);
-
-      irq = vgic_get_irq(vcpu, intid);
-      if(!irq)
-        goto end;
-    
-      mmio->val = vcpuid_to_irouter(irq->vcpuid);
-      goto end;
-    }
+    case GICD_IROUTER(32) ... GICD_IROUTER(1019)+3:
 
     case GICD_PIDR2:
       mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
@@ -529,17 +506,6 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto end;
 
     case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3:
-      intid = (offset - GICD_ITARGETSR(0)) / sizeof(u32) * 4;
-      for(int i = 0; i < 4; i++) {
-        /*  TODO: fix bug
-        irq = vgic_get_irq(vcpu, intid+i);
-        u32 t = (val >> (i * 8)) & 0xff;
-        irq->target = node_vcpu(t);
-        if(!irq->target)
-          panic("target remote");
-        */
-      }
-      goto end;
 
     case GICD_ICFGR(0) ... GICD_ICFGR(63)+3: {
       intid = (offset - GICD_ICFGR(0)) / sizeof(u32) * 16;
@@ -561,17 +527,7 @@ static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICD_IROUTER(0) ... GICD_IROUTER(31)+7:
       goto reserved;
 
-    case GICD_IROUTER(32) ... GICD_IROUTER(1019)+7: {
-      intid = (offset - GICD_IROUTER(0)) / sizeof(u64);
-
-      irq = vgic_get_irq(vcpu, intid);
-      if(!irq)
-        goto end;
-
-      vgic_set_irouter(irq, val);
-
-      goto end;
-    }
+    case GICD_IROUTER(32) ... GICD_IROUTER(1019)+7:
 
     case GICD_PIDR2:
       goto readonly;

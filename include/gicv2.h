@@ -3,8 +3,12 @@
 
 #include "gic.h"
 
-#define GICD_CTLR_EnableGrp0                (1 << 0)
-#define GICD_CTLR_EnableGrp1                (1 << 1)
+#define GICD_ICPIDR2          0xfe8
+
+#define GICD_CTLR_EnableGrp0  (1 << 0)
+#define GICD_CTLR_EnableGrp1  (1 << 1)
+
+#define GICD_ICPIDR2_ArchRev_SHIFT          4
 
 #define GICD_SGIR_TargetList_SHIFT          16
 #define GICD_SGIR_TargetListFilter_SHIFT    24
@@ -30,7 +34,7 @@
 #define GICH_ELSR1    0x34
 #define GICH_LR(n)    (0x100 + ((n) * 4))
 
-#define GICH_HCR_EN   (1 << 0)
+#define GICH_HCR_EN       (1 << 0)
 
 #define GICH_VMCR_VMG1En  (1 << 1)
 

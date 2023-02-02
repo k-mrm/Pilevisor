@@ -63,27 +63,24 @@ static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 }
 
 static void vgicd_itargetsr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
-  struct vgic *vgic = localvm.vgic;
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 4;
   u8 targets;
   u32 itar = 0;
 
-  spin_lock(&vgic->lock);
-
   for(int i = 0; i < 4; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
+
+    spin_lock(&irq->lock);
     targets = irq->targets;
     itar |= (u32)targets << (i * 8);
+    spin_unlock(&irq->lock);
   }
 
   mmio->val = itar;
-
-  spin_unlock(&vgic->lock);
 }
 
 static void vgicd_itargetsr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
-  struct vgic *vgic = localvm.vgic;
   struct vgic_irq *irq;
   u32 val = mmio->val;
   int intid = offset / sizeof(u32) * 4;
@@ -95,6 +92,11 @@ static void vgicd_itargetsr_write(struct vcpu *vcpu, struct mmio_access *mmio, u
     irq->targets = (u8)(val >> (i * 8));
     spin_unlock(&irq->lock);
   }
+}
+
+static void vgicd_icpidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  /* GICv2 */
+  mmio->val = 0x2 << GICD_ICPIDR2_ArchRev_SHIFT;
 }
 
 static int vgicv2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {

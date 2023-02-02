@@ -279,6 +279,14 @@ static int vgits_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   return -1;
 }
 
+static inline u64 irouter_to_vcpuid(u64 irouter) {
+  return irouter & ((1 << 24) - 1);
+}
+
+static inline u64 vcpuid_to_irouter(u64 vcpuid) {
+  return vcpuid & ((1 << 24) - 1);
+}
+
 static void vgic_set_irouter(struct vgic_irq *virq, u64 irouter) {
   u64 vcpuid;
 
@@ -291,6 +299,32 @@ static void vgic_set_irouter(struct vgic_irq *virq, u64 irouter) {
   virq_set_target(virq, vcpuid);
 }
 
+static void vgic_v3_irouter_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+  struct vgic_irq *irq;
+  int intid = (offset - GICD_IROUTER(0)) / sizeof(u64);
+
+  irq = vgic_get_irq(vcpu, intid);
+  if(!irq)
+    return;
+
+  spin_lock(&irq->lock);
+  mmio->val = vcpuid_to_irouter(irq->vcpuid);
+  spin_unlock(&irq->lock);
+}
+
+static void vgic_v3_irouter_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+  struct vgic_irq *irq;
+  int intid = offset / sizeof(u64);
+
+  irq = vgic_get_irq(vcpu, intid);
+  if(!irq)
+    return;
+
+  spin_lock(&irq->lock);
+  vgic_set_irouter(irq, mmio->val);
+  spin_unlock(&irq->lock);
+}
+
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
   /* write only register */
   if(!wr)
@@ -299,14 +333,6 @@ int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
   u64 sgir = rt == 31 ? 0 : vcpu->reg.x[rt];
 
   return vgic_emulate_sgir(vcpu, sgir);
-}
-
-static inline u64 irouter_to_vcpuid(u64 irouter) {
-  return irouter & ((1 << 24) - 1);
-}
-
-static inline u64 vcpuid_to_irouter(u64 vcpuid) {
-  return vcpuid & ((1 << 24) - 1);
 }
 
 static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
