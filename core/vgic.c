@@ -205,11 +205,6 @@ static void recv_sgi_msg_intr(struct msg *msg) {
     panic("sgi failed");
 }
 
-static inline void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
-  virq->vcpuid = vcpuid;
-  virq->target = node_vcpu(vcpuid);
-}
-
 void vgicd_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u64 flags;
@@ -261,7 +256,7 @@ void vgic_ienable_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) 
   mmio->val = iser;
 }
 
-void vgic_isenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_isenable_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 32;
   u32 val = mmio->val;
@@ -280,7 +275,7 @@ void vgic_isenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offse
   }
 }
 
-void vgic_icenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_icenable_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 32;
   u32 val = mmio->val;
@@ -302,7 +297,7 @@ void vgic_icenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offse
   }
 }
 
-void vgic_ispendr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_ipend_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 pendr = 0;
   int intid = offset / sizeof(u32) * 32;
@@ -321,7 +316,7 @@ void vgic_ispendr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) 
   mmio->val = pendr;
 }
 
-void vgic_ipriorityr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_ipriority_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 ipr = 0;
   int intid = offset / sizeof(u32) * 4;
@@ -340,7 +335,7 @@ void vgic_ipriorityr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offse
   mmio->val = ipr;
 }
 
-void vgic_ipriorityr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_ipriority_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 4;
   u32 val = mmio->val;
@@ -357,7 +352,7 @@ void vgic_ipriorityr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offs
   }
 }
 
-void vgic_icfgr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_icfg_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 icfg = 0;
   int intid = offset / sizeof(u32) * 16;
@@ -379,7 +374,7 @@ void vgic_icfgr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   mmio->val = icfg;
 }
 
-void vgic_icfgr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_icfg_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 16;
   u32 val = mmio->val;
@@ -401,100 +396,6 @@ void vgic_icfgr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
 
     spin_unlock_irqrestore(&irq->lock, flags);
   }
-}
-
-static int vgicd_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
-  u64 offset = mmio->offset;
-
-  if(!(mmio->accsize & ACC_WORD))
-    panic("unimplemented %d", mmio->accsize*8);
-
-  switch(offset) {
-    case GICD_CTLR:
-    case GICD_TYPER:
-    case GICD_IIDR:
-    case GICD_TYPER2:
-      /* linux's gicv3 driver accesses GICD_TYPER2 (offset 0xc) */
-      mmio->val = 0;
-      break;
-    case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3:
-
-    case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
-    case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3:
-
-    case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
-
-    case GICD_ICPENDR(0) ... GICD_ICPENDR(31)+3:
-
-    case GICD_ISACTIVER(0) ... GICD_ISACTIVER(31)+3:
-    case GICD_ICACTIVER(0) ... GICD_ICACTIVER(31)+3:
-      mmio->val = 0;
-
-    case GICD_IPRIORITYR(0) ... GICD_IPRIORITYR(254)+3:
-
-    case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
-  }
-
-  vmm_warn("vgicd_mmio_read: unhandled %p\n", offset);
-
-  return -1;
-}
-
-static int vgicd_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
-  int intid, status = 0;
-  u64 offset = mmio->offset;
-
-  /*
-  if(!(mmio->accsize & ACC_WORD))
-    panic("%s: unimplemented %d %p", __func__, mmio->accsize*8, offset);
-    */
-
-  switch(offset) {
-    case GICD_CTLR:
-    case GICD_IIDR:
-    case GICD_TYPER:
-      goto readonly;
-
-    case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3:
-      goto readonly;
-
-    case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
-
-    case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3:
-
-    case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
-    case GICD_ICPENDR(0) ... GICD_ICPENDR(31)+3:
-    case GICD_ISACTIVER(0) ... GICD_ISACTIVER(31)+3:
-      goto unimplemented;
-
-    case GICD_ICACTIVER(0) ... GICD_ICACTIVER(31)+3:
-      goto end;
-
-    case GICD_IPRIORITYR(0) ... GICD_IPRIORITYR(254)+3:
-    case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3:
-
-    case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
-  }
-
-  vmm_warn("vgicd_mmio_write: unhandled %p\n", offset);
-  status = -1;
-  goto end;
-
-readonly:
-  /* write ignored */
-  vmm_warn("vgicd_mmio_write: readonly register %p\n", offset);
-  goto end;
-
-unimplemented:
-  vmm_warn("vgicd_mmio_write: unimplemented %p %p %p %p\n",
-           offset, val, current->reg.elr, current->reg.x[30]);
-  goto end;
-
-reserved:
-  vmm_warn("vgicd_mmio_write: reserved %p\n", offset);
-
-end:
-  return status;
 }
 
 static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {

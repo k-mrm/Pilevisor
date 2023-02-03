@@ -19,31 +19,38 @@
 #include "assert.h"
 #include "msg.h"
 
+static inline void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
+  virq->vcpuid = vcpuid;
+  virq->target = node_vcpu(vcpuid);
+}
+
 static void vgicd_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val = GICD_CTLR_SS_ARE | GICD_CTLR_DS;
+  u64 flags;
 
-  spin_lock(&vgic->lock);
+  spin_lock_irqsave(&vgic->lock, flags);
 
   if(vgic->enabled)
     val |= GICD_CTLR_SS_ENGRP1;
 
   mmio->val = val;
 
-  spin_unlock(&vgic->lock);
+  spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
 static void vgicd_ctlr_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
+  u64 flags;
 
-  spin_lock(&vgic->lock);
+  spin_lock_irqsave(&vgic->lock, flags);
 
   if(mmio->val & GICD_CTLR_SS_ENGRP1)
     vgic->enabled = true;
   else
     vgic->enabled = false;
 
-  spin_unlock(&vgic->lock);
+  spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
 static void vgicd_pidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
@@ -54,8 +61,9 @@ static void vgicd_pidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
 static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
+  u64 flags;
 
-  spin_lock(&vgic->lock);
+  spin_lock_irqsave(&vgic->lock, flags);
 
   /* ITLinesNumber */
   u32 val = ((vgic->nspis + 32) >> 5) - 1;
@@ -68,7 +76,7 @@ static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   mmio->val = val;
 
-  spin_unlock(&vgic->lock);
+  spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
 static void vgicr_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
@@ -102,40 +110,19 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
 
     case GICR_IIDR:
-      mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id = 0x19 */
-                  vgic->archrev << GICD_IIDR_Revision_SHIFT |
-                  0x43b;   /* ARM implementer */
-      return 0;
 
-    case GICR_TYPER: {
-    }
+    case GICR_TYPER:
 
     case GICR_PIDR2:
-      mmio->val = vgic->archrev << GICD_PIDR2_ArchRev_SHIFT;
       return 0;
 
     case GICR_ISENABLER0:
-    case GICR_ICENABLER0: {
-      u32 iser = 0; 
-
-      for(int i = 0; i < 32; i++) {
-        irq = vgic_get_irq(vcpu, i);
-        if(!irq)
-          return 0;
-
-        iser |= irq->enabled << i;
-      }
-
-      mmio->val = iser;
-      return 0;
-    }
+    case GICR_ICENABLER0:
 
     case GICR_ISPENDR0:
-      panic("pa");
       return 0;
 
     case GICR_ICPENDR0:
-      panic("pa");
       return 0;
 
     case GICR_ISACTIVER0:
@@ -143,36 +130,9 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       mmio->val = 0;
       return 0;
 
-    case GICR_IPRIORITYR(0) ... GICR_IPRIORITYR(7): {
-      u32 ipr = 0;
-      intid = (offset - GICR_IPRIORITYR(0)) / sizeof(u32) * 4;
-      for(int i = 0; i < 4; i++) {
-        irq = vgic_get_irq(vcpu, intid+i);
-        if(!irq)
-          return 0;
+    case GICR_IPRIORITYR(0) ... GICR_IPRIORITYR(7):
 
-        ipr |= irq->priority << (i * 8);
-      }
-
-      mmio->val = ipr;
-      return 0;
-    }
-
-    case GICR_ICFGR0 ... GICR_ICFGR1: {
-      u32 icfg = 0;
-      intid = (offset - GICR_ICFGR0) / sizeof(u32) * 16;
-      for(int i = 0; i < 16; i++) {
-        irq = vgic_get_irq(vcpu, intid + i);
-        if(!irq)
-          return 0;
-
-        if(irq->cfg == CONFIG_EDGE)
-          icfg |= 0x2u << (i * 2);
-      }
-
-      mmio->val = icfg;
-      return 0;
-    }
+    case GICR_ICFGR0 ... GICR_ICFGR1:
 
     case GICR_IGRPMODR0:
       mmio->val = 0;
@@ -189,10 +149,7 @@ badwidth:
 }
 
 static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
-  int intid;
-  struct vgic_irq *irq;
   u64 offset = mmio->offset;
-  u64 val = mmio->val;
 
   /*
   if(!(mmio->accsize & ACC_WORD))
@@ -211,29 +168,11 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto readonly;
 
     case GICR_ISENABLER0:
-      for(int i = 0; i < 32; i++) {
-        irq = vgic_get_irq(vcpu, i);
-        if(!irq)
-          return 0;
-
-        if((val >> i) & 0x1) {
-          vgic_enable_irq(vcpu, irq);
-        }
-      }
-
+      vgic_isenable_write(vcpu, mmio, offset - GICR_ISENABLER0);
       return 0;
 
     case GICR_ICENABLER0:
-      for(int i = 0; i < 32; i++) {
-        irq = vgic_get_irq(vcpu, i);
-        if(!irq)
-          return 0;
-
-        if((val >> i) & 0x1) {
-          vgic_disable_irq(vcpu, irq);
-        }
-      }
-
+      vgic_icenable_write(vcpu, mmio, offset - GICR_ICENABLER0);
       return 0;
 
     case GICR_ICPENDR0:
@@ -244,34 +183,12 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto unimplemented;
 
     case GICR_IPRIORITYR(0) ... GICR_IPRIORITYR(7):
-      intid = (offset - GICR_IPRIORITYR(0)) / sizeof(u32) * 4;
-      for(int i = 0; i < 4; i++) {
-        irq = vgic_get_irq(vcpu, intid+i);
-        if(!irq)
-          return 0;
-
-        irq->priority = (val >> (i * 8)) & 0xff;
-      }
-
+      vgic_ipriority_write(vcpu, mmio, offset - GICR_IPRIORITYR(0));
       return 0;
 
-    case GICR_ICFGR0 ... GICR_ICFGR1: {
-      intid = (offset - GICR_ICFGR0) / sizeof(u32) * 16;
-      for(int i = 0; i < 16; i++) {
-        irq = vgic_get_irq(vcpu, intid + i);
-        if(!irq)
-          return 0;
-
-        u8 c = (val >> (i * 2)) & 0x3;
-
-        if(c >> 1 == CONFIG_LEVEL)
-          irq->cfg = CONFIG_LEVEL;
-        else
-          irq->cfg = CONFIG_EDGE;
-      }
-
+    case GICR_ICFGR0 ... GICR_ICFGR1:
+      vgic_icfg_write(vcpu, mmio, offset - GICR_ICFGR0);
       return 0;
-    }
 
     case GICR_IGRPMODR0:
       /* no op */
@@ -286,6 +203,7 @@ unimplemented:
   return 0;
 
 readonly:
+  vmm_log("vgicr_mmio_write: readonly %p\n", offset);
   return 0;
 }
 
@@ -350,28 +268,30 @@ static void vgic_set_irouter(struct vgic_irq *virq, u64 irouter) {
 
 static void vgic_v3_irouter_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
-  int intid = (offset - GICD_IROUTER(0)) / sizeof(u64);
+  int intid = offset / sizeof(u64);
+  u64 flags;
 
   irq = vgic_get_irq(vcpu, intid);
   if(!irq)
     return;
 
-  spin_lock(&irq->lock);
+  spin_lock_irqsave(&irq->lock, flags);
   mmio->val = vcpuid_to_irouter(irq->vcpuid);
-  spin_unlock(&irq->lock);
+  spin_unlock_irqrestore(&irq->lock, flags);
 }
 
 static void vgic_v3_irouter_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u64);
+  u64 flags;
 
   irq = vgic_get_irq(vcpu, intid);
   if(!irq)
     return;
 
-  spin_lock(&irq->lock);
+  spin_lock_irqsave(&irq->lock, flags);
   vgic_set_irouter(irq, mmio->val);
-  spin_unlock(&irq->lock);
+  spin_unlock_irqrestore(&irq->lock, flags);
 }
 
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
