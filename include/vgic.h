@@ -37,7 +37,7 @@ struct vgic_irq {
 
 struct vgic {
   int nspis;
-  int archrev;
+  int version;
   struct vgic_irq *spis;
   bool enabled: 1;
 
@@ -71,9 +71,11 @@ void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq);
 void vgic_disable_irq(struct vcpu *vcpu, struct vgic_irq *irq);
 void vgic_inject_pending_irqs(void);
 
+void virq_set_target(struct vgic_irq *virq, u64 vcpuid);
+
 struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
 
-void vgicd_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio);
+void vgic_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio);
 void vgic_igroup_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
 void vgic_ienable_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
 void vgic_isenable_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);

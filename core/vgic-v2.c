@@ -18,7 +18,11 @@
 #include "panic.h"
 #include "assert.h"
 
-static void vgicd_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+void vgic_v2_virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
+  virq->targets = 1 << vcpuid;
+}
+
+static void vgic_v2_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val = 0;
   u64 flags;
@@ -33,7 +37,7 @@ static void vgicd_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
-static void vgicd_ctlr_write(struct vcpu *vcpu, struct mmio_access *mmio) {
+static void vgic_v2_ctlr_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u64 flags;
 
@@ -47,7 +51,7 @@ static void vgicd_ctlr_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
-static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+static void vgic_v2_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val;
   u64 flags;
@@ -99,7 +103,7 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio, 
   }
 }
 
-static void vgicd_icpidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+static void vgic_v2_icpidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   /* GICv2 */
   mmio->val = 0x2 << GICD_ICPIDR2_ArchRev_SHIFT;
 }
@@ -112,15 +116,15 @@ static int vgic_v2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   switch(offset) {
     case GICD_CTLR:
-      vgicd_ctlr_read(vcpu, mmio);
+      vgic_v2_ctlr_read(vcpu, mmio);
       return 0;
 
     case GICD_TYPER:
-      vgicd_typer_read(vcpu, mmio);
+      vgic_v2_typer_read(vcpu, mmio);
       return 0;
 
     case GICD_IIDR:
-      vgicd_iidr_read(vcpu, mmio);
+      vgic_iidr_read(vcpu, mmio);
       return 0;
 
     case GICD_TYPER2:
@@ -163,6 +167,10 @@ static int vgic_v2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
       vgic_icfg_read(vcpu, mmio, offset - GICD_ICFGR(0));
       return 0;
+
+    case GICD_ICPIDR2:
+      vgic_v2_icpidr2_read(vcpu, mmio);
+      return 0;
   }
 
   vmm_warn("vgicv2: dist mmio read: unhandled %p\n", offset);
@@ -177,13 +185,10 @@ static int vgic_v2_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   switch(offset) {
     case GICD_CTLR:
-      vgicd_ctlr_write(vcpu, mmio);
+      vgic_v2_ctlr_write(vcpu, mmio);
       return 0;
 
     case GICD_IIDR:
-      vgicd_iidr_write(vcpu, mmio);
-      return 0;
-
     case GICD_TYPER:
       goto readonly;
 
@@ -191,11 +196,11 @@ static int vgic_v2_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto readonly;
 
     case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
-      vgicd_isenable_write(vcpu, mmio, offset - GICD_ISENABLER(0));
+      vgic_isenable_write(vcpu, mmio, offset - GICD_ISENABLER(0));
       return 0;
 
     case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3:
-      vgicd_icenable_write(vcpu, mmio, offset - GICD_ICENABLER(0));
+      vgic_icenable_write(vcpu, mmio, offset - GICD_ICENABLER(0));
       return 0;
 
     case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
@@ -217,6 +222,9 @@ static int vgic_v2_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICD_ICFGR(0) ... GICD_ICFGR(63)+3:
       vgic_icfg_write(vcpu, mmio, offset - GICD_ICFGR(0));
       return 0;
+
+    case GICD_ICPIDR2:
+      goto readonly;
   }
 
   vmm_warn("vgicd_mmio_write: unhandled %p\n", offset);
@@ -228,8 +236,8 @@ readonly:
   return 0;
 
 unimplemented:
-  vmm_warn("vgicd_mmio_write: unimplemented %p %p %p %p\n",
-           offset, val, current->reg.elr, current->reg.x[30]);
+  vmm_warn("vgicd_mmio_write: unimplemented %p %p %p\n",
+           offset, current->reg.elr, current->reg.x[30]);
   return 0;
 
 reserved:
@@ -238,7 +246,7 @@ reserved:
 }
 
 void vgic_v2_init(struct vgic *vgic) {
-  vgic->archrev = 2;
+  vgic->version = 2;
 
   vmmio_reg_handler(0x08000000, 0x10000, vgic_v2_d_mmio_read, vgic_v2_d_mmio_write);
 }

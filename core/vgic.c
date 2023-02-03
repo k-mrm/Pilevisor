@@ -20,6 +20,8 @@
 #include "irq.h"
 #include "panic.h"
 #include "assert.h"
+#include "vgic-v2.h"
+#include "vgic-v3.h"
 
 static struct vgic vgic_dist;
 
@@ -88,6 +90,15 @@ bool vgic_irq_pending(struct vgic_irq *irq) {
   u32 intid = irq->intid;
 
   return localnode.irqchip->guest_irq_pending(intid);
+}
+
+void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
+  struct vgic *vgic = localvm.vgic;
+  
+  if(vgic->version == 2)
+    vgic_v2_virq_set_target(virq, vcpuid);
+  else if(vgic->version == 3)
+    vgic_v3_virq_set_target(virq, vcpuid);
 }
 
 void vgic_readonly(struct vcpu * __unused vcpu, struct mmio_access * __unused mmio) {
@@ -205,14 +216,14 @@ static void recv_sgi_msg_intr(struct msg *msg) {
     panic("sgi failed");
 }
 
-void vgicd_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+void vgic_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u64 flags;
 
   spin_lock_irqsave(&vgic->lock, flags);
 
   mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id */
-              vgic->archrev << GICD_IIDR_Revision_SHIFT |
+              vgic->version << GICD_IIDR_Revision_SHIFT |
               0x43b;   /* ARM implementer */
 
   spin_unlock_irqrestore(&vgic->lock, flags);
