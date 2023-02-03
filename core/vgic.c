@@ -92,7 +92,7 @@ bool vgic_irq_pending(struct vgic_irq *irq) {
   return localnode.irqchip->guest_irq_pending(intid);
 }
 
-void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
+static void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
   struct vgic *vgic = localvm.vgic;
   
   if(vgic->version == 2)

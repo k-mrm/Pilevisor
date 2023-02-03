@@ -71,8 +71,6 @@ void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq);
 void vgic_disable_irq(struct vcpu *vcpu, struct vgic_irq *irq);
 void vgic_inject_pending_irqs(void);
 
-void virq_set_target(struct vgic_irq *virq, u64 vcpuid);
-
 struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
 
 void vgic_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio);

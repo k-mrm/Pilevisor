@@ -109,7 +109,7 @@ static void vgic_set_irouter(struct vgic_irq *virq, u64 irouter) {
   else
     vcpuid = irouter_to_vcpuid(irouter);
 
-  virq_set_target(virq, vcpuid);
+  vgic_v3_virq_set_target(virq, vcpuid);
 }
 
 static void vgic_v3_iroute_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
