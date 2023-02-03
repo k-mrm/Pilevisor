@@ -95,10 +95,7 @@ bool vgic_irq_pending(struct vgic_irq *irq) {
 static void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
   struct vgic *vgic = localvm.vgic;
   
-  if(vgic->version == 2)
-    vgic_v2_virq_set_target(virq, vcpuid);
-  else if(vgic->version == 3)
-    vgic_v3_virq_set_target(virq, vcpuid);
+  vgic->ops->irq_set_target(virq, vcpuid);
 }
 
 void vgic_readonly(struct vcpu * __unused vcpu, struct mmio_access * __unused mmio) {
@@ -409,13 +406,9 @@ void vgic_icfg_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   }
 }
 
-static int vgic_emulate_sgir(struct vcpu *vcpu, u64 sgir) {
-  u16 targets = ICC_SGI1R_TARGETS(sgir);
-  u8 intid = ICC_SGI1R_INTID(sgir);
-  int irm = ICC_SGI1R_IRM(sgir);
-
-  if(irm == 1)
-    panic("broadcast");
+int vgic_emulate_sgi(struct vcpu *vcpu, struct gic_sgi *sgi) {
+  int intid = sgi->sgi_id;
+  u16 targets = sgi->targets;
 
   struct cluster_node *node;
   foreach_cluster_node(node) {

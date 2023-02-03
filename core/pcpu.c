@@ -23,14 +23,28 @@ enum sgi_id {
   SGI_DO_RECVQ,
 };
 
-void cpu_stop_all() {
+static inline void __send_sgi(int sgi_id, int cpu) {
   struct gic_sgi sgi = {
-    .sgi_id = SGI_STOP,
-    .mode = ROUTE_BROADCAST,
+    .sgi_id = sgi_id,
+    .targets = 1u << cpu,
+    .mode = SGI_ROUTE_TARGETS,
+  };
+
+  localnode.irqchip->send_sgi(&sgi);
+}
+
+static inline void __send_sgi_bcast(int sgi_id) {
+  struct gic_sgi sgi = {
+    .sgi_id = sgi_id,
+    .mode = SGI_ROUTE_BROADCAST,
   };
 
   if(localnode.irqchip)
     localnode.irqchip->send_sgi(&sgi);
+}
+
+void cpu_stop_all() {
+  __send_sgi_bcast(SGI_STOP);
 }
 
 void cpu_stop_local() {
@@ -41,23 +55,11 @@ void cpu_stop_local() {
 }
 
 void cpu_send_inject_sgi(int cpu) {
-  struct gic_sgi sgi = {
-    .sgi_id = SGI_INJECT,
-    .targets = 1u << cpu,
-    .mode = ROUTE_TARGETS,
-  };
-
-  localnode.irqchip->send_sgi(&sgi);
+  __send_sgi(SGI_INJECT, cpu);
 }
 
 void cpu_send_do_recvq_sgi(int cpu) {
-  struct gic_sgi sgi = {
-    .sgi_id = SGI_DO_RECVQ,
-    .targets = 1u << cpu,
-    .mode = ROUTE_TARGETS,
-  };
-
-  localnode.irqchip->send_sgi(&sgi);
+  __send_sgi(SGI_DO_RECVQ, cpu);
 }
 
 void cpu_sgi_handler(int sgi_id) {

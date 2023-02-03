@@ -16,14 +16,11 @@ enum {
 
 struct vgic_irq {
   u16 intid;
+  struct vcpu *target;    /* target vcpu: if NULL, target in remote node */
 
   union {
-    struct {
-      struct vcpu *target;  /* GICv3: target vcpu: if NULL, target in remote node */
-      u64 vcpuid;           /* GICv3: target vcpuid */
-    };
-    
-    u8 targets;             /* for GICv2 */ 
+    u64 vcpuid;           /* for GICv3: target vcpuid */
+    u8 targets;           /* for GICv2: targets bitmap */ 
   };
 
   u8 priority;
@@ -40,6 +37,7 @@ struct vgic {
   int version;
   struct vgic_irq *spis;
   bool enabled: 1;
+  struct vgic_ops *ops;
 
   spinlock_t lock;
 };
@@ -63,9 +61,16 @@ struct vgic_cpu {
   struct vgic_irq ppis[GIC_NPPI];
 };
 
+struct vgic_ops {
+  void (*init_vgic)(struct vgic *vgic);
+  void (*irq_set_target)(struct vgic_irq *virq, u64 vcpuid);
+};
+
 void vgic_cpu_init(struct vcpu *vcpu);
 int vgic_inject_virq(struct vcpu *vcpu, u32 intid);
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr);
+
+int vgic_emulate_sgi(struct vcpu *vcpu, struct gic_sgi *sgi);
 
 void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq);
 void vgic_disable_irq(struct vcpu *vcpu, struct vgic_irq *irq);

@@ -51,9 +51,9 @@
 #define GICD_PIDR2_ArchRev_SHIFT    4
 
 enum sgi_mode {
-  ROUTE_TARGETS = 0,
-  ROUTE_BROADCAST = 1,
-  ROUTE_SELF = 2,
+  SGI_ROUTE_TARGETS   = 0,
+  SGI_ROUTE_BROADCAST = 1,
+  SGI_ROUTE_SELF      = 2,
 };
 
 struct gic_sgi {

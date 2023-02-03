@@ -18,10 +18,6 @@
 #include "panic.h"
 #include "assert.h"
 
-void vgic_v2_virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
-  virq->targets = 1 << vcpuid;
-}
-
 static void vgic_v2_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val = 0;
@@ -72,7 +68,6 @@ static void vgic_v2_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 4;
-  u8 targets;
   u32 itar = 0;
   u64 flags;
 
@@ -80,8 +75,7 @@ static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u
     irq = vgic_get_irq(vcpu, intid + i);
 
     spin_lock_irqsave(&irq->lock, flags);
-    targets = irq->targets;
-    itar |= (u32)targets << (i * 8);
+    itar |= (u32)irq->targets << (i * 8);
     spin_unlock_irqrestore(&irq->lock, flags);
   }
 
@@ -93,12 +87,25 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio, 
   u32 val = mmio->val;
   u64 flags;
   int intid = offset / sizeof(u32) * 4;
+  int targets;
 
   for(int i = 0; i < 4; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
     
     spin_lock_irqsave(&irq->lock, flags);
-    irq->targets = (u8)(val >> (i * 8));
+
+    targets = (u8)(val >> (i * 8));
+    
+    if(targets) {
+      int target = __builtin_ffs(targets);
+
+      irq->targets = targets;
+      irq->target = node_vcpu(target);
+    } else {
+      irq->targets = 0;
+      irq->target = NULL;
+    }
+
     spin_unlock_irqrestore(&irq->lock, flags);
   }
 }
@@ -106,6 +113,17 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio, 
 static void vgic_v2_icpidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   /* GICv2 */
   mmio->val = 0x2 << GICD_ICPIDR2_ArchRev_SHIFT;
+}
+
+static void vgic_v2_sgir_write(struct vcpu *vcpu, struct mmio_access *mmio) {
+  struct gic_sgi sgi;
+  u32 sgir = mmio->val;
+
+  sgi.targets = (sgir >> GICD_SGIR_TargetList_SHIFT) & 0xff;
+  sgi.sgi_id = sgir & 0xf;
+  sgi.mode = (sgir >> GICD_SGIR_TargetListFilter_SHIFT) & 0x3;
+
+  vgic_emulate_sgi(vcpu, &sgi);
 }
 
 static int vgic_v2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
@@ -191,6 +209,10 @@ static int vgic_v2_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
     case GICD_IIDR:
     case GICD_TYPER:
       goto readonly;
+
+    case GICD_SGIR:
+      vgic_v2_sgir_write(vcpu, mmio);
+      return 0;
 
     case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3:
       goto readonly;

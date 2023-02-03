@@ -141,13 +141,25 @@ static void vgic_v3_iroute_write(struct vcpu *vcpu, struct mmio_access *mmio, u6
 }
 
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr) {
+  struct gic_sgi sgi;
+  int irm;
+
   /* write only register */
   if(!wr)
     return -1;
 
   u64 sgir = rt == 31 ? 0 : vcpu->reg.x[rt];
 
-  return vgic_emulate_sgir(vcpu, sgir);
+  sgi.targets = ICC_SGI1R_TARGETS(sgir);
+  sgi.sgi_id = ICC_SGI1R_INTID(sgir);
+  irm = ICC_SGI1R_IRM(sgir);
+
+  if(irm == 1)
+    sgi.mode = SGI_ROUTE_BROADCAST;
+  else
+    sgi.mode = SGI_ROUTE_TARGETS;
+
+  return vgic_emulate_sgi(vcpu, &sgi);
 }
 
 static int vgic_v3_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {

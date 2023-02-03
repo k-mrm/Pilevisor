@@ -214,9 +214,9 @@ static void gicv3_guest_eoi(u32 iar) {
 static void gicv3_send_sgi(struct gic_sgi *sgi) {
   u64 sgir = (sgi->sgi_id & 0xf) << ICC_SGI1R_INTID_SHIFT;
 
-  if(sgi->mode == ROUTE_BROADCAST) {
+  if(sgi->mode == SGI_ROUTE_BROADCAST) {
     sgir |= 1ul << 40;      // IRM
-  } else if(sgi->mode == ROUTE_TARGETS) {
+  } else if(sgi->mode == SGI_ROUTE_TARGETS) {
     sgir |= sgi->targets & 0xffff;
   } else {
     panic("unknown sgi");
