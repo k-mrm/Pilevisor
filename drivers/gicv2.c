@@ -303,9 +303,9 @@ static int gicv2_dt_init(struct device_node *dev) {
   gicv2_d_init();
   gicv2_h_init();
 
-  vmm_log("GICv2: nirqs: %d max_lr: %d\n", gicv2_irqchip.nirqs, gicv2_irqchip.max_lr);
+  printf("GICv2: nirqs: %d max_lr: %d\n", gicv2_irqchip.nirqs, gicv2_irqchip.max_lr);
 
-  vmm_log("GICv2: dist base %p\n"
+  printf("GICv2: dist base %p\n"
           "       cpu base %p\n"
           "       hyp base %p\n", gicd_base, gicc_base, gich_base);
 

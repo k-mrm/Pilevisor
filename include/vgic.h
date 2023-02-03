@@ -25,6 +25,8 @@ struct vgic_irq {
 
   u8 priority;
 
+  u8 req_cpu;             /* for GICv2 */
+
   bool enabled: 1;
   u8 igroup: 1;
   u8 cfg: 1;
@@ -37,7 +39,6 @@ struct vgic {
   int version;
   struct vgic_irq *spis;
   bool enabled: 1;
-  struct vgic_ops *ops;
 
   spinlock_t lock;
 };
@@ -59,11 +60,6 @@ struct vgic_cpu {
 
   struct vgic_irq sgis[GIC_NSGI];
   struct vgic_irq ppis[GIC_NPPI];
-};
-
-struct vgic_ops {
-  void (*init_vgic)(struct vgic *vgic);
-  void (*irq_set_target)(struct vgic_irq *virq, u64 vcpuid);
 };
 
 void vgic_cpu_init(struct vcpu *vcpu);

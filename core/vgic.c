@@ -92,12 +92,6 @@ bool vgic_irq_pending(struct vgic_irq *irq) {
   return localnode.irqchip->guest_irq_pending(intid);
 }
 
-static void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
-  struct vgic *vgic = localvm.vgic;
-  
-  vgic->ops->irq_set_target(virq, vcpuid);
-}
-
 void vgic_readonly(struct vcpu * __unused vcpu, struct mmio_access * __unused mmio) {
   /* do nothing */
   return;
@@ -157,6 +151,7 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   pendirq->virq = virqno;
   pendirq->group = 1;   /* irq->igroup */
   pendirq->priority = irq->priority;
+  pendirq->req_cpu = irq->req_cpu;  /* for GICv2 SGI */
 
   if(is_sgi(virqno)) {
     pendirq->pirq = NULL;
@@ -474,12 +469,14 @@ void vgic_init(void) {
 void vgic_cpu_init(struct vcpu *vcpu) {
   struct vgic_irq *irq;
   struct vgic_cpu *vgic = &vcpu->vgic;
+  int version = localvm.vgic->version;
 
   for(int i = 0; i < GIC_NSGI; i++) {
     irq = &vgic->sgis[i];
     irq->intid = i;
     irq->enabled = true;
     irq->cfg = CONFIG_EDGE;
+
     spinlock_init(&irq->lock);
   }
 
@@ -488,7 +485,13 @@ void vgic_cpu_init(struct vcpu *vcpu) {
     irq->intid = i + 16;
     irq->enabled = false;
     irq->cfg = CONFIG_LEVEL;
-    virq_set_target(irq, vcpu->vcpuid);
+    irq->target = vcpu;
+
+    if(version == 2)
+      irq->targets = 1 << vcpu->vcpuid;
+    else if(version == 3)
+      irq->vcpuid = vcpu->vcpuid;
+
     spinlock_init(&irq->lock);
   }
 }

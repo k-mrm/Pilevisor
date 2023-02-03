@@ -20,11 +20,6 @@
 #include "assert.h"
 #include "msg.h"
 
-void vgic_v3_virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
-  virq->vcpuid = vcpuid;
-  virq->target = node_vcpu(vcpuid);
-}
-
 static void vgic_v3_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val = GICD_CTLR_SS_ARE | GICD_CTLR_DS;
@@ -109,7 +104,8 @@ static void vgic_set_irouter(struct vgic_irq *virq, u64 irouter) {
   else
     vcpuid = irouter_to_vcpuid(irouter);
 
-  vgic_v3_virq_set_target(virq, vcpuid);
+  virq->vcpuid = vcpuid;
+  virq->target = node_vcpu(vcpuid);
 }
 
 static void vgic_v3_iroute_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
