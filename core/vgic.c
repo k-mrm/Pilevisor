@@ -212,56 +212,60 @@ static inline void virq_set_target(struct vgic_irq *virq, u64 vcpuid) {
 
 void vgicd_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
+  u64 flags;
 
-  spin_lock(&vgic->lock);
+  spin_lock_irqsave(&vgic->lock, flags);
 
   mmio->val = 0x19 << GICD_IIDR_ProductID_SHIFT |   /* pocv2 product id */
               vgic->archrev << GICD_IIDR_Revision_SHIFT |
               0x43b;   /* ARM implementer */
 
-  spin_unlock(&vgic->lock);
+  spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
-void vgicd_igroup_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_igroup_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 igrp = 0;
   int intid = offset / sizeof(u32) * 32;
+  u64 flags;
 
   for(int i = 0; i < 32; i++) {
     irq = vgic_get_irq(vcpu, intid+i);
     if(!irq)
       return;
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
     igrp |= (u32)irq->igroup << i;
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 
   mmio->val = igrp;
 }
 
-void vgicd_isenabler_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_ienable_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 iser = 0;
   int intid = offset / sizeof(u32) * 32;
+  u64 flags;
 
   for(int i = 0; i < 32; i++) {
     irq = vgic_get_irq(vcpu, intid+i);
     if(!irq)
       return;
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
     iser |= (u32)irq->enabled << i;
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 
   mmio->val = iser;
 }
 
-void vgicd_isenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_isenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
-  int intid = (offset - GICD_ISENABLER(0)) / sizeof(u32) * 32;
+  int intid = offset / sizeof(u32) * 32;
   u32 val = mmio->val;
+  u64 flags;
 
   for(int i = 0; i < 32; i++) {
     irq = vgic_get_irq(vcpu, intid+i);
@@ -269,17 +273,18 @@ void vgicd_isenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offs
       return;
 
     if(val & (1 << i)) {
-      spin_lock(&irq->lock);
+      spin_lock_irqsave(&irq->lock, flags);
       vgic_enable_irq(vcpu, irq);
-      spin_unlock(&irq->lock);
+      spin_unlock_irqrestore(&irq->lock, flags);
     }
   }
 }
 
-void vgicd_icenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_icenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 32;
   u32 val = mmio->val;
+  u64 flags;
 
   for(int i = 0; i < 32; i++) {
     irq = vgic_get_irq(vcpu, intid+i);
@@ -287,93 +292,98 @@ void vgicd_icenabler_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offs
       return;
 
     if(val & (1 << i)) {
-      spin_lock(&irq->lock);
+      spin_lock_irqsave(&irq->lock, flags);
 
       if(irq->enabled)
         vgic_disable_irq(vcpu, irq);
 
-      spin_unlock(&irq->lock);
+      spin_unlock_irqrestore(&irq->lock, flags);
     }
   }
 }
 
-void vgicd_ispendr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_ispendr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 pendr = 0;
   int intid = offset / sizeof(u32) * 32;
+  u64 flags;
 
   for(int i = 0; i < 32; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
     if(!irq)
       return;
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
     pendr |= (u32)vgic_irq_pending(irq) << i;
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 
   mmio->val = pendr;
 }
 
-void vgicd_ipriorityr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_ipriorityr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 ipr = 0;
   int intid = offset / sizeof(u32) * 4;
+  u64 flags;
 
   for(int i = 0; i < 4; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
     if(!irq)
       return;
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
     ipr |= (u32)irq->priority << (i * 8);
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 
   mmio->val = ipr;
 }
 
-void vgicd_ipriorityr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_ipriorityr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 4;
   u32 val = mmio->val;
+  u64 flags;
 
   for(int i = 0; i < 4; i++) {
     irq = vgic_get_irq(vcpu, intid+i);
     if(!irq)
       return;
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
     irq->priority = (val >> (i * 8)) & 0xff;
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 }
 
-void vgicd_icfgr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_icfgr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 icfg = 0;
   int intid = offset / sizeof(u32) * 16;
+  u64 flags;
 
   for(int i = 0; i < 16; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
     if(!irq)
       return;
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
 
     if(irq->cfg == CONFIG_EDGE)
       icfg |= 0x2u << (i * 2);
 
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 
   mmio->val = icfg;
 }
 
-void vgicd_icfgr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+void vgic_icfgr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   int intid = offset / sizeof(u32) * 16;
   u32 val = mmio->val;
+  u64 flags;
 
   for(int i = 0; i < 16; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
@@ -382,14 +392,14 @@ void vgicd_icfgr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) 
 
     u8 c = (val >> (i * 2)) & 0x3;
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
 
     if(c >> 1 == CONFIG_LEVEL)
       irq->cfg = CONFIG_LEVEL;
     else
       irq->cfg = CONFIG_EDGE;
 
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 }
 

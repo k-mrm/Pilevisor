@@ -71,6 +71,17 @@ static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   spin_unlock(&vgic->lock);
 }
 
+static void vgicr_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
+  u64 typer = gicr_typer_affinity(vcpu->vmpidr);
+
+  typer |= GICR_TYPER_PROC_NUM(vcpu->vcpuid);
+
+  if(vcpu->last)
+    typer |= GICR_TYPER_LAST;
+
+  mmio->val = typer;
+}
+
 static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   int intid;
   struct vgic_irq *irq;
@@ -97,20 +108,6 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
 
     case GICR_TYPER: {
-      u64 typer;
-
-      if(!(mmio->accsize & ACC_DOUBLEWORD))
-        goto badwidth;
-
-      typer = gicr_typer_affinity(vcpu->vmpidr);
-      typer |= GICR_TYPER_PROC_NUM(vcpu->vcpuid);
-
-      if(vcpu->last)
-        typer |= GICR_TYPER_LAST;
-
-      mmio->val = typer;
-
-      return 0;
     }
 
     case GICR_PIDR2:

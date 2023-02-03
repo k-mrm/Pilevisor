@@ -21,35 +21,38 @@
 static void vgicd_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val = 0;
+  u64 flags;
 
-  spin_lock(&vgic->lock);
+  spin_lock_irqsave(&vgic->lock, flags);
 
   if(vgic->enabled)
     val |= GICD_CTLR_EnableGrp1;
 
   mmio->val = val;
 
-  spin_unlock(&vgic->lock);
+  spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
 static void vgicd_ctlr_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
+  u64 flags;
 
-  spin_lock(&vgic->lock);
+  spin_lock_irqsave(&vgic->lock, flags);
 
   if(mmio->val & GICD_CTLR_EnableGrp1)
     vgic->enabled = true;
   else
     vgic->enabled = false;
 
-  spin_unlock(&vgic->lock);
+  spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
 static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val;
+  u64 flags;
 
-  spin_lock(&vgic->lock);
+  spin_lock_irqsave(&vgic->lock, flags);
 
   /* ITLinesNumber */
   val = ((vgic->nspis + 32) >> 5) - 1;
@@ -59,7 +62,7 @@ static void vgicd_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
   mmio->val = val;
 
-  spin_unlock(&vgic->lock);
+  spin_unlock_irqrestore(&vgic->lock, flags);
 }
 
 static void vgicd_itargetsr_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
@@ -67,14 +70,15 @@ static void vgicd_itargetsr_read(struct vcpu *vcpu, struct mmio_access *mmio, u6
   int intid = offset / sizeof(u32) * 4;
   u8 targets;
   u32 itar = 0;
+  u64 flags;
 
   for(int i = 0; i < 4; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
 
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
     targets = irq->targets;
     itar |= (u32)targets << (i * 8);
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 
   mmio->val = itar;
@@ -83,14 +87,15 @@ static void vgicd_itargetsr_read(struct vcpu *vcpu, struct mmio_access *mmio, u6
 static void vgicd_itargetsr_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 val = mmio->val;
+  u64 flags;
   int intid = offset / sizeof(u32) * 4;
 
   for(int i = 0; i < 4; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
     
-    spin_lock(&irq->lock);
+    spin_lock_irqsave(&irq->lock, flags);
     irq->targets = (u8)(val >> (i * 8));
-    spin_unlock(&irq->lock);
+    spin_unlock_irqrestore(&irq->lock, flags);
   }
 }
 
