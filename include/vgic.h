@@ -76,6 +76,7 @@ struct vgic_irq *vgic_get_irq(struct vcpu *vcpu, int intid);
 
 void vgic_iidr_read(struct vcpu *vcpu, struct mmio_access *mmio);
 void vgic_igroup_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
+void vgic_igroup_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
 void vgic_ienable_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
 void vgic_isenable_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
 void vgic_icenable_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);

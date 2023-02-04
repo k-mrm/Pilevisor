@@ -238,7 +238,7 @@ static void gicv2_irq_handler(int from_guest) {
 
       gicv2_host_eoi(iar);
     } else {
-      panic("???????");
+      panic("??????? %d", irq);
     }
   } while(1);
 }
@@ -248,7 +248,7 @@ static void gicv2_h_init() {
 
   gicv2_irqchip.max_lr = vtr & 0x3f;
 
-  gich_write(GICH_VMCR, GICH_VMCR_VMG1En);
+  // gich_write(GICH_VMCR, GICH_VMCR_VMG0En);
   gich_write(GICH_HCR, GICH_HCR_EN);
 }
 
@@ -262,9 +262,7 @@ static void gicv2_c_init() {
   gicc_write(GICC_PMR, 0xff);
   gicc_write(GICC_BPR, 0x0);
 
-  gicc_write(GICC_CTLR, GICC_CTLR_EnableGrp0 | GICC_CTLR_EnableGrp1 | GICC_CTLR_EOImodeNS);
-
-  gicd_write(GICD_CTLR, 0x3);
+  gicc_write(GICC_CTLR, GICC_CTLR_EnableGrp0 | GICC_CTLR_EOImode);
 }
 
 static void gicv2_d_init() {
@@ -276,9 +274,9 @@ static void gicv2_d_init() {
   gicv2_irqchip.nirqs = nirqs < 1020 ? nirqs : 1020;
 
   for(int i = 0; i < nirqs; i += 4)
-    gicd_write(GICD_IGROUPR(i / 4), ~0);
+    gicd_write(GICD_IGROUPR(i / 4), 0);
 
-  gicd_write(GICD_CTLR, 0x3);
+  gicd_write(GICD_CTLR, GICD_CTLR_EnableGrp0);
 
   isb();
 }

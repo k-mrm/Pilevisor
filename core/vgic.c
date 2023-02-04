@@ -150,9 +150,9 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   struct gic_pending_irq *pendirq = malloc(sizeof(*pendirq));
 
   pendirq->virq = virqno;
-  pendirq->group = 1;   /* irq->igroup */
+  pendirq->group = irq->igroup;       /* irq->igroup */
   pendirq->priority = irq->priority;
-  pendirq->req_cpu = irq->req_cpu;  /* for GICv2 SGI */
+  pendirq->req_cpu = irq->req_cpu;    /* for GICv2 SGI */
 
   if(is_sgi(virqno)) {
     pendirq->pirq = NULL;
@@ -229,7 +229,7 @@ void vgic_igroup_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   u64 flags;
 
   for(int i = 0; i < 32; i++) {
-    irq = vgic_get_irq(vcpu, intid+i);
+    irq = vgic_get_irq(vcpu, intid + i);
     if(!irq)
       return;
 
@@ -241,6 +241,25 @@ void vgic_igroup_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   mmio->val = igrp;
 }
 
+void vgic_igroup_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+  struct vgic_irq *irq;
+  int intid = offset / sizeof(u32) * 32;
+  u32 val = mmio->val;
+  u64 flags;
+
+  for(int i = 0; i < 32; i++) {
+    irq = vgic_get_irq(vcpu, intid + i);
+    if(!irq)
+      return;
+
+    spin_lock_irqsave(&irq->lock, flags);
+
+    irq->igroup = !!(val & (1u << i));
+
+    spin_unlock_irqrestore(&irq->lock, flags);
+  }
+}
+
 void vgic_ienable_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
   u32 iser = 0;
@@ -248,7 +267,7 @@ void vgic_ienable_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) 
   u64 flags;
 
   for(int i = 0; i < 32; i++) {
-    irq = vgic_get_irq(vcpu, intid+i);
+    irq = vgic_get_irq(vcpu, intid + i);
     if(!irq)
       return;
 
