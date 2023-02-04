@@ -233,7 +233,6 @@ static int dt_gic_intid_base(int gic) {
 }
 
 int dt_node_prop_intr(struct device_node *node, int *intid, int *cfg) {
-  struct device_node *bus = node->parent;
   fdt32 *regs;
   u32 len;
 

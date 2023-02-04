@@ -17,6 +17,7 @@
 #include "node.h"
 #include "panic.h"
 #include "assert.h"
+#include "s2mm.h"
 
 static physaddr_t host_vbase = 0;
 static bool pre_initialized = 0;

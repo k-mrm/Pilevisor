@@ -117,14 +117,14 @@ void map_guest_image(struct guest *img, u64 ipa) {
 
 void map_guest_peripherals() {
   vmiomap_passthrough(0x09000000, PAGESIZE);   // UART
-  // vmiomap_passthrough(vttbr, 0x09010000, PAGESIZE);   // RTC
-  // vmiomap_passthrough(vttbr, 0x09030000, PAGESIZE);   // GPIO
+  vmiomap_passthrough(0x09010000, PAGESIZE);   // RTC
+  vmiomap_passthrough(0x09030000, PAGESIZE);   // GPIO
 
-  // vmiomap_passthrough(vttbr, 0x0a000000, 0x4000);   // VIRTIO0
+  vmiomap_passthrough(0x0a000000, 0x4000);   // VIRTIO0
 
-  // vmiomap_passthrough(vttbr, 0x4010000000ul, 256*1024*1024);    // PCIE ECAM
-  // vmiomap_passthrough(vttbr, 0x10000000, 0x2eff0000);           // PCIE MMIO
-  // vmiomap_passthrough(vttbr, 0x8000000000ul, 0x100000);         // PCIE HIGH MMIO
+  vmiomap_passthrough(0x4010000000ul, 256*1024*1024);    // PCIE ECAM
+  vmiomap_passthrough(0x10000000, 0x2eff0000);           // PCIE MMIO
+  vmiomap_passthrough(0x8000000000ul, 0x100000);         // PCIE HIGH MMIO
 }
 
 void s2_map_page_copyset(ipa_t ipa, physaddr_t pa, u64 copyset) {

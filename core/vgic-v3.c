@@ -199,6 +199,10 @@ static int vgic_v3_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       vgic_ipend_read(vcpu, mmio, offset - GICD_ICPENDR(0));
       return 0;
 
+    case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3:
+      mmio->val = 0;
+      return 0;
+
     case GICD_ISACTIVER(0) ... GICD_ISACTIVER(31)+3:
     case GICD_ICACTIVER(0) ... GICD_ICACTIVER(31)+3:
       mmio->val = 0;
@@ -224,7 +228,7 @@ static int vgic_v3_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
   }
 
-  vmm_warn("unhandled\n");
+  vmm_warn("vgic-v3d: mmio read: unhandled\n");
   return -1;
 }
 
@@ -249,6 +253,9 @@ static int vgic_v3_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
 
     case GICD_ICENABLER(0) ... GICD_ICENABLER(31)+3:
       vgic_icenable_write(vcpu, mmio, offset - GICD_ICENABLER(0));
+      return 0;
+
+    case GICD_ITARGETSR(0) ... GICD_ITARGETSR(254)+3:
       return 0;
 
     case GICD_ISPENDR(0) ... GICD_ISPENDR(31)+3:
@@ -278,7 +285,7 @@ static int vgic_v3_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto readonly;
   }
 
-  vmm_warn("unhandled\n");
+  vmm_warn("vgic-v3d: mmio write: unhandled\n");
   return -1;
 
 readonly:

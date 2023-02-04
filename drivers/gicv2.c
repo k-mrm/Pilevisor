@@ -255,6 +255,8 @@ static void gicv2_c_init() {
   gicc_write(GICC_BPR, 0x0);
 
   gicc_write(GICC_CTLR, GICC_CTLR_EN | GICC_CTLR_EOImode);
+
+  gicd_write(GICD_CTLR, 0x3);
 }
 
 static void gicv2_d_init() {

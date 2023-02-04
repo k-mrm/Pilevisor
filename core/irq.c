@@ -13,7 +13,7 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
   if(pirq > NIRQ)
     panic("pirq %d", pirq);
 
-  vmm_log("new interrupt: %d\n", pirq);
+  printf("new interrupt: %d\n", pirq);
 
   struct irq *irq = irq_get(pirq);
 

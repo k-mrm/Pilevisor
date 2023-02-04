@@ -38,7 +38,8 @@ void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
   irq->enabled = 1;
   u32 intid = irq->intid;
 
-  vmm_warn("vcpu %d enable irq %d\n", vcpu->vcpuid, intid);
+  local_irq_enable();
+  vmm_warn("vcpu %d enable irq %d %d\n", vcpu->vcpuid, intid, local_irq_enabled());
 
   if(valid_intid(intid))
     localnode.irqchip->enable_irq(intid);
@@ -461,7 +462,10 @@ void vgic_init(void) {
 
   spinlock_init(&vgic->lock);
 
-  vgic_v2_init(vgic);
+  if(localnode.irqchip->version == 2)
+    vgic_v2_init(vgic);
+  else if(localnode.irqchip->version == 3)
+    vgic_v3_init(vgic);
 
   localvm.vgic = vgic;
 }
