@@ -45,6 +45,7 @@ int dt_node_propa64(struct device_node *node, const char *name, u64 *buf);
 const char *dt_node_props(struct device_node *node, const char *name);
 bool dt_node_propb(struct device_node *node, const char *name);
 int dt_node_prop_addr(struct device_node *node, int index, u64 *addr, u64 *size);
+int dt_node_prop_intr(struct device_node *node, int *intid, int *cfg);
 bool dt_node_props_is(struct device_node *node, const char *name, const char *str);
 
 struct device_node *dt_find_node_type_cont(const char *type, struct device_node *cont);

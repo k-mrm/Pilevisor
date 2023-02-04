@@ -284,7 +284,7 @@ void vgic_v2_pre_init(physaddr_t vbase) {
 
 void vgic_v2_init(struct vgic *vgic) {
   if(!pre_initialized) {
-    vmm_warn("host gic?");
+    vmm_warn("host gic?\n");
     return;
   }
 

@@ -7,6 +7,9 @@
 #include "memory.h"
 #include "earlycon.h"
 
+#define GIC_SPI   0
+#define GIC_PPI   1
+
 static inline u64 prop_read_number(fdt32 *prop, int size);
 
 static inline struct device_node *next_node(struct device_node *prev) {
@@ -213,6 +216,45 @@ u64 dt_bus_addr_translate(struct device_node *bus_node, u64 child_addr, u64 *pad
 done:
   if(paddr)
     *paddr = parent_addr;
+
+  return 0;
+}
+
+static int dt_gic_intid_base(int gic) {
+  switch(gic) {
+    case GIC_SPI:
+      return 32;
+    case GIC_PPI:
+      return 16;
+  }
+
+  vmm_warn("?\n");
+  return -1;
+}
+
+int dt_node_prop_intr(struct device_node *node, int *intid, int *cfg) {
+  struct device_node *bus = node->parent;
+  fdt32 *regs;
+  u32 len;
+
+  regs = dt_node_prop_raw(node, "interrupts", &len);
+  if(!regs)
+    return -1;
+
+  len /= 4;
+
+  if(intid) {
+    u32 gic = prop_read_number(regs, 1);
+    u32 id = prop_read_number(regs + 1, 1);
+
+    *intid = dt_gic_intid_base(gic) + id;
+  }
+
+  if(cfg) {
+    u32 c = prop_read_number(regs + 2, 1);
+
+    *cfg = c;
+  }
 
   return 0;
 }

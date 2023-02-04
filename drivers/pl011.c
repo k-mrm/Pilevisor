@@ -79,6 +79,7 @@ static struct uartchip pl011 = {
 
 static int pl011_dt_init(struct device_node *dev) {
   u64 base, size;
+  int intr;
 
   if(dt_node_props_is(dev, "status", "disabled"))
     return -1;
@@ -92,6 +93,9 @@ static int pl011_dt_init(struct device_node *dev) {
   rpi_gpio_set_pinmode(14, ALT0);
   rpi_gpio_set_pinmode(15, ALT0);
 #endif
+
+  if(dt_node_prop_intr(dev, &intr, NULL) < 0)
+    return -1;
 
   /* disable uart */
   pl011_write(CR, 0);
@@ -108,7 +112,7 @@ static int pl011_dt_init(struct device_node *dev) {
   /* enable uart */
   pl011_write(CR, 0x301);   /* RXE, TXE, UARTEN */
 
-  // irq_register(33, pl011_intr, NULL);
+  irq_register(intr, pl011_intr, NULL);
 
   localnode.uart = &pl011;
 

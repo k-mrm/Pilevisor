@@ -55,8 +55,10 @@ void irqstats() {
       continue;
 
     printf("irq %d: ", irq_no(irq));
+
     for(int i = 0; i < NCPU_MAX; i++)
       printf("CPU%d: %d ", i, irq->nhandle[i]);
+
     printf("\n");
   }
 }

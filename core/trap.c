@@ -140,7 +140,6 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     vmm_warn("acqrel %p\n", vcpu->reg.elr);
     */
   u64 fipa_page = faulting_ipa_page();
-  printf("faulting ipa page... %p %p\n", fipa_page, read_sysreg(hpfar_el2));
 
   if(s1ptw) {
     /* fetch pagetable */

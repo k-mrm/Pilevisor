@@ -268,7 +268,7 @@ static void gicv2_d_init() {
   for(int i = 0; i < nirqs; i += 4)
     gicd_write(GICD_IGROUPR(i / 4), ~0);
 
-  gicd_write(GICD_CTLR, 3);
+  gicd_write(GICD_CTLR, 0x3);
 
   isb();
 }
