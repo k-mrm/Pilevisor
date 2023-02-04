@@ -171,23 +171,30 @@ static void gicv2_send_sgi(struct gic_sgi *sgi) {
 
 static bool gicv2_irq_pending(u32 irq) {
   u32 is = gicd_read(GICD_ISPENDR(irq / 32));
-  return !!(is & (1 << (irq % 32)));
+  return !!(is & (1u << (irq % 32)));
 }
 
 static bool gicv2_irq_enabled(u32 irq) {
   u32 is = gicd_read(GICD_ISENABLER(irq / 32));
-  return !!(is & (1 << (irq % 32)));
+  return !!(is & (1u << (irq % 32)));
 }
 
 static void gicv2_enable_irq(u32 irq) {
   u32 is = gicd_read(GICD_ISENABLER(irq / 32));
-  is |= 1 << (irq % 32);
+  is |= 1u << (irq % 32);
   gicd_write(GICD_ISENABLER(irq / 32), is);
 }
 
 static void gicv2_disable_irq(u32 irq) {
-  u32 is = 1 << (irq % 32);
+  u32 is = 1u << (irq % 32);
   gicd_write(GICD_ICENABLER(irq / 32), is);
+}
+
+static u32 gicv2_get_target(u32 irq) {
+  u32 itargetsr = gicd_read(GICD_ITARGETSR(irq / 4));
+  u32 targets = (itargetsr >> (irq % 4 * 8)) & 0xff;
+
+  return targets;
 }
 
 static void gicv2_set_target(u32 irq, u8 target) {
@@ -200,8 +207,9 @@ static void gicv2_set_target(u32 irq, u8 target) {
 }
 
 static void gicv2_setup_irq(u32 irq) {
-  if(is_spi(irq))
+  if(is_spi(irq)) {
     gicv2_set_target(irq, 1 << 0);    // route to 0
+  }
 
   gicv2_enable_irq(irq);
 }
@@ -254,7 +262,7 @@ static void gicv2_c_init() {
   gicc_write(GICC_PMR, 0xff);
   gicc_write(GICC_BPR, 0x0);
 
-  gicc_write(GICC_CTLR, GICC_CTLR_EN | GICC_CTLR_EOImode);
+  gicc_write(GICC_CTLR, GICC_CTLR_EnableGrp0 | GICC_CTLR_EnableGrp1 | GICC_CTLR_EOImodeNS);
 
   gicd_write(GICD_CTLR, 0x3);
 }

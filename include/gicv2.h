@@ -23,8 +23,9 @@
 #define GICC_IIDR     0xfc
 #define GICC_DIR      0x1000
 
-#define GICC_CTLR_EN        (1 << 0) 
-#define GICC_CTLR_EOImode   (1 << 9)
+#define GICC_CTLR_EnableGrp0        (1u << 0) 
+#define GICC_CTLR_EnableGrp1        (1u << 1) 
+#define GICC_CTLR_EOImodeNS         (1u << 10)
 
 #define GICH_HCR      0x0
 #define GICH_VTR      0x4
