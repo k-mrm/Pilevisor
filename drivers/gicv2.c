@@ -273,6 +273,7 @@ static void gicv2_d_init() {
 
   gicv2_irqchip.nirqs = nirqs < 1020 ? nirqs : 1020;
 
+  /* all interrupts are group 0 */
   for(int i = 0; i < nirqs; i += 4)
     gicd_write(GICD_IGROUPR(i / 4), 0);
 

@@ -245,7 +245,8 @@ static int vgic_v3_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
       goto readonly;
 
     case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3:
-      goto readonly;
+      vgic_igroup_write(vcpu, mmio, offset - GICD_IGROUPR(0));
+      return 0;
 
     case GICD_ISENABLER(0) ... GICD_ISENABLER(31)+3:
       vgic_isenable_write(vcpu, mmio, offset - GICD_ISENABLER(0));
@@ -311,9 +312,12 @@ static int __vgicr_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
       return 0;
 
     case GICR_WAKER:
-    case GICR_IGROUPR0:
       /* no op */
       mmio->val = 0;
+      return 0;
+
+    case GICR_IGROUPR0:
+      vgic_igroup_read(vcpu, mmio, offset - GICR_IGROUPR0);
       return 0;
 
     case GICR_IIDR:
@@ -371,8 +375,11 @@ static int __vgicr_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   switch(offset) {
     case GICR_CTLR:
     case GICR_WAKER:
-    case GICR_IGROUPR0:
       /* no op */
+      return 0;
+
+    case GICR_IGROUPR0:
+      vgic_igroup_write(vcpu, mmio, offset - GICR_IGROUPR0);
       return 0;
 
     case GICR_TYPER:

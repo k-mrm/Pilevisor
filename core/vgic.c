@@ -162,6 +162,9 @@ int vgic_inject_virq(struct vcpu *target, u32 virqno) {
   } else if(is_spi(virqno)) {
     pendirq->pirq = irq_get(virqno);
     target = irq->target;
+
+    if(!target)
+      panic("target?");
   } else {
     vmm_warn("virq%d not exist\n", virqno);
     free(pendirq);
