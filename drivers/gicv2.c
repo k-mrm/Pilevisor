@@ -13,6 +13,7 @@
 #include "localnode.h"
 #include "compiler.h"
 #include "panic.h"
+#include "vgic-v2.h"
 
 static struct gic_irqchip gicv2_irqchip;
 
@@ -43,6 +44,14 @@ static inline u32 gich_read(u32 offset) {
 
 static inline void gich_write(u32 offset, u32 val) {
   *(volatile u32 *)((u64)gich_base + offset) = val;
+}
+
+static inline u32 gicv_read(u32 offset) {
+  return *(volatile u32 *)((u64)gicv_base + offset);
+}
+
+static inline void gicv_write(u32 offset, u32 val) {
+  *(volatile u32 *)((u64)gicv_base + offset) = val;
 }
 
 static u32 gicv2_read_lr(int n) {
@@ -259,7 +268,7 @@ static void gicv2_d_init() {
   for(int i = 0; i < nirqs; i += 4)
     gicd_write(GICD_IGROUPR(i / 4), ~0);
 
-  gicd_write(GICD_CTLR, 1);
+  gicd_write(GICD_CTLR, 3);
 
   isb();
 }
@@ -303,11 +312,14 @@ static int gicv2_dt_init(struct device_node *dev) {
   gicv2_d_init();
   gicv2_h_init();
 
+  vgic_v2_pre_init(vbase);
+
   printf("GICv2: nirqs: %d max_lr: %d\n", gicv2_irqchip.nirqs, gicv2_irqchip.max_lr);
 
   printf("GICv2: dist base %p\n"
-          "       cpu base %p\n"
-          "       hyp base %p\n", gicd_base, gicc_base, gich_base);
+         "        cpu base %p\n"
+         "        hyp base %p\n"
+         "       virt base %p\n", gicd_base, gicc_base, gich_base, gicv_base);
 
   localnode.irqchip = &gicv2_irqchip;
 

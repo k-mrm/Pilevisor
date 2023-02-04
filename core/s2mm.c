@@ -32,14 +32,11 @@ void s2_pte_dump(ipa_t ipa) {
   u64 e = *pte;
   int v = (e & PTE_V) == PTE_V;
   int af = !!(e & PTE_AF);
-  int ai = (e >> 2) & PTE_INDX_MASK;
 
   printf("pte@%p: %p\n"
          "\tphysical address: %p\n"
          "\tv: %d\n"
-         "\taccess flag: %d\n"
-         "\tattrindex: %d\n"
-         "\t", ipa, e, PTE_PA(e), v, af, ai);
+         "\taccess flag: %d\n", ipa, e, PTE_PA(e), v, af);
   printf("mair %p %p\n", read_sysreg(mair_el2), read_sysreg(mair_el1));
 }
 
@@ -76,6 +73,10 @@ void guest_map_page(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
 void vmiomap_passthrough(ipa_t ipa, u64 size) {
   u64 pa = ipa;
 
+  __s2_map_pages(ipa, pa, size, PAGE_RW | PAGE_DEVICE);
+}
+
+void vmiomap(ipa_t ipa, u64 pa, u64 size) {
   __s2_map_pages(ipa, pa, size, PAGE_RW | PAGE_DEVICE);
 }
 

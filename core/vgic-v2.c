@@ -18,6 +18,9 @@
 #include "panic.h"
 #include "assert.h"
 
+static physaddr_t host_vbase = 0;
+static bool pre_initialized = 0;
+
 static void vgic_v2_ctlr_read(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct vgic *vgic = localvm.vgic;
   u32 val = 0;
@@ -117,10 +120,16 @@ static void vgic_v2_icpidr2_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
 static void vgic_v2_sgir_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   struct gic_sgi sgi;
+  struct vgic_irq *irq;
   u32 sgir = mmio->val;
 
+  int virq = sgir & 0xf;
+  irq = vgic_get_irq(vcpu, virq);
+
+  irq->req_cpu = vcpu->vcpuid;
+
   sgi.targets = (sgir >> GICD_SGIR_TargetList_SHIFT) & 0xff;
-  sgi.sgi_id = sgir & 0xf;
+  sgi.sgi_id = virq;
   sgi.mode = (sgir >> GICD_SGIR_TargetListFilter_SHIFT) & 0x3;
 
   vgic_emulate_sgi(vcpu, &sgi);
@@ -267,8 +276,21 @@ reserved:
   return 0;
 }
 
+void vgic_v2_pre_init(physaddr_t vbase) {
+  host_vbase = vbase;
+
+  pre_initialized = true;
+}
+
 void vgic_v2_init(struct vgic *vgic) {
+  if(!pre_initialized) {
+    vmm_warn("host gic?");
+    return;
+  }
+
   vgic->version = 2;
 
   vmmio_reg_handler(0x08000000, 0x10000, vgic_v2_d_mmio_read, vgic_v2_d_mmio_write);
+
+  vmiomap(0x08010000, host_vbase, 0x1000);
 }

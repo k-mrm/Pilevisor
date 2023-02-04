@@ -93,6 +93,8 @@ void map_guest_peripherals(void);
 
 void s2_pte_dump(ipa_t ipa);
 
+void vmiomap(ipa_t ipa, u64 pa, u64 size);
+
 void s2mmu_init_core(void);
 void s2mmu_init(void);
 
