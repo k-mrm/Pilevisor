@@ -68,6 +68,10 @@ static void gicv2_write_lr(int n, u32 val) {
   gich_write(GICH_LR(n), val);
 }
 
+static inline u8 lr_priority(u8 prio) {
+  return (prio >> 4) & 0xf;
+}
+
 static u32 gicv2_pending_lr(struct gic_pending_irq *irq) {
   u32 lr = irq->virq & 0x3ff;
 
@@ -76,7 +80,7 @@ static u32 gicv2_pending_lr(struct gic_pending_irq *irq) {
   if(irq->group == 1)
     lr |= GICH_LR_Grp1;
 
-  lr |= irq->priority << GICH_LR_Priority_SHIFT;
+  lr |= lr_priority(irq->priority) << GICH_LR_Priority_SHIFT;
 
   if(irq->pirq) {
     /* this is hw irq */
@@ -133,6 +137,7 @@ static int gicv2_inject_guest_irq(struct gic_pending_irq *irq) {
 
   lr = gicv2_pending_lr(irq);
 
+  printf("write lr %d %p\n", freelr, lr);
   gicv2_write_lr(freelr, lr);
 
   return 0;

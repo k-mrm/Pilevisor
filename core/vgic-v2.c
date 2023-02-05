@@ -1,5 +1,5 @@
 /*
- *  virtual GICv3
+ *  virtual GICv2
  */
 
 #include "types.h"
@@ -153,11 +153,6 @@ static int vgic_v2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
     case GICD_IIDR:
       vgic_iidr_read(vcpu, mmio);
-      return 0;
-
-    case GICD_TYPER2:
-      /* linux's gicv3 driver accesses GICD_TYPER2 (offset 0xc) */
-      mmio->val = 0;
       return 0;
 
     case GICD_IGROUPR(0) ... GICD_IGROUPR(31)+3:

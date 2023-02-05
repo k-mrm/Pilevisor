@@ -116,7 +116,8 @@ void map_guest_image(struct guest *img, u64 ipa) {
 }
 
 void map_guest_peripherals() {
-  vmiomap_passthrough(0x09000000, PAGESIZE);   // UART
+  // vmiomap_passthrough(0x09000000, PAGESIZE);   // pl011 UART
+  vmiomap(0x09000000, 0xfe201000, PAGESIZE);
   vmiomap_passthrough(0x09010000, PAGESIZE);   // RTC
   vmiomap_passthrough(0x09030000, PAGESIZE);   // GPIO
 
