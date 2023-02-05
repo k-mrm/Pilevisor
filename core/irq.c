@@ -68,8 +68,6 @@ int handle_irq(u32 irqno) {
   struct irq *irq = irq_get(irqno);
   int irqret = 0;
 
-  printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!irqno %d\n", irqno);
-
   irq->nhandle[cpuid()]++;
 
   if(irq->handler) {

@@ -137,7 +137,6 @@ static int gicv2_inject_guest_irq(struct gic_pending_irq *irq) {
 
   lr = gicv2_pending_lr(irq);
 
-  printf("write lr %d %p\n", freelr, lr);
   gicv2_write_lr(freelr, lr);
 
   return 0;

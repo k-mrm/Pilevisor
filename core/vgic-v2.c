@@ -71,12 +71,15 @@ static void vgic_v2_typer_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 
 static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
   struct vgic_irq *irq;
-  int intid = offset / sizeof(u32) * 4;
+  int intid = offset;
   u32 itar = 0;
+  int len = mmio->accsize;
   u64 flags;
 
-  for(int i = 0; i < 4; i++) {
+  for(int i = 0; i < len; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
+    if(!irq)
+      return;
 
     spin_lock_irqsave(&irq->lock, flags);
     itar |= (u32)irq->targets << (i * 8);
@@ -86,27 +89,28 @@ static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u
   mmio->val = itar;
 }
 
-static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset) {
+static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
+                                   u64 offset) {
   struct vgic_irq *irq;
   u32 val = mmio->val;
+  int intid = offset;
+  int target, targets, len = mmio->accsize;
   u64 flags;
-  int intid = offset / sizeof(u32) * 4;
-  int targets;
 
-  for(int i = 0; i < 4; i++) {
+  for(int i = 0; i < len; i++) {
     irq = vgic_get_irq(vcpu, intid + i);
-    
+    if(!irq)
+      return;
+
     spin_lock_irqsave(&irq->lock, flags);
 
-    targets = (u8)(val >> (i * 8));
-    
-    if(targets) {
-      int target = __builtin_ffs(targets);
+    irq->targets = targets = (u8)(val >> (i * 8));
 
-      irq->targets = targets;
-      irq->target = node_vcpu(target);
+    target = __builtin_ffs(targets);
+
+    if(target) {
+      irq->target = node_vcpu(target - 1);
     } else {
-      irq->targets = 0;
       irq->target = NULL;
     }
 
@@ -203,8 +207,10 @@ static int vgic_v2_d_mmio_read(struct vcpu *vcpu, struct mmio_access *mmio) {
 static int vgic_v2_d_mmio_write(struct vcpu *vcpu, struct mmio_access *mmio) {
   u64 offset = mmio->offset;
 
+  /*
   if(!(mmio->accsize & ACC_WORD))
     panic("%s: unimplemented %d %p", __func__, mmio->accsize*8, offset);
+    */
 
   switch(offset) {
     case GICD_CTLR:
