@@ -295,10 +295,6 @@ static void gicv3_disable_irq(u32 irq) {
   }
 }
 
-static void gicv3_set_target(u32 irq, u8 target) {
-  ;
-}
-
 /*
 void gic_init_state(struct gic_state *gic) {
   gic->vmcr = read_sysreg(ich_vmcr_el2);
@@ -336,9 +332,13 @@ static bool gicv3_guest_irq_pending(u32 virq) {
   return false;
 }
 
+static void gicv3_route_irq(u32 irq, u64 mpidr) {
+  panic("unimpl");
+}
+
 static void gicv3_setup_irq(u32 irq) {
   if(is_spi(irq))
-    gicv3_set_target(irq, 0);
+    gicv3_route_irq(irq, 0);
 
   gicv3_enable_irq(irq);
 }
@@ -513,7 +513,8 @@ static struct gic_irqchip gicv3_irqchip = {
   .enable_irq         = gicv3_enable_irq,
   .disable_irq        = gicv3_disable_irq,
   .setup_irq          = gicv3_setup_irq,
-  .set_target         = gicv3_set_target,
+  .set_targets        = NULL,
+  .route_irq          = gicv3_route_irq,
   .irq_handler        = gicv3_irq_handler,
 };
 

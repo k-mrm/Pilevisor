@@ -73,10 +73,6 @@ static inline struct vcpu *node_vcpu(int vcpuid) {
   return NULL;
 }
 
-static inline int vcpu_localid(struct vcpu *v) {
-  return (int)(v - localvm.vcpus);
-}
-
 static inline struct vcpu *local_vcpu(int localcpuid) {
   return &localvm.vcpus[localcpuid];
 }

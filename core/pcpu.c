@@ -84,7 +84,6 @@ void pcpu_init_core() {
     panic("offline cpu?");
 
   mycpu->stackbase = _stack + PAGESIZE * (cpuid() + 1);
-  mycpu->mpidr = cpuid();    /* affinity? */
   mycpu->wakeup = true;
   msg_queue_init(&mycpu->recv_waitq);
   mycpu->irq_depth = 0;
@@ -104,9 +103,8 @@ int cpu_boot(int cpu, u64 entrypoint) {
   return c->enable_method->boot(cpu, entrypoint);
 }
 
-static int cpu_init_enable_method(int cpu, struct device_node *cpudev) {
+static int cpu_init_enable_method(struct pcpu *c, int cpuid, struct device_node *cpudev) {
   const char *enable_method = dt_node_props(cpudev, "enable-method");
-  struct pcpu *c = get_cpu(cpu);
 
   if(!enable_method)
     return -1;
@@ -120,24 +118,25 @@ static int cpu_init_enable_method(int cpu, struct device_node *cpudev) {
     return -1;
   }
 
-  return c->enable_method->init(cpu);
+  return c->enable_method->init(cpuid);
 }
 
-static int cpu_prepare(struct device_node *cpudev) {
-  u32 reg;
-  int rc = dt_node_propa(cpudev, "reg", &reg);
+static int cpu_prepare(struct device_node *cpudev, int id) {
+  u32 mpidr;
+  int rc = dt_node_propa(cpudev, "reg", &mpidr);
   if(rc < 0)
     return -1;
 
-  struct pcpu *cpu = get_cpu(reg);
+  struct pcpu *cpu = get_cpu(id);
 
   cpu->online = true;
   cpu->device = cpudev;
+  cpu->mpidr = mpidr;
 
   const char *compat = dt_node_props(cpudev, "compatible");
-  printf("cpu: %s id: %d compat %s\n", cpudev->name, reg, compat);
+  printf("cpu: %s mpidr: %d compat %s\n", cpudev->name, mpidr, compat);
 
-  if(cpu_init_enable_method(reg, cpudev) < 0) {
+  if(cpu_init_enable_method(cpu, id, cpudev) < 0) {
     disallow_mp = true;
     printf("enable-method?\n");
   }
@@ -147,6 +146,7 @@ static int cpu_prepare(struct device_node *cpudev) {
 
 void pcpu_init() {
   struct device_node *cpu;
+  int id = 0;
 
   disallow_mp = false;
 
@@ -155,7 +155,7 @@ void pcpu_init() {
     if(nr_online_pcpus++ > NCPU_MAX)
       panic("too many cpu");
 
-    if(cpu_prepare(cpu) < 0)
+    if(cpu_prepare(cpu, id++) < 0)
       panic("cpu? %s", cpu->name);
   }
 

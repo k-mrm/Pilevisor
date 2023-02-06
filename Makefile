@@ -49,7 +49,7 @@ NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 1
+GUEST_NCPU = 28
 endif
 
 ifndef GUEST_MEMORY
@@ -242,7 +242,7 @@ dts-numa: dtb-numa
 dtb:
 	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
 	  -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0 nokaslr" -m $(GUEST_MEMORY)
+	  -nographic -append "console=ttyAMA0,115200 nokaslr" -m $(GUEST_MEMORY)
 
 dtb-numa:
 	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb \
@@ -252,7 +252,7 @@ dtb-numa:
 	  -object memory-backend-ram,id=r0,size=256M \
 	  -object memory-backend-ram,id=r1,size=256M \
 	  -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
+	  -nographic -append "console=ttyAMA0,115200 nokaslr" -m 512
 
 qemu-version:
 	$(QEMU) -version

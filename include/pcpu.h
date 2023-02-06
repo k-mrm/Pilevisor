@@ -19,7 +19,7 @@ struct cpu_enable_method {
 
 struct pcpu {
   void *stackbase;
-  int mpidr;
+  u64 mpidr;
 
   bool online;
   bool wakeup;
@@ -59,13 +59,16 @@ void pcpu_init_core(void);
 void pcpu_init(void);
 
 #define mycpu         (&pcpus[cpuid()])
-#define localcpu(id)  (&pcpus[id]) 
 
 static inline struct pcpu *get_cpu(int cpu) {
   if(cpu >= NCPU_MAX)
     panic("no cpu!");
 
   return &pcpus[cpu];
+}
+
+static inline int pcpu_id(struct pcpu *cpu) {
+  return cpu - pcpus;
 }
 
 #define local_lazyirq_enable()      (mycpu->lazyirq_enabled = true)

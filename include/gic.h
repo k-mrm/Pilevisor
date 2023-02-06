@@ -88,7 +88,8 @@ struct gic_irqchip {
   void (*enable_irq)(u32 irq);
   void (*disable_irq)(u32 irq);
   void (*setup_irq)(u32 irq);
-  void (*set_target)(u32 irq, u8 target);
+  void (*set_targets)(u32 irq, u8 targets);
+  void (*route_irq)(u32 irq, u64 mpidr);
   void (*irq_handler)(int from_guest);
 };
 

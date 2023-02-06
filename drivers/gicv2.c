@@ -201,18 +201,18 @@ static u32 gicv2_get_target(u32 irq) {
   return targets;
 }
 
-static void gicv2_set_target(u32 irq, u8 target) {
+static void gicv2_set_targets(u32 irq, u8 targets) {
   if(is_sgi_ppi(irq))
     panic("sgi_ppi set target?");
 
   u32 itargetsr = gicd_read(GICD_ITARGETSR(irq / 4));
   itargetsr &= ~((u32)0xff << (irq % 4 * 8));
-  gicd_write(GICD_ITARGETSR(irq / 4), itargetsr | (target << (irq % 4 * 8)));
+  gicd_write(GICD_ITARGETSR(irq / 4), itargetsr | (targets << (irq % 4 * 8)));
 }
 
 static void gicv2_setup_irq(u32 irq) {
   if(is_spi(irq)) {
-    gicv2_set_target(irq, 1 << 0);    // route to 0
+    gicv2_set_targets(irq, 1 << 0);    // route to 0
   }
 
   gicv2_enable_irq(irq);
@@ -354,7 +354,8 @@ static struct gic_irqchip gicv2_irqchip = {
   .enable_irq         = gicv2_enable_irq,
   .disable_irq        = gicv2_disable_irq,
   .setup_irq          = gicv2_setup_irq,
-  .set_target         = gicv2_set_target,
+  .set_targets        = gicv2_set_targets,
+  .route_irq          = NULL,
   .irq_handler        = gicv2_irq_handler,
 };
 

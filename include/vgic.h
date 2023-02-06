@@ -5,6 +5,7 @@
 #include "param.h"
 #include "gic.h"
 #include "spinlock.h"
+#include "irq.h"
 
 struct vcpu;
 struct mmio_access;
@@ -28,8 +29,11 @@ struct vgic_irq {
   u8 req_cpu;             /* for GICv2 */
 
   bool enabled: 1;
+  bool hw: 1;
   u8 igroup: 1;
   u8 cfg: 1;
+
+  int hwirq;
 
   spinlock_t lock;
 };

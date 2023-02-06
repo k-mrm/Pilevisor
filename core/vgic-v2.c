@@ -89,6 +89,16 @@ static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u
   mmio->val = itar;
 }
 
+void vgic_connect_hwirq(struct vcpu *vcpu, int virq_no, int hwirq_no) {
+  struct vgic_irq *virq = vgic_get_irq(vcpu, virq_no);
+
+  if(!virq)
+    return;
+
+  virq->hw = true;
+  virq->hwirq = hwirq_no;
+}
+
 static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
                                    u64 offset) {
   struct vgic_irq *irq;
@@ -112,6 +122,17 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
       irq->target = node_vcpu(target - 1);
     } else {
       irq->target = NULL;
+    }
+
+    if(irq->hw) {
+      int t;
+
+      if(irq->target)
+        t = 1 << pcpu_id(irq->target->pcpu);
+      else
+        t = 1 << 0;     // route to 0
+
+      localnode.irqchip->set_targets(irq->hwirq, t);
     }
 
     spin_unlock_irqrestore(&irq->lock, flags);

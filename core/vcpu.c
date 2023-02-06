@@ -114,9 +114,13 @@ void wait_for_current_vcpu_online() {
 }
 
 void vcpu_preinit() {
-  for(struct vcpu *v = localvm.vcpus; v < &localvm.vcpus[VCPU_PER_NODE_MAX]; v++) {
+  for(int i = 0; i < VCPU_PER_NODE_MAX; i++) {
+    struct vcpu *v = &localvm.vcpus[i];
+
     spinlock_init(&v->lock);
     spinlock_init(&v->pending.lock);
+
+    v->pcpu = get_cpu(i);
   }
 }
 
@@ -154,15 +158,25 @@ static void vcpu_stacktrace(struct vcpu *vcpu) {
   }
 }
 
+static const char *spsr_el[16] = {
+  [0x0] = "EL0",
+  [0x4] = "EL1t",
+  [0x5] = "EL1h",
+  [0x8] = "EL2t",
+  [0x9] = "EL2h",
+};
+
 void vcpu_dump(struct vcpu *vcpu) {
   if(!vcpu) {
     printf("null vcpu\n");
     return;
   }
 
+  const char *el = spsr_el[vcpu->reg.spsr & 0xf];
+
   printf("vcpu dump %p id: %d\n", vcpu, vcpu->vmpidr);
-  printf("vcpu status: %s %s\n", vcpu->initialized ? "initialized" : "uninitialized", 
-                                 vcpu->online ? "online" : "offline");
+  printf("vcpu status: %s %s %s\n", vcpu->initialized ? "initialized" : "uninitialized", 
+                                    vcpu->online ? "online" : "offline", el);
 
   for(int i = 0; i < 31; i++) {
     printf("x%-2d %18p  ", i, vcpu->reg.x[i]);

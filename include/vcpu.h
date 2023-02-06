@@ -8,6 +8,8 @@
 #include "aarch64.h"
 #include "mm.h"
 
+struct pcpu;
+
 struct cpu_features {
   u64 pfr0;
 };
@@ -34,6 +36,8 @@ struct vcpu {
   /* vcpuid on cluster */
   int vcpuid;
   u64 vmpidr;
+
+  struct pcpu *pcpu;
 
   struct cpu_features features;
 
