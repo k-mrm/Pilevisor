@@ -123,7 +123,7 @@ static int vgic_inject_virq_local(struct vcpu *target, struct gic_pending_irq *p
 
     dsb(ish);
 
-    cpu_send_inject_sgi(vcpu_localid(target));
+    cpu_send_inject_sgi(pcpu_id(target->pcpu));
   }
 
   return 0;
@@ -139,6 +139,16 @@ static int vgic_inject_virq_remote(struct vgic_irq *irq, struct gic_pending_irq 
   panic("inject remote Node %d", nodeid);
 
   return 0;
+}
+
+void vgic_connect_hwirq(int virq_no, int hwirq_no) {
+  struct vgic_irq *virq = vgic_get_irq(current, virq_no);
+
+  if(!virq)
+    return;
+
+  virq->hw = true;
+  virq->hwirq = hwirq_no;
 }
 
 int vgic_inject_virq(struct vcpu *target, u32 virqno) {

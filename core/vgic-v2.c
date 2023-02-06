@@ -89,16 +89,6 @@ static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u
   mmio->val = itar;
 }
 
-void vgic_connect_hwirq(struct vcpu *vcpu, int virq_no, int hwirq_no) {
-  struct vgic_irq *virq = vgic_get_irq(vcpu, virq_no);
-
-  if(!virq)
-    return;
-
-  virq->hw = true;
-  virq->hwirq = hwirq_no;
-}
-
 static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
                                    u64 offset) {
   struct vgic_irq *irq;
