@@ -48,18 +48,19 @@ static char *psci_status_map(int status) {
   }
 }
 
-static int psci_cpu_boot(int cpuid, physaddr_t ep_phys) {
-  i64 status = psci_call(psci_info.cpu_on, cpuid, ep_phys, 0);
+static int psci_cpu_boot(struct pcpu *cpu, physaddr_t ep_phys) {
+  int id = pcpu_id(cpu);
+  i64 status = psci_call(psci_info.cpu_on, id, ep_phys, 0);
 
   if(status == PSCI_SUCCESS) {
     return 0;
   } else {
-    vmm_warn("psci: cpu%d wakeup failed: %d(=%s)", cpuid, status, psci_status_map(status));
+    vmm_warn("psci: cpu%d wakeup failed: %d(=%s)", id, status, psci_status_map(status));
     return -1;
   }
 }
 
-static int em_psci_init(int __unused cpu) {
+static int em_psci_init(struct pcpu * __unused cpu) {
   return 0;
 }
 

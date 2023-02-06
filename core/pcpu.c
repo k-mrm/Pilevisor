@@ -56,13 +56,11 @@ void cpu_stop_local() {
 
 void cpu_send_inject_sgi(struct pcpu *cpu) {
   int id = pcpu_id(cpu);
-
   __send_sgi(SGI_INJECT, id);
 }
 
 void cpu_send_do_recvq_sgi(struct pcpu *cpu) {
   int id = pcpu_id(cpu);
-
   __send_sgi(SGI_DO_RECVQ, id);
 }
 
@@ -95,19 +93,14 @@ void pcpu_init_core() {
   mycpu->lazyirq_enabled = true;
 }
 
-int cpu_boot(int cpu, u64 entrypoint) {
-  if(cpu >= nr_online_pcpus)
-    panic("no cpu!");
-
-  struct pcpu *c = get_cpu(cpu);
-
-  if(!c->enable_method || !c->enable_method->boot)
+int cpu_boot(struct pcpu *cpu, u64 entrypoint) {
+  if(!cpu->enable_method || !cpu->enable_method->boot)
     return -1;
 
-  return c->enable_method->boot(cpu, entrypoint);
+  return cpu->enable_method->boot(cpu, entrypoint);
 }
 
-static int cpu_init_enable_method(struct pcpu *c, int cpuid, struct device_node *cpudev) {
+static int cpu_init_enable_method(struct pcpu *c, struct device_node *cpudev) {
   const char *enable_method = dt_node_props(cpudev, "enable-method");
 
   if(!enable_method)
@@ -122,7 +115,7 @@ static int cpu_init_enable_method(struct pcpu *c, int cpuid, struct device_node 
     return -1;
   }
 
-  return c->enable_method->init(cpuid);
+  return c->enable_method->init(c);
 }
 
 static int cpu_prepare(struct device_node *cpudev) {
@@ -140,7 +133,7 @@ static int cpu_prepare(struct device_node *cpudev) {
   const char *compat = dt_node_props(cpudev, "compatible");
   printf("cpu: %s mpidr: %d compat %s\n", cpudev->name, mpidr, compat);
 
-  if(cpu_init_enable_method(cpu, mpidr, cpudev) < 0) {
+  if(cpu_init_enable_method(cpu, cpudev) < 0) {
     disallow_mp = true;
     printf("enable-method?\n");
   }

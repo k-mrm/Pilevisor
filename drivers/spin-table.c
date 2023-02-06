@@ -7,19 +7,15 @@
 
 static u64 release_addr[NCPU_MAX];
 
-static int spintable_boot(int cpu, physaddr_t entrypoint) {
-  if(cpu >= NCPU_MAX) {
-    vmm_warn("no cpu");
-    return -1;
-  }
-
-  u64 addr = release_addr[cpu];
+static int spintable_boot(struct pcpu *cpu, physaddr_t entrypoint) {
+  int id = pcpu_id(cpu);
+  u64 addr = release_addr[id];
 
   volatile void *rel_addr = iomap(addr, sizeof(addr));
   if(!rel_addr)
     return -1;
 
-  printf("spintable boot %d %p %p\n", cpu, addr, rel_addr);
+  printf("spintable boot %d %p %p\n", id, addr, rel_addr);
 
   *(volatile u64 *)rel_addr = entrypoint;
 
@@ -32,16 +28,18 @@ static int spintable_boot(int cpu, physaddr_t entrypoint) {
   return 0;
 }
 
-static int spintable_init(int cpu) {
-  struct device_node *cdev = get_cpu(cpu)->device;
+static int spintable_init(struct pcpu *cpu) {
+  struct device_node *cdev = cpu->device;
   if(!cdev)
     return -1;
 
-  int rc = dt_node_propa64(cdev, "cpu-release-addr", &release_addr[cpu]);
+  int id = pcpu_id(cpu);
+
+  int rc = dt_node_propa64(cdev, "cpu-release-addr", &release_addr[id]);
   if(rc < 0)
     return -1;
 
-  printf("cpu%d: release addr %p\n", cpu, release_addr[cpu]);
+  printf("cpu%d: release addr %p\n", id, release_addr[id]);
 
   return 0;
 }

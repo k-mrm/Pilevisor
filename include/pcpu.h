@@ -12,9 +12,11 @@
 
 extern char _stack[PAGESIZE*NCPU_MAX] __aligned(PAGESIZE);
 
+struct pcpu;
+
 struct cpu_enable_method {
-  int (*init)(int cpu);
-  int (*boot)(int cpu, physaddr_t entrypoint);
+  int (*init)(struct pcpu *cpu);
+  int (*boot)(struct pcpu *cpu, physaddr_t entrypoint);
 };
 
 struct pcpu {
@@ -53,7 +55,7 @@ void cpu_send_inject_sgi(struct pcpu *cpu);
 void cpu_send_do_recvq_sgi(struct pcpu *cpu);
 void cpu_sgi_handler(int sgi_id);
 
-int cpu_boot(int cpu, u64 entrypoint);
+int cpu_boot(struct pcpu *cpu, u64 entrypoint);
 
 void pcpu_init_core(void);
 void pcpu_init(void);

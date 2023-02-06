@@ -94,10 +94,10 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
 
   spin_lock_irqsave(&vcpu->lock, flags);
 
-  int pcpu = pcpu_id(vcpu->pcpu);
+  int pcpuid = pcpu_id(vcpu->pcpu);
   int status;
 
-  printf("wakeup vcpu%d(cpu%d)\n", vcpu->vmpidr, pcpu);
+  printf("wakeup vcpu%d(cpu%d)\n", vcpu->vmpidr, pcpuid);
 
   if(vcpu->online) {
     status = PSCI_ALREADY_ON;
@@ -107,9 +107,9 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
     if(vcpu->pcpu->wakeup) {  /* pcpu already wakeup */
       status = PSCI_SUCCESS;
     } else {    /* pcpu sleeping... */
-      int c = cpu_boot(pcpu, (u64)V2P(_start));
+      int c = cpu_boot(vcpu->pcpu, (u64)V2P(_start));
       if(c < 0) {
-        vmm_warn("cpu%d wakeup failed", pcpu);
+        vmm_warn("cpu%d wakeup failed", pcpuid);
         status = PSCI_DENIED;
       } else {
         status = PSCI_SUCCESS;
