@@ -126,13 +126,27 @@ static void vgic_v3_iroute_write(struct vcpu *vcpu, struct mmio_access *mmio, u6
   struct vgic_irq *irq;
   int intid = offset / sizeof(u64);
   u64 flags;
+  u64 irouter = mmio->val;
 
   irq = vgic_get_irq(vcpu, intid);
   if(!irq)
     return;
 
   spin_lock_irqsave(&irq->lock, flags);
-  vgic_set_irouter(irq, mmio->val);
+
+  vgic_set_irouter(irq, irouter);
+
+  if(irq->hw) {
+    u64 t;
+
+    if(irq->target)
+      t = irq->target->pcpu->mpidr; 
+    else
+      t = 0;
+
+    localnode.irqchip->route_irq(intid, t);
+  }
+
   spin_unlock_irqrestore(&irq->lock, flags);
 }
 

@@ -279,6 +279,15 @@ static void gicv3_enable_irq(u32 irq) {
   }
 }
 
+static void gicv3_route_irq(u32 irq, u64 mpidr) {
+  if(is_sgi_ppi(irq)) {
+    vmm_warn("?\n");
+    return;
+  } else if(is_spi(irq)) {
+    gicd_w(GICD_IROUTER(irq), mpidr);
+  }
+}
+
 static void gicv3_disable_irq(u32 irq) {
   u32 is;
 
@@ -330,10 +339,6 @@ static bool gicv3_guest_irq_pending(u32 virq) {
   }
 
   return false;
-}
-
-static void gicv3_route_irq(u32 irq, u64 mpidr) {
-  panic("unimpl");
 }
 
 static void gicv3_setup_irq(u32 irq) {
