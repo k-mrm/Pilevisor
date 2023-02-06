@@ -207,7 +207,7 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
     msg_enqueue(&cpu->recv_waitq, msg);
 
     if(cpu != mycpu) {
-      cpu_send_do_recvq_sgi(id);
+      cpu_send_do_recvq_sgi(cpu);
     }
   } else {
     msg_enqueue(&mycpu->recv_waitq, msg);

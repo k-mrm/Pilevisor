@@ -20,7 +20,7 @@ struct vgic_irq {
   struct vcpu *target;    /* target vcpu: if NULL, target in remote node */
 
   union {
-    u64 vcpuid;           /* for GICv3: target vcpuid */
+    u64 vcpuid;           /* for GICv3: target vmpidr */
     u8 targets;           /* for GICv2: targets bitmap */ 
   };
 

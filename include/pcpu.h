@@ -49,8 +49,8 @@ extern struct pcpu pcpus[NCPU_MAX];
 
 void cpu_stop_local(void) __noreturn;
 void cpu_stop_all(void);
-void cpu_send_inject_sgi(int cpu);
-void cpu_send_do_recvq_sgi(int cpu);
+void cpu_send_inject_sgi(struct pcpu *cpu);
+void cpu_send_do_recvq_sgi(struct pcpu *cpu);
 void cpu_sgi_handler(int sgi_id);
 
 int cpu_boot(int cpu, u64 entrypoint);

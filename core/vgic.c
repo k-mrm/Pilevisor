@@ -38,9 +38,6 @@ void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
   irq->enabled = 1;
   u32 intid = irq->intid;
 
-  local_irq_enable();
-  vmm_warn("vcpu %d enable irq %d %d\n", vcpu->vcpuid, intid, local_irq_enabled());
-
   if(valid_intid(intid))
     localnode.irqchip->enable_irq(intid);
   else
@@ -116,14 +113,14 @@ static int vgic_inject_virq_local(struct vcpu *target, struct gic_pending_irq *p
 
       target->pending.tail = tail;
     } else {
-      panic("pending queue full");
+      panic("pending queue full %d %d\n", target->vcpuid, tail);
     }
 
     spin_unlock_irqrestore(&target->pending.lock, flags);
 
     dsb(ish);
 
-    cpu_send_inject_sgi(pcpu_id(target->pcpu));
+    cpu_send_inject_sgi(target->pcpu);
   }
 
   return 0;

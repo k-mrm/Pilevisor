@@ -54,12 +54,16 @@ void cpu_stop_local() {
     wfi();
 }
 
-void cpu_send_inject_sgi(int cpu) {
-  __send_sgi(SGI_INJECT, cpu);
+void cpu_send_inject_sgi(struct pcpu *cpu) {
+  int id = pcpu_id(cpu);
+
+  __send_sgi(SGI_INJECT, id);
 }
 
-void cpu_send_do_recvq_sgi(int cpu) {
-  __send_sgi(SGI_DO_RECVQ, cpu);
+void cpu_send_do_recvq_sgi(struct pcpu *cpu) {
+  int id = pcpu_id(cpu);
+
+  __send_sgi(SGI_DO_RECVQ, id);
 }
 
 void cpu_sgi_handler(int sgi_id) {
@@ -121,13 +125,13 @@ static int cpu_init_enable_method(struct pcpu *c, int cpuid, struct device_node 
   return c->enable_method->init(cpuid);
 }
 
-static int cpu_prepare(struct device_node *cpudev, int id) {
+static int cpu_prepare(struct device_node *cpudev) {
   u32 mpidr;
   int rc = dt_node_propa(cpudev, "reg", &mpidr);
   if(rc < 0)
     return -1;
 
-  struct pcpu *cpu = get_cpu(id);
+  struct pcpu *cpu = get_cpu(mpidr);
 
   cpu->online = true;
   cpu->device = cpudev;
@@ -136,7 +140,7 @@ static int cpu_prepare(struct device_node *cpudev, int id) {
   const char *compat = dt_node_props(cpudev, "compatible");
   printf("cpu: %s mpidr: %d compat %s\n", cpudev->name, mpidr, compat);
 
-  if(cpu_init_enable_method(cpu, id, cpudev) < 0) {
+  if(cpu_init_enable_method(cpu, mpidr, cpudev) < 0) {
     disallow_mp = true;
     printf("enable-method?\n");
   }
@@ -146,7 +150,6 @@ static int cpu_prepare(struct device_node *cpudev, int id) {
 
 void pcpu_init() {
   struct device_node *cpu;
-  int id = 0;
 
   disallow_mp = false;
 
@@ -155,7 +158,7 @@ void pcpu_init() {
     if(nr_online_pcpus++ > NCPU_MAX)
       panic("too many cpu");
 
-    if(cpu_prepare(cpu, id++) < 0)
+    if(cpu_prepare(cpu) < 0)
       panic("cpu? %s", cpu->name);
   }
 

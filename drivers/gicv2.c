@@ -164,9 +164,9 @@ static void gicv2_guest_eoi(u32 iar) {
 }
 
 static void gicv2_send_sgi(struct gic_sgi *sgi) {
-  u32 sgir = sgi->mode << GICD_SGIR_TargetListFilter_SHIFT |
-            (sgi->targets & 0xff << GICD_SGIR_TargetList_SHIFT) |
-            (sgi->sgi_id & 0xf);
+  u32 sgir = (sgi->mode << GICD_SGIR_TargetListFilter_SHIFT) |
+             ((sgi->targets & 0xff) << GICD_SGIR_TargetList_SHIFT) |
+             (sgi->sgi_id & 0xf);
 
   dsb(ish);
 
@@ -202,8 +202,10 @@ static u32 gicv2_get_target(u32 irq) {
 }
 
 static void gicv2_set_targets(u32 irq, u8 targets) {
-  if(is_sgi_ppi(irq))
-    panic("sgi_ppi set target?");
+  if(is_sgi_ppi(irq)) {
+    vmm_warn("sgi_ppi set target?");
+    return;
+  }
 
   u32 itargetsr = gicd_read(GICD_ITARGETSR(irq / 4));
   itargetsr &= ~((u32)0xff << (irq % 4 * 8));

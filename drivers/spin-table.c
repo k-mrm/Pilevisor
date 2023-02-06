@@ -19,7 +19,7 @@ static int spintable_boot(int cpu, physaddr_t entrypoint) {
   if(!rel_addr)
     return -1;
 
-  printf("spintable boot %d %p\n", cpu, rel_addr);
+  printf("spintable boot %d %p %p\n", cpu, addr, rel_addr);
 
   *(volatile u64 *)rel_addr = entrypoint;
 
