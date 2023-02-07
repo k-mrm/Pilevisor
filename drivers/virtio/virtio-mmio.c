@@ -166,9 +166,6 @@ static void vtmmio_intr(void *arg) {
   }
 }
 
-/* FIXME */
-#define VIRTIO0     0x0a000000
-
 static int vtmmio_dt_init(struct device_node *dev) {
   u64 base, size;
   void *vtbase;

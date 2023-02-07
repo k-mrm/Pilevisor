@@ -534,8 +534,7 @@ void peripheral_device_init() {
     }
 
     if(dev->init) {
-      if(dev->init(n) == 0)
-        break;
+      dev->init(n);
     }
   }
 }
