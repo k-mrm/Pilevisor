@@ -88,6 +88,8 @@ static int pl011_dt_init(struct device_node *dev) {
     return -1;
 
   uartbase = iomap(base, size);
+  if(!uartbase)
+    return -1;
 
 #ifdef RPI4
   rpi_gpio_set_pinmode(14, ALT0);
@@ -120,7 +122,7 @@ static int pl011_dt_init(struct device_node *dev) {
   return 0;
 }
 
-struct dt_compatible pl011_compat[] = {
+static struct dt_compatible pl011_compat[] = {
   { "arm,pl011" },
   { "arm,primecell" },
   {},

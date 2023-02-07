@@ -34,6 +34,9 @@ SECTIONS {
       __dt_serial_device = .;
       KEEP(*(__dt_serial_device));
       KEEP(*(__dt_serial_sentinel));
+      __dt_peri_device = .;
+      KEEP(*(__dt_peri_device));
+      KEEP(*(__dt_peri_sentinel));
     }
 
     .rodata : {

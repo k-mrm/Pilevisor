@@ -36,7 +36,7 @@ endif
 
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
 
-GIC_VERSION = 2
+GIC_VERSION = 3
 
 ifdef RPI
 MACHINE = raspi4b1g
@@ -216,14 +216,14 @@ gdb-sub: vmm.img
 
 linux-gdb: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=3 -smp cores=4,sockets=2 \
-	  -device virtio-net-device,mac=70:32:17:11:45:14,bus=virtio-mmio-bus.0 \
-	  -cpu cortex-a72 -kernel $(KERNIMG) \
+	  -device virtio-rng,bus=virtio-mmio-bus.0,disable-legacy=on,disable-modern=off \
+	  -cpu cortex-a72 -kernel ./guest/linux/Image5.4l \
 	  -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0 nokaslr" -m 512 -S -gdb tcp::1234
+
 linux: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=3 -smp cores=4,sockets=2 \
-	  -device virtio-net-device,mac=70:32:17:11:45:14,bus=virtio-mmio-bus.0 \
-	  -cpu cortex-a72 -kernel $(KERNIMG) \
+	  -cpu cortex-a72 -kernel ./guest/linux/Image5.4l \
 	  -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
 
@@ -240,7 +240,7 @@ dts-numa: dtb-numa
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=2,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
+	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
 	  -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0,115200 nokaslr" -m $(GUEST_MEMORY)
 

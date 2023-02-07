@@ -7,6 +7,8 @@
 #include "memory.h"
 #include "earlycon.h"
 
+static const struct dt_device sentinel __used __section("__dt_peri_sentinel");
+
 #define GIC_SPI   0
 #define GIC_PPI   1
 
@@ -518,6 +520,24 @@ struct device_node *dt_next_cpu_device(struct device_node *prev) {
   }
 
   return NULL;
+}
+
+void peripheral_device_init() {
+  struct device_node *n;
+  struct dt_device *dev;
+  int rc;
+
+  for(n = next_match_node(__dt_peri_device, &dev, NULL); n;
+      n = next_match_node(__dt_peri_device, &dev, n)) {
+    if(!dev) {
+      continue;
+    }
+
+    if(dev->init) {
+      if(dev->init(n) == 0)
+        break;
+    }
+  }
 }
 
 void device_tree_init(void *fdt_base) {

@@ -10,6 +10,7 @@
 #include "mm.h"
 #include "panic.h"
 #include "memlayout.h"
+#include "device.h"
 
 #define LO(addr)  (u32)((u64)(addr) & 0xffffffff)
 #define HI(addr)  (u32)(((u64)(addr) >> 32) & 0xffffffff)
@@ -30,20 +31,15 @@ static inline void vtmmio_write(struct virtio_mmio_dev *dev, u32 off, u32 val) {
 static int vtmmio_probe(void *base, int intid) {
   struct virtio_mmio_dev *dev = malloc(sizeof(*dev));
 
-  dev->base = iomap((u64)base, 0x200);
-  if(!dev->base)
-    return -1;
-
+  dev->base = base;
   dev->intid = intid;
   dev->vqs = NULL;
 
   if(vtmmio_read(dev, VIRTIO_MMIO_MAGICVALUE) != VIRTIO_MAGIC) {
-    vmm_warn("virtio_mmio: invalid magic\n");
     goto err;
   }
 
   if(vtmmio_read(dev, VIRTIO_MMIO_VERSION) != 2) {
-    vmm_warn("virtio_mmio: support v2 only\n");
     goto err;
   }
 
@@ -54,17 +50,15 @@ static int vtmmio_probe(void *base, int intid) {
   status = vtmmio_read(dev, VIRTIO_MMIO_STATUS) | DEV_STATUS_DRIVER;
   vtmmio_write(dev, VIRTIO_MMIO_STATUS, status);
 
-  irq_register(intid, vtmmio_intr, dev); 
-
   u32 devid = vtmmio_read(dev, VIRTIO_MMIO_DEVICE_ID);
 
   dev->dev_id = devid;
 
   switch(devid) {
     case VIRTIO_DEV_NET:
+      irq_register(intid, vtmmio_intr, dev); 
       return virtio_net_probe(dev);
     default:
-      vmm_warn("unknown device: %d\n");
       goto err;
   }
 
@@ -175,6 +169,27 @@ static void vtmmio_intr(void *arg) {
 /* FIXME */
 #define VIRTIO0     0x0a000000
 
-int virtio_mmio_init(void) {
-  return vtmmio_probe((void *)VIRTIO0, 48);
+static int vtmmio_dt_init(struct device_node *dev) {
+  u64 base, size;
+  void *vtbase;
+  int intr;
+
+  if(dt_node_prop_addr(dev, 0, &base, &size) < 0)
+    return -1;
+
+  vtbase = iomap(base, size);
+  if(!vtbase)
+    return -1;
+
+  if(dt_node_prop_intr(dev, &intr, NULL) < 0)
+    return -1;
+
+  return vtmmio_probe(vtbase, intr);
 }
+
+static struct dt_compatible vtmmio_compat[] = {
+  { "virtio,mmio" },
+  {},
+};
+
+DT_PERIPHERAL_INIT(virtio_mmio, vtmmio_compat, vtmmio_dt_init);

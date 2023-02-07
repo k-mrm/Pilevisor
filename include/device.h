@@ -69,13 +69,23 @@ struct device_node *dt_find_node_alias(const char *a);
 
 struct device_node *dt_next_cpu_device(struct device_node *prev);
 
+void peripheral_device_init(void);
+
+#define DT_PERIPHERAL_INIT(name, comp, initfn)                                          \
+  static const struct dt_device _dt_peripheral_ ## name                                 \
+    __used __section("__dt_peri_device") __aligned(_Alignof(struct dt_device)) = {      \
+    .dev_name = #name,                                                                  \
+    .compat = comp,                                                                     \
+    .init = initfn,                                                                     \
+  }
+
 #define DT_IRQCHIP_INIT(name, comp, initfn)                                             \
   static const struct dt_device _dt_irqchip_ ## name                                    \
     __used __section("__dt_irqchip_device") __aligned(_Alignof(struct dt_device)) = {   \
     .dev_name = #name,                                                                  \
     .compat = comp,                                                                     \
     .init = initfn,                                                                     \
-  };
+  }
 
 #define DT_SERIAL_INIT(name, comp, initfn)                                              \
   static const struct dt_device _dt_serial_ ## name                                     \
@@ -83,9 +93,10 @@ struct device_node *dt_next_cpu_device(struct device_node *prev);
     .dev_name = #name,                                                                  \
     .compat = comp,                                                                     \
     .init = initfn,                                                                     \
-  };
+  }
 
 extern struct dt_device __dt_irqchip_device[];
 extern struct dt_device __dt_serial_device[];
+extern struct dt_device __dt_peri_device[];
 
 #endif

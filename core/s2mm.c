@@ -121,7 +121,7 @@ void map_guest_peripherals() {
   vmiomap_passthrough(0x09010000, PAGESIZE);   // RTC
   vmiomap_passthrough(0x09030000, PAGESIZE);   // GPIO
 
-  vmiomap_passthrough(0x0a000000, 0x4000);   // VIRTIO0
+  // vmiomap_passthrough(0x0a000000, 0x4000);   // VIRTIO0
 
   vmiomap_passthrough(0x4010000000ul, 256*1024*1024);    // PCIE ECAM
   vmiomap_passthrough(0x10000000, 0x2eff0000);           // PCIE MMIO
