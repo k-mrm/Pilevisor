@@ -16,14 +16,15 @@
 #include "tlb.h"
 #include "assert.h"
 
-static int root_level;
+int s2_root_level;
+u64 *vttbr;
 
 static int parange_map[] = {
   32, 36, 40, 42, 44, 48, 52,
 };
 
 void s2_pte_dump(ipa_t ipa) {
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
   if(!pte) {
     printf("unmapped\n");
     return;
@@ -62,7 +63,7 @@ static inline u64 pageflag_to_s2pte_flags(enum pageflag flags) {
 static void __s2_map_pages(ipa_t ipa, physaddr_t pa, u64 size, enum pageflag flags) {
   u64 f = pageflag_to_s2pte_flags(flags);
 
-  mappages(vttbr, ipa, pa, size, f, root_level);
+  mappages(vttbr, ipa, pa, size, f, s2_root_level);
 }
 
 void guest_map_page(ipa_t ipa, physaddr_t pa, enum pageflag flags) {
@@ -85,7 +86,7 @@ void s2pageunmap(ipa_t ipa, u64 size) {
     panic("invalid pageunmap");
 
   for(u64 p = 0; p < size; p += PAGESIZE, ipa += PAGESIZE) {
-    u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+    u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
     if(*pte == 0)
       panic("already unmapped");
 
@@ -131,13 +132,13 @@ void map_guest_peripherals() {
 void s2_map_page_copyset(ipa_t ipa, physaddr_t pa, u64 copyset) {
   u64 flags = S2PTE_NORMAL | S2PTE_COPYSET(copyset);
 
-  return mappages(vttbr, ipa, pa, PAGESIZE, flags, root_level);
+  return mappages(vttbr, ipa, pa, PAGESIZE, flags, s2_root_level);
 }
 
 u64 *s2_rwable_pte(ipa_t ipa) {
   assert(PAGE_ALIGNED(ipa));
 
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
   if(!pte)
     return NULL;
 
@@ -150,7 +151,7 @@ u64 *s2_rwable_pte(ipa_t ipa) {
 u64 *s2_readable_pte(ipa_t ipa) {
   assert(PAGE_ALIGNED(ipa));
 
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
   if(!pte)
     return NULL;
 
@@ -163,7 +164,7 @@ u64 *s2_readable_pte(ipa_t ipa) {
 u64 *s2_ro_pte(ipa_t ipa) {
   assert(PAGE_ALIGNED(ipa));
 
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
   if(!pte)
     return NULL;
 
@@ -176,7 +177,7 @@ u64 *s2_ro_pte(ipa_t ipa) {
 void s2_page_invalidate(ipa_t ipa) {
   assert(PAGE_ALIGNED(ipa));
 
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
   if(!pte)
     panic("no entry");
 
@@ -191,7 +192,7 @@ void s2_page_invalidate(ipa_t ipa) {
 void s2_page_ro(ipa_t ipa) {
   assert(PAGE_ALIGNED(ipa));
 
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
   if(!pte)
     panic("no entry");
 
@@ -247,7 +248,7 @@ void copy_from_guest(char *to, ipa_t from_ipa, u64 len) {
 }
 
 physaddr_t ipa2pa(ipa_t ipa) {
-  u64 *pte = pagewalk(vttbr, ipa, root_level, 0);
+  u64 *pte = pagewalk(vttbr, ipa, s2_root_level, 0);
   u32 off;
 
   if(!pte)
@@ -334,8 +335,8 @@ void s2mmu_init() {
   if(t0sz < min_t0sz)
     panic("t0sz %d < min t0sz %pd", t0sz, min_t0sz);
 
-  root_level = 0;
-  sl0 = root_level_sl0(root_level);
+  s2_root_level = 0;
+  sl0 = root_level_sl0(s2_root_level);
 
   vtcr |= VTCR_T0SZ(t0sz) | VTCR_PS_16T | VTCR_SL0(sl0);
 

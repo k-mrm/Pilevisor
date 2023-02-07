@@ -153,8 +153,8 @@ void pageunmap(u64 *pgt, u64 va, u64 size);
 void *early_fdt_map(void *fdt_phys);
 void early_map_earlymem(u64 pstart, u64 pend);
 
-u64 *page_accessible_pte(u64 *pgt, u64 va);
-bool page_accessible(u64 *pgt, u64 va);
+bool __page_accessible(u64 *pgt, u64 va, int root);
+u64 *__page_accessible_pte(u64 *pgt, u64 va, int root);
 
 void setup_pagetable_secondary(void);
 u64 at_hva2pa(u64 hva);
@@ -176,7 +176,6 @@ enum pageflag {
 
 static inline void pte_update(u64 *pte, physaddr_t pa, u64 flags)  {
   *pte = PTE_PA(pa) | flags;
-  // dcache_flush_poc_range(pte, sizeof(*pte));
 }
 
 static inline void pte_clear(u64 *pte) {

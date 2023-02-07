@@ -4,7 +4,8 @@
 #include "types.h"
 #include "mm.h"
 
-u64 *vttbr;
+extern int s2_root_level;
+extern u64 *vttbr;
 
 #define VTCR_T0SZ(n)  ((n) & 0x3f)
 #define VTCR_SL0(n)   (((n) & 0x3) << 6)
@@ -99,11 +100,11 @@ void s2mmu_init_core(void);
 void s2mmu_init(void);
 
 static inline bool s2_accessible(ipa_t ipa) {
-  return page_accessible(vttbr, ipa);
+  return __page_accessible(vttbr, ipa, s2_root_level);
 }
 
 static inline u64 *s2_accessible_pte(ipa_t ipa) {
-  return page_accessible_pte(vttbr, ipa);
+  return __page_accessible_pte(vttbr, ipa, s2_root_level);
 }
 
 static inline int s2pte_perm(u64 *pte) {

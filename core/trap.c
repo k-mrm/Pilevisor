@@ -101,13 +101,6 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(fnv)
     panic("fnv");
 
-  iabort_iss_dump(iss);
-
-  physaddr_t pa = ipa2pa(far);
-  printf("aaaa pa %p\n", pa);
-
-  s2_pte_dump(far);
-
   u64 faultpage = faulting_ipa_page();
 
   if(vcpu->reg.elr == 0)

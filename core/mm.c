@@ -111,11 +111,10 @@ void mappages(u64 *pgt, u64 va, physaddr_t pa, u64 size, u64 flags, int root) {
   }
 }
 
-u64 *page_accessible_pte(u64 *pgt, u64 va) {
-  if(!PAGE_ALIGNED(va))
-    panic("page accessible pte");
+u64 *__page_accessible_pte(u64 *pgt, u64 va, int root) {
+  assert(PAGE_ALIGNED(va));
 
-  u64 *pte = pagewalk(pgt, va, root_level, 0);
+  u64 *pte = pagewalk(pgt, va, root, 0);
   if(!pte)
     return NULL;
 
@@ -125,8 +124,8 @@ u64 *page_accessible_pte(u64 *pgt, u64 va) {
   return NULL;
 }
 
-bool page_accessible(u64 *pgt, u64 va) {
-  return !!page_accessible_pte(pgt, va);
+bool __page_accessible(u64 *pgt, u64 va, int root) {
+  return !!__page_accessible_pte(pgt, va, root);
 }
 
 static inline void __pagemap(u64 va, u64 pa, u64 memflags) {
