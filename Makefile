@@ -3,8 +3,8 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
-RPI = 1
-#QEMU = 1
+#RPI = 1
+QEMU = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
@@ -36,7 +36,7 @@ endif
 
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
 
-GIC_VERSION = 3
+GIC_VERSION = 2
 
 ifdef RPI
 MACHINE = raspi4b1g
@@ -128,7 +128,7 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
-	cp guest/vm.dtb virt.dtb
+	#cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
@@ -215,14 +215,14 @@ gdb-sub: vmm.img
 	sudo ip tuntap del dev tap$(TAP_NUM) mode tap
 
 linux-gdb: $(KERNIMG)
-	$(QEMU) -M virt,gic-version=3 -cpu cortex-a72 -smp $(GUEST_NCPU) -kernel $(KERNIMG) -nographic -initrd guest/linux/rootfs.img -append "console=ttyAMA0" -m 256 -S -gdb tcp::1234
-
-linux:
 	$(QEMU) -M virt,gic-version=3 -smp cores=4,sockets=2 \
-	  -numa node,memdev=r0,cpus=0-3,nodeid=0 \
-	  -numa node,memdev=r1,cpus=4-7,nodeid=1 \
-	  -object memory-backend-ram,id=r0,size=256M \
-	  -object memory-backend-ram,id=r1,size=256M \
+	  -device virtio-net-device,mac=70:32:17:11:45:14,bus=virtio-mmio-bus.0 \
+	  -cpu cortex-a72 -kernel $(KERNIMG) \
+	  -initrd guest/linux/rootfs.img \
+	  -nographic -append "console=ttyAMA0 nokaslr" -m 512 -S -gdb tcp::1234
+linux: $(KERNIMG)
+	$(QEMU) -M virt,gic-version=3 -smp cores=4,sockets=2 \
+	  -device virtio-net-device,mac=70:32:17:11:45:14,bus=virtio-mmio-bus.0 \
 	  -cpu cortex-a72 -kernel $(KERNIMG) \
 	  -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
@@ -240,7 +240,7 @@ dts-numa: dtb-numa
 	dtc -I dtb -O dts -o virt.dts virt.dtb
 
 dtb:
-	$(QEMU) -M virt,gic-version=3,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
+	$(QEMU) -M virt,gic-version=2,dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
 	  -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
 	  -nographic -append "console=ttyAMA0,115200 nokaslr" -m $(GUEST_MEMORY)
 

@@ -476,7 +476,7 @@ void vgic_init(void) {
 
   vgic->nspis = localnode.irqchip->nirqs - 32;
   vgic->enabled = false;
-  vgic->spis = (struct vgic_irq *)alloc_pages(1);   // allocate 8192 byte
+  vgic->spis = (struct vgic_irq *)alloc_pages(2);
   if(!vgic->spis)
     panic("nomem");
 
