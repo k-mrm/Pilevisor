@@ -316,6 +316,7 @@ void msg_sysinit() {
   }
 
   for(hd = __msg_handler_data_start; hd < __msg_handler_data_end; hd++) {
+    printf("pocv2-msg func: %s(%d) %p\n", msmap[hd->type], hd->type, hd->recv_handler);
     msg_data[hd->type].recv_handler = hd->recv_handler;
   }
 }

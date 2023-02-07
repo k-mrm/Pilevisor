@@ -529,13 +529,8 @@ void peripheral_device_init() {
 
   for(n = next_match_node(__dt_peri_device, &dev, NULL); n;
       n = next_match_node(__dt_peri_device, &dev, n)) {
-    if(!dev) {
-      continue;
-    }
-
-    if(dev->init) {
+    if(dev && dev->init)
       dev->init(n);
-    }
   }
 }
 

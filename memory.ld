@@ -49,6 +49,7 @@ SECTIONS {
       . = ALIGN(16);
       __msg_handler_data_start = .;
       *(.rodata.msg.common)
+      *(.rodata.msg.node0)
       *(.rodata.msg.subnode)
       __msg_handler_data_end = .;
 

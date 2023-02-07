@@ -192,7 +192,7 @@ static void __subnode wait_for_acked_me() {
 }
 
 void __subnode subnode_cluster_init() {
-  vmm_log("Waiting for recognition from cluster...\n");
+  printf("Waiting for recognition from cluster...\n");
 
   intr_enable();
 

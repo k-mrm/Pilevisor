@@ -58,6 +58,7 @@ static int vtmmio_probe(void *base, int intid) {
     case VIRTIO_DEV_NET:
       irq_register(intid, vtmmio_intr, dev); 
       return virtio_net_probe(dev);
+
     default:
       goto err;
   }

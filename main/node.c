@@ -89,7 +89,7 @@ static void node0_start() {
   int cpu = cpuid();
   printf("node0@cpu%d: start\n", cpu);
 
-  // node_cluster_dump();
+  node_cluster_dump();
 
   // waiting wakeup signal from vpsci
   wait_for_current_vcpu_online();
@@ -97,7 +97,7 @@ static void node0_start() {
   printf("cpu%d: entry to vcpu\n", cpu);
 
   setup_node0_bootclock();
-  // broadcast_boot_signal();
+  broadcast_boot_signal();
 
   vcpu_entry();
 }
