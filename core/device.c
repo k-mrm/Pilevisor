@@ -234,9 +234,10 @@ static int dt_gic_intid_base(int gic) {
   return -1;
 }
 
-int dt_node_prop_intr(struct device_node *node, int *intid, int *cfg) {
+int dt_node_prop_intr(struct device_node *node, int index, int *intid, int *cfg) {
   fdt32 *regs;
   u32 len;
+  int i;
 
   regs = dt_node_prop_raw(node, "interrupts", &len);
   if(!regs)
@@ -244,15 +245,19 @@ int dt_node_prop_intr(struct device_node *node, int *intid, int *cfg) {
 
   len /= 4;
 
+  i = index * 3;
+  if(i + 3 > len)
+    return -1;
+
   if(intid) {
-    u32 gic = prop_read_number(regs, 1);
-    u32 id = prop_read_number(regs + 1, 1);
+    u32 gic = prop_read_number(regs + i, 1);
+    u32 id = prop_read_number(regs + i + 1, 1);
 
     *intid = dt_gic_intid_base(gic) + id;
   }
 
   if(cfg) {
-    u32 c = prop_read_number(regs + 2, 1);
+    u32 c = prop_read_number(regs + i + 2, 1);
 
     *cfg = c;
   }

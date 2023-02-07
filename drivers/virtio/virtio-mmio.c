@@ -179,7 +179,7 @@ static int vtmmio_dt_init(struct device_node *dev) {
   if(!vtbase)
     return -1;
 
-  if(dt_node_prop_intr(dev, &intr, NULL) < 0)
+  if(dt_node_prop_intr(dev, 0, &intr, NULL) < 0)
     return -1;
 
   return vtmmio_probe(vtbase, intr);

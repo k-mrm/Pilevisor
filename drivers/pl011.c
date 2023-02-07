@@ -96,7 +96,7 @@ static int pl011_dt_init(struct device_node *dev) {
   rpi_gpio_set_pinmode(15, ALT0);
 #endif
 
-  if(dt_node_prop_intr(dev, &intr, NULL) < 0)
+  if(dt_node_prop_intr(dev, 0, &intr, NULL) < 0)
     return -1;
 
   /* disable uart */
@@ -122,7 +122,7 @@ static int pl011_dt_init(struct device_node *dev) {
   return 0;
 }
 
-static struct dt_compatible pl011_compat[] = {
+static const struct dt_compatible pl011_compat[] = {
   { "arm,pl011" },
   { "arm,primecell" },
   {},
