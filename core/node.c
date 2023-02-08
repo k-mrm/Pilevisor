@@ -152,9 +152,6 @@ void __node0 cluster_init() {
 
   cluster_node0_init(mac, localvm.nvcpu, localvm.nalloc);
 
-  if(cluster_node_me_setup() < 0)
-    panic("my node failed");
-
   if(!mac)
     return;
 
@@ -167,6 +164,9 @@ void __node0 cluster_init() {
 
   /* 3. broadcast cluster information to sub-node */
   broadcast_cluster_info();
+
+  if(cluster_node_me_setup() < 0)
+    panic("node0 setup failed");
 
   wait_for_all_node_ready();
 }

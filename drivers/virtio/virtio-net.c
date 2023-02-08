@@ -113,14 +113,8 @@ static void rxintr(struct virtq *rxq) {
   fill_recv_queue(rxq);
 }
 
-static void virtio_net_set_recv_intr_callback(struct nic *nic, 
-                                              void (*cb)(struct nic *, void **, int *, int)) {
-  nic->ops->recv_intr_callback = cb;
-}
-
 static struct nic_ops virtio_net_ops = {
   .xmit = virtio_net_xmit,
-  .set_recv_intr_callback = virtio_net_set_recv_intr_callback,
 };
 
 int virtio_net_probe(struct virtio_mmio_dev *dev) {

@@ -40,10 +40,12 @@ void vcpuid_init(u32 *vcpuids, int nvcpu) {
     vcpu->vcpuid = vcpuids[i];
     vcpu->vmpidr = vcpuid_to_vaff(vcpu->vcpuid);
 
-    if(vcpu->vcpuid == nr_cluster_vcpus - 1)    // last vcpu
+    if(vcpu->vcpuid == nr_cluster_vcpus - 1) {
+      printf("last vcpu is vcpu%d\n", vcpu->vcpuid);
       vcpu->last = true;
-    else
+    } else {
       vcpu->last = false;
+    }
 
     vmm_log("vcpuid is %d(%d/%d)\n", vcpu->vmpidr, i, nvcpu);
   }

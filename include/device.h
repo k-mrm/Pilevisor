@@ -28,7 +28,7 @@ struct dt_compatible {
 
 struct dt_device {
   const char *dev_name;
-  const struct dt_compatible *compat;
+  const struct dt_compatible * const compat;
   int (*init)(struct device_node *);
 };
 
