@@ -3,17 +3,31 @@
 
 #include "types.h"
 
-#define MBOX0_READ      0
-#define MBOX0_PEEK      0x10
-#define MBOX0_SENDER    0x14
-#define MBOX0_STATUS    0x18
-#define MBOX0_CFG       0x1c
-#define MBOX0_WRITE     0x20
+#define MBOX_READ      0
+#define MBOX_PEEK      0x10
+#define MBOX_SENDER    0x14
+#define MBOX_STATUS    0x18
+#define MBOX_CFG       0x1c
+#define MBOX_WRITE     0x20
+
+#define MBOX_REQUEST    0x0
 
 #define MBOX_EMPTY      0x40000000
 #define MBOX_FULL       0x80000000
 
 #define MBOX_SUCCESS    0x80000000
+
+enum mbox_ch {
+  MBOX_CH_POWER     = 0,
+  MBOX_CH_FB        = 1,
+  MBOX_CH_VUART     = 2,
+  MBOX_CH_VCHIQ     = 3,
+  MBOX_CH_LEDS      = 4,
+  MBOX_CH_BTNS      = 5,
+  MBOX_CH_TOUCH     = 6,
+  MBOX_CH_COUNT     = 7,
+  MBOX_CH_PROP      = 8, // Request from ARM for response by VideoCore
+};
 
 enum rpi_mbox_tag {
   RPI_FIRMWARE_PROPERTY_END                           = 0,
@@ -118,7 +132,6 @@ enum rpi_mbox_tag {
   RPI_FIRMWARE_GET_DMA_CHANNELS                       = 0x00060001,
 };
 
-u32 mbox_read(int ch);
-void mbox_write(int ch, u32 data);
+int mbox_get_mac_address(u8 *mac);
 
 #endif
