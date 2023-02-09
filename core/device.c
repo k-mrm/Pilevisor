@@ -444,12 +444,13 @@ struct device_node *next_match_node(struct dt_device *table, struct dt_device **
 
 struct dt_device *dt_compatible_device(struct dt_device *table, struct device_node *node) {
   const char *compat = dt_node_props(node, "compatible");
+  const struct dt_compatible *c;
 
   if(!compat)
     return NULL;
 
   for(struct dt_device *dev = table; dev->dev_name || dev->compat; dev++) {
-    for(struct dt_compatible *c = dev->compat; c->comp; c++) {
+    for(c = dev->compat; c->comp; c++) {
       if(strcmp(c->comp, compat) == 0)
         return dev;
     }

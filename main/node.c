@@ -79,9 +79,6 @@ static void node0_init() {
   cluster_init();
 
   initvm(&vm_desc);
-
-  /* init vcpu0 */
-  node0_init_vcpu0(vm_desc.entrypoint, vm_desc.fdt_base);
 }
 
 /* call per cpu */
@@ -90,6 +87,12 @@ static void node0_start() {
   printf("node0@cpu%d: start\n", cpu);
 
   node_cluster_dump();
+
+  localvm_initcore();
+
+  /* init vcpu0 */
+  if(current == vcpu0)
+    node0_init_vcpu0(vm_desc.entrypoint, vm_desc.fdt_base);
 
   // waiting wakeup signal from vpsci
   wait_for_current_vcpu_online();

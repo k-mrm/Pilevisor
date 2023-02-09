@@ -8,10 +8,10 @@
 #define GVM_MEMORY          (512*1024*1024)
 
 /* max physical cpu in this node */
-#define NCPU_MAX            4
+#define NCPU_MAX            8
 
 /* max vcpu per node */
-#define VCPU_PER_NODE_MAX   4
+#define VCPU_PER_NODE_MAX   8
 
 /* max vcpu */
 #define VCPU_MAX  4096

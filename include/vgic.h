@@ -6,6 +6,7 @@
 #include "gic.h"
 #include "spinlock.h"
 #include "irq.h"
+#include "msg.h"
 
 struct vcpu;
 struct mmio_access;
@@ -66,6 +67,22 @@ struct vgic_cpu {
   struct vgic_irq ppis[GIC_NPPI];
 };
 
+enum gic_config_type {
+  GIC_CONFIG_NULL = 0,
+  GIC_CONFIG_SET_TARGET_V2,   // for GICv2
+  GIC_CONFIG_SET_ROUTE_V3,    // for GICv3
+  GIC_CONFIG_ENABLE,
+  GIC_CONFIG_DISABLE,
+};
+
+struct gic_config_msg_hdr {
+  POCV2_MSG_HDR_STRUCT;
+  enum gic_config_type type;
+  int len;
+  int intid;
+  u32 value;
+};
+
 void vgic_cpu_init(struct vcpu *vcpu);
 int vgic_inject_virq(struct vcpu *vcpu, u32 intid);
 int vgic_emulate_sgi1r(struct vcpu *vcpu, int rt, int wr);
@@ -92,5 +109,7 @@ void vgic_icfg_read(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
 void vgic_icfg_write(struct vcpu *vcpu, struct mmio_access *mmio, u64 offset);
 
 void vgic_init(void);
+
+void vgic_v2_set_targets(struct vcpu *vcpu, int intid, int len, u32 val);
 
 #endif

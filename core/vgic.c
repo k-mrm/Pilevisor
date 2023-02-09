@@ -38,6 +38,8 @@ void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
   irq->enabled = 1;
   u32 intid = irq->intid;
 
+  vmm_warn("vcpu %d enable irq %d\n", vcpu->vcpuid, intid);
+
   if(valid_intid(intid))
     localnode.irqchip->enable_irq(intid);
   else
@@ -208,7 +210,7 @@ static void recv_sgi_msg_intr(struct msg *msg) {
   int virq = h->sgi_id;
 
   if(!target)
-    panic("oi");
+    panic("null target");
 
   if(!is_sgi(virq))
     panic("invalid sgi");
@@ -520,13 +522,36 @@ void vgic_cpu_init(struct vcpu *vcpu) {
     irq->cfg = CONFIG_LEVEL;
     irq->target = vcpu;
 
-    if(version == 2)
+    if(version == 2) {
+      printf("irq targets letgoooooooooooo %d\n", vcpu->vcpuid);
       irq->targets = 1 << vcpu->vcpuid;
-    else if(version == 3)
+    } else if(version == 3) {
       irq->vcpuid = vcpu->vcpuid;
+    }
 
     spinlock_init(&irq->lock);
   }
 }
 
+static void recv_gic_config_msg_intr(struct msg *msg) {
+  struct gic_config_msg_hdr *h = (struct gic_config_msg_hdr *)msg->hdr;
+  int intid = h->intid;
+  int len = h->len;
+  u32 val = h->value;
+
+  printf("gic config intid %d %d %p\n", intid, len, val);
+
+  switch(h->type) {
+    case GIC_CONFIG_SET_TARGET_V2:
+      vgic_v2_set_targets(current, intid, len, val);
+      break;
+    case GIC_CONFIG_SET_ROUTE_V3:
+    case GIC_CONFIG_ENABLE:
+    case GIC_CONFIG_DISABLE:
+      panic("unimplemented");
+      break;
+  }
+}
+
 DEFINE_POCV2_MSG(MSG_SGI, struct sgi_msg_hdr, recv_sgi_msg_intr);
+DEFINE_POCV2_MSG(MSG_GIC_CONFIG, struct gic_config_msg_hdr, recv_gic_config_msg_intr);

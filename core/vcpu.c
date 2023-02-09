@@ -78,7 +78,7 @@ void vcpu_entry() {
 
   isb();
 
-  vcpu_dump(current);
+  // vcpu_dump(current);
 
   /* vmentry */
   trapret();

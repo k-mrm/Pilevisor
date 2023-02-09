@@ -866,16 +866,12 @@ static void recv_fetch_reply_intr(struct msg *msg) {
   struct fetch_reply_hdr *a = (struct fetch_reply_hdr *)msg->hdr;
   struct fetch_reply_body *b = msg->body;
   // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
-  //
 
   /*
-  if(a->ipa == 0x406c2000) {
-    u64 c = read_sysreg(cntvct_el0);
-    // bin_dump((u8 *)b->page + 0x350, 0x40);
-    u64 cy = *(u64 *)((u8 *)b->page + 0x360);
-    printf("recv;; %p %p\n", cy, c);
-  }
-  */
+  if(a->ipa == 0x8000000) {
+    printf("!!!!!!!!!!!!\n")
+    bin_dump((u8 *)b->page + 0x000, 0x40);
+  } */
 
   vsm_set_cache_fast(a->ipa, b->page, a->copyset);
 }

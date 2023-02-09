@@ -86,15 +86,14 @@ static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u
     spin_unlock_irqrestore(&irq->lock, flags);
   }
 
+  vmm_warn("get targets %d %p\n", intid, itar);
+
   mmio->val = itar;
 }
 
-static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
-                                   u64 offset) {
+void vgic_v2_set_targets(struct vcpu *vcpu, int intid, int len, u32 val) {
   struct vgic_irq *irq;
-  u32 val = mmio->val;
-  int intid = offset;
-  int target, targets, len = mmio->accsize;
+  int target, targets;
   u64 flags;
 
   for(int i = 0; i < len; i++) {
@@ -106,8 +105,9 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
 
     irq->targets = targets = (u8)(val >> (i * 8));
 
-    target = __builtin_ffs(targets);
+    vmm_warn("set targets %d %p\n", intid + i, targets);
 
+    target = __builtin_ffs(targets);
     if(target) {
       irq->target = node_vcpu(target - 1);
     } else {
@@ -126,6 +126,31 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
     }
 
     spin_unlock_irqrestore(&irq->lock, flags);
+  }
+}
+
+static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
+                                   u64 offset) {
+  u32 val = mmio->val;
+  int intid = offset, len = mmio->accsize;
+  
+  vmm_warn("vgic itargets write %p %p\n", intid, val);
+
+  vgic_v2_set_targets(vcpu, intid, len, val);
+
+  /* if intid is spi, forward itargets value to other node */
+  if(is_spi(intid)) {
+    struct msg msg;
+    struct gic_config_msg_hdr cfg;
+
+    cfg.type = GIC_CONFIG_SET_TARGET_V2;
+    cfg.len = len;
+    cfg.intid = intid;
+    cfg.value = val;
+
+    msg_init(&msg, 0, MSG_GIC_CONFIG, &cfg, NULL, 0, M_BCAST);
+
+    send_msg(&msg);
   }
 }
 
