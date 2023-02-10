@@ -40,7 +40,7 @@ struct vsm_server_proc {
   u64 page_ipa;
   u64 copyset;        // for invalidate server
   int req_nodeid;
-  int type;           // for debug
+  int type;
   void (*do_process)(struct vsm_server_proc *);
 };
 

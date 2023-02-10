@@ -44,10 +44,17 @@ static const char *pte_state[4] = {
   [3]   " RW",
 };
 
+enum fetch_type {
+  READ_FETCH                = 0,
+  WRITE_FETCH               = 1,
+  WRITE_FETCH_WITHOUT_PAGE  = 2,
+};
+
 enum {
-  READ_SERVER,
-  WRITE_SERVER,
-  INV_SERVER,
+  READ_SERVER           = 0,
+  WRITE_SERVER          = 1,
+  WRITE_SERVER_NON_PAGE = 2,
+  INV_SERVER            = 3,
 };
 
 struct vsm_rw_data {
@@ -58,7 +65,7 @@ struct vsm_rw_data {
 
 static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
 static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
-static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr);
+static void send_fetch_request(u8 req, u8 dst, u64 ipa, enum fetch_type type);
 
 static void vsm_read_server_process(struct vsm_server_proc *proc);
 static void vsm_write_server_process(struct vsm_server_proc *proc);
@@ -80,7 +87,7 @@ struct fetch_req_hdr {
   POCV2_MSG_HDR_STRUCT;
   u64 ipa;
   u8 req_nodeid;
-  bool wnr;     // 0 read 1 write fetch
+  enum fetch_type type;
 };
 
 struct fetch_reply_hdr {
@@ -211,18 +218,21 @@ static inline void vwqinit(struct vsm_waitqueue *wq) {
   memset(wq, 0, sizeof(*wq));
 }
 
-static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid, bool wnr) {
+static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid,
+                                                   enum fetch_type type) {
   struct vsm_server_proc *p = malloc(sizeof(*p));
 
-  p->type = wnr ? WRITE_SERVER : READ_SERVER;
+  p->type = type;
   p->page_ipa = page_ipa;
   p->req_nodeid = req_nodeid;
-  p->do_process = wnr ? vsm_write_server_process : vsm_read_server_process;
+  p->do_process = type == READ_FETCH ? vsm_read_server_process
+                                     : vsm_write_server_process;
 
   return p;
 }
 
-static struct vsm_server_proc *new_vsm_inv_server_proc(u64 page_ipa, int from_nodeid, u64 copyset) {
+static struct vsm_server_proc *new_vsm_inv_server_proc(u64 page_ipa, int from_nodeid,
+                                                       u64 copyset) {
   struct vsm_server_proc *p = malloc(sizeof(*p));
 
   p->type = INV_SERVER;
@@ -232,10 +242,6 @@ static struct vsm_server_proc *new_vsm_inv_server_proc(u64 page_ipa, int from_no
   p->do_process = vsm_invalidate_server_process;
 
   return p;
-}
-
-static inline void invoke_vsm_process(struct vsm_server_proc *p) {
-  p->do_process(p);
 }
 
 /*
@@ -290,7 +296,7 @@ reprocess:
 
   for(p = head; p; p = p_next) {
     vmm_log("processing queue..... %p %p\n", p, page_desc_addr(page));
-    invoke_vsm_process(p);
+    p->do_process(p);
 
     p_next = p->next;
     free(p);
@@ -519,12 +525,12 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
 
     vmm_log("read req %p: %d -> %d request to owner\n", page_ipa, local_nodeid(), owner);
 
-    send_fetch_request(local_nodeid(), owner, page_ipa, 0);
+    send_fetch_request(local_nodeid(), owner, page_ipa, READ_FETCH);
   } else {
     /* ask manager for read access to page and a copy of page */
     vmm_log("read req %p: %d -> %d request to owner\n", page_ipa, local_nodeid(), manager);
 
-    send_fetch_request(local_nodeid(), manager, page_ipa, 0);
+    send_fetch_request(local_nodeid(), manager, page_ipa, READ_FETCH);
   }
 
   pte = vsm_wait_for_recv_timeout(page_ipa);
@@ -558,6 +564,12 @@ void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
   return __vsm_write_fetch_page(page, &d);
 }
 
+static inline void send_write_fetch_request(int from_node, int to_node,
+                                            ipa_t page_ipa, bool need_page) {
+  send_fetch_request(from_node, to_node, page_ipa,
+                     need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE);
+}
+
 void *vsm_write_fetch_page(u64 page_ipa) {
   struct page_desc *page = ipa_to_desc(page_ipa);
 
@@ -570,6 +582,7 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
   u64 page_pa = 0;
   int manager = -1;
   u64 page_ipa = page_desc_addr(page);
+  bool need_page = true;
 
   manager = page_manager(page_ipa);
   if(manager < 0)
@@ -599,14 +612,18 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
     /*
      *  TODO: no need to fetch page from remote node
      */
-    vmm_log("write request %p: write to copyset\n", page_ipa);
+    printf("write request %p: write to copyset\n", page_ipa);
 
+    need_page = false;
+
+    /*
     u64 pa = PTE_PA(*pte);
 
     s2pte_invalidate(pte);
     tlb_s2_flush_all();
 
     free_page(P2V(pa));
+    */
   }
 
   if(manager == local_nodeid()) {   /* I am manager */
@@ -616,12 +633,12 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
 
     vmm_log("write request %p: %d -> %d request to owner\n", page_ipa, local_nodeid(), owner);
 
-    send_fetch_request(local_nodeid(), owner, page_ipa, 1);
+    send_write_fetch_request(local_nodeid(), owner, page_ipa, need_page);
   } else {
     /* ask manager for write access to page and a copy of page */
     vmm_log("write request %p: %d -> %d request to manager\n", page_ipa, local_nodeid(), manager);
 
-    send_fetch_request(local_nodeid(), manager, page_ipa, 1);
+    send_write_fetch_request(local_nodeid(), manager, page_ipa, need_page);
   }
 
   pte = vsm_wait_for_recv_timeout(page_ipa);
@@ -671,13 +688,13 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
  *  @req: request nodeid
  *  @dst: fetch request destination
  */
-static void send_fetch_request(u8 req, u8 dst, u64 ipa, bool wnr) {
+static void send_fetch_request(u8 req, u8 dst, u64 ipa, enum fetch_type type) {
   struct msg msg;
   struct fetch_req_hdr hdr;
 
   hdr.ipa = ipa;
   hdr.req_nodeid = req;
-  hdr.wnr = wnr;
+  hdr.type = type;
 
   msg_init(&msg, dst, MSG_FETCH, &hdr, NULL, 0, 0);
 
@@ -705,7 +722,8 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
   send_msg(&msg);
 }
 
-static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copyset) {
+static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page,
+                                   u64 copyset, bool need_page) {
   struct msg msg;
   struct fetch_reply_hdr hdr;
 
@@ -720,7 +738,10 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, u64 copys
   }
   */
 
-  msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, 0);
+  if(need_page)
+    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, 0);
+  else
+    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, NULL, 0, 0);
 
   send_msg(&msg);
 }
@@ -776,6 +797,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
   struct page_desc *page = ipa_to_desc(page_ipa);
   int req_nodeid = proc->req_nodeid;
   u64 *pte;
+  bool send_page = proc->type == WRITE_SERVER;
 
   assert(page_locked(page));
 
@@ -795,7 +817,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
     tlb_s2_flush_all();
 
     // send p and copyset;
-    send_write_fetch_reply(req_nodeid, page_ipa, P2V(pa), copyset);
+    send_write_fetch_reply(req_nodeid, page_ipa, P2V(pa), copyset, send_page);
 
     free_page(P2V(pa));
 
@@ -815,7 +837,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
               req_nodeid, p_owner);
 
     /* forward request to p's owner */
-    send_fetch_request(req_nodeid, p_owner, page_ipa, 1);
+    send_write_fetch_request(req_nodeid, p_owner, page_ipa, send_page);
 
     /* now owner is request node */
     p->owner = req_nodeid;
@@ -826,7 +848,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
 
 static void recv_fetch_request_intr(struct msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
-  struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->wnr);
+  struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->type);
 
   struct page_desc *page = ipa_to_desc(a->ipa);
 
@@ -838,7 +860,7 @@ static void recv_fetch_request_intr(struct msg *msg) {
     return;
   }
 
-  invoke_vsm_process(p);
+  p->do_process(p);
   free(p);
   vsm_process_waitqueue(page);
 }
@@ -857,7 +879,7 @@ static void recv_invalidate_intr(struct msg *msg) {
     return;
   }
 
-  invoke_vsm_process(p); 
+  p->do_process(p);
   free(p);
   vsm_process_waitqueue(page);
 }

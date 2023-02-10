@@ -86,8 +86,6 @@ static void vgic_v2_itargets_read(struct vcpu *vcpu, struct mmio_access *mmio, u
     spin_unlock_irqrestore(&irq->lock, flags);
   }
 
-  vmm_warn("get targets %d %p\n", intid, itar);
-
   mmio->val = itar;
 }
 
@@ -104,8 +102,6 @@ void vgic_v2_set_targets(struct vcpu *vcpu, int intid, int len, u32 val) {
     spin_lock_irqsave(&irq->lock, flags);
 
     irq->targets = targets = (u8)(val >> (i * 8));
-
-    vmm_warn("set targets %d %p\n", intid + i, targets);
 
     target = __builtin_ffs(targets);
     if(target) {
@@ -134,8 +130,6 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
   u32 val = mmio->val;
   int intid = offset, len = mmio->accsize;
   
-  vmm_warn("vgic itargets write %p %p\n", intid, val);
-
   vgic_v2_set_targets(vcpu, intid, len, val);
 
   /* if intid is spi, forward itargets value to other node */

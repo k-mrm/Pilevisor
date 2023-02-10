@@ -523,7 +523,6 @@ void vgic_cpu_init(struct vcpu *vcpu) {
     irq->target = vcpu;
 
     if(version == 2) {
-      printf("irq targets letgoooooooooooo %d\n", vcpu->vcpuid);
       irq->targets = 1 << vcpu->vcpuid;
     } else if(version == 3) {
       irq->vcpuid = vcpu->vcpuid;
@@ -538,8 +537,6 @@ static void recv_gic_config_msg_intr(struct msg *msg) {
   int intid = h->intid;
   int len = h->len;
   u32 val = h->value;
-
-  printf("gic config intid %d %d %p\n", intid, len, val);
 
   switch(h->type) {
     case GIC_CONFIG_SET_TARGET_V2:
