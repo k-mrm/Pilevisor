@@ -556,8 +556,8 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
     send_read_fetch_req(local_nodeid(), manager, page_ipa);
   }
 
-  panic("kitaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-  pte = vsm_wait_for_recv_timeout(page_ipa);
+  pte = s2_accessible_pte(page_ipa);
+  assert(pte);
 
   vmm_log("read req %p: get remote page!\n", page_ipa);
 
@@ -665,7 +665,9 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
     send_write_fetch_req(local_nodeid(), manager, page_ipa, need_page);
   }
 
-  pte = vsm_wait_for_recv_timeout(page_ipa);
+  pte = s2_accessible_pte(page_ipa);
+  assert(pte);
+
   vmm_log("write request %p: get remote page!\n", page_ipa);
 
 page_acquired:
@@ -707,10 +709,9 @@ static void recv_fetch_reply(struct msg *reply, void * __unused arg) {
 
   if(b) {       // recv page (and ownership)
     vsm_set_cache_fast(a->ipa, b->page);
-    printf("get page!!!!!!!!!!!\n");
   } else {      // recv ownership only
     assert(a->wnr);
-    printf("get onwership only");
+    printf("get ownership only\n");
   }
 }
 
