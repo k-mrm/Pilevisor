@@ -44,5 +44,5 @@ void localvm_init(int nvcpu, u64 nalloc, struct guest *guest_fdt) {
   vgic_init();
 
   // vgic_connect_hwirq(153, 153);
-  vgic_connect_hwirq(33, 33);
+  // vgic_connect_hwirq(33, 33);
 }

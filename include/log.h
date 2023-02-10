@@ -3,7 +3,7 @@
 
 #include "printf.h"
 
-#define NDEBUG
+// #define NDEBUG
 
 #define LWARN     1
 #define LLOG      2
