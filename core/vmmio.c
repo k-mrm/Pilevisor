@@ -12,6 +12,8 @@
 #include "log.h"
 #include "panic.h"
 
+static void vmmio_recv_reply(struct msg *reply, void *arg);
+
 static struct mmio_region *alloc_mmio_region(struct mmio_region *prev) {
   struct mmio_region *m = malloc(sizeof(*m));
 
@@ -73,21 +75,9 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
 
   printf("vmmio forwarding to vcpu%d %p\n", target_vcpuid, mmio->ipa);
 
-  msg_init(&msg, target_nodeid, MSG_MMIO_REQUEST, &hdr, NULL, 0, M_WAITREPLY);
+  msg_init(&msg, target_nodeid, MSG_MMIO_REQUEST, &hdr, NULL, 0);
 
-  reply = send_msg(&msg);
-
-  struct mmio_reply_hdr *rep = (struct mmio_reply_hdr *)reply->hdr;
-
-  printf("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
-
-  if(mmio->ipa != rep->addr)
-    panic("vmmio? %p %p", mmio->ipa, rep->addr);
-
-  mmio->val = rep->val;
-  status = rep->status;
-
-  free_recv_msg(reply);
+  send_msg_cb(&msg, vmmio_recv_reply, &status);
 
   return status;
 }
@@ -112,6 +102,19 @@ static void vmmio_req_recv_intr(struct msg *msg) {
   rephdr.status = status;
 
   msg_reply(msg, MSG_MMIO_REPLY, (struct msg_header *)&rephdr, NULL, 0);
+}
+
+static void vmmio_recv_reply(struct msg *reply, void *arg) {
+  struct mmio_reply_hdr *rep = (struct mmio_reply_hdr *)reply->hdr;
+  int *status = arg;
+
+  printf("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
+
+  if(mmio->ipa != rep->addr)
+    panic("vmmio? %p %p", mmio->ipa, rep->addr);
+
+  mmio->val = rep->val;
+  *status = rep->status;
 }
 
 void vmmio_init() {

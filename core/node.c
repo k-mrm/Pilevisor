@@ -179,9 +179,9 @@ void __node0 broadcast_boot_signal() {
   struct msg msg;
   struct boot_sig_hdr hdr;
 
-  msg_init(&msg, 0, MSG_BOOT_SIG, &hdr, NULL, 0, M_BCAST);
+  msg_init(&msg, 0, MSG_BOOT_SIG, &hdr, NULL, 0);
 
-  send_msg(&msg);
+  send_msg_bcast(&msg);
 }
 
 static void __subnode wait_for_acked_me() {
@@ -287,9 +287,9 @@ static void __node0 broadcast_init_request() {
   struct msg msg;
   struct init_req_hdr hdr;
 
-  msg_init(&msg, 0, MSG_INIT, &hdr, NULL, 0, M_BCAST);
+  msg_init(&msg, 0, MSG_INIT, &hdr, NULL, 0);
 
-  send_msg(&msg);
+  send_msg_bcast(&msg);
 }
 
 static void __node0 broadcast_cluster_info() {
@@ -302,9 +302,9 @@ static void __node0 broadcast_cluster_info() {
   hdr.nnodes = nr_cluster_nodes;
   hdr.nvcpus = nr_cluster_vcpus;
 
-  msg_init(&msg, 0, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster), M_BCAST);
+  msg_init(&msg, 0, MSG_CLUSTER_INFO, &hdr, cluster, sizeof(cluster));
 
-  send_msg(&msg);
+  send_msg_bcast(&msg);
 }
 
 static void __subnode send_setup_done_notify(u8 status) {
@@ -313,7 +313,7 @@ static void __subnode send_setup_done_notify(u8 status) {
 
   hdr.status = status;
 
-  msg_init(&msg, 0, MSG_SETUP_DONE, &hdr, NULL, 0, 0);
+  msg_init(&msg, 0, MSG_SETUP_DONE, &hdr, NULL, 0);
 
   send_msg(&msg);
 }
@@ -327,7 +327,7 @@ static void __subnode init_ack(u8 *node0_mac, int nvcpu, u64 allocated) {
   hdr.nvcpu = nvcpu;
   hdr.allocated = allocated;
 
-  msg_init(&msg, 0, MSG_INIT_ACK, &hdr, NULL, 0, 0);
+  msg_init(&msg, 0, MSG_INIT_ACK, &hdr, NULL, 0);
 
   send_msg(&msg);
 }
@@ -376,9 +376,9 @@ void node_panic_signal(void) {
   struct msg msg;
   struct panic_hdr hdr;
 
-  msg_init(&msg, 0, MSG_PANIC, &hdr, NULL, 0, M_BCAST);
+  msg_init(&msg, 0, MSG_PANIC, &hdr, NULL, 0);
 
-  send_msg(&msg);
+  send_msg_bcast(&msg);
 }
 
 static void recv_boot_sig_intr(struct msg *msg) {

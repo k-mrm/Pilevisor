@@ -45,6 +45,7 @@ static char *msmap[NUM_MSG] = {
   [MSG_INTERRUPT]       "msg:interrupt",
   [MSG_MMIO_REQUEST]    "msg:mmio_request",
   [MSG_MMIO_REPLY]      "msg:mmio_reply",
+  [MSG_GIC_CONFIG]      "msg:gic_config",
   [MSG_SGI]             "msg:sgi",
   [MSG_PANIC]           "msg:panic",
   [MSG_BOOT_SIG]        "msg:boot_sig",
@@ -74,7 +75,7 @@ void msg_queue_init(struct msg_queue *q) {
   spinlock_init(&q->lock);
 }
 
-void msg_enqueue(struct msg_queue *q, struct msg *msg) {
+static void msg_enqueue(struct msg_queue *q, struct msg *msg) {
   u64 flags;
 
   msg->next = NULL;
@@ -92,7 +93,7 @@ void msg_enqueue(struct msg_queue *q, struct msg *msg) {
   spin_unlock_irqrestore(&q->lock, flags); 
 }
 
-struct msg *msg_dequeue(struct msg_queue *q) {
+static struct msg *msg_dequeue(struct msg_queue *q) {
   u64 flags;
 
   while(msg_queue_empty(q))
@@ -111,15 +112,23 @@ struct msg *msg_dequeue(struct msg_queue *q) {
   return msg;
 }
 
-void free_recv_msg(struct msg *msg) {
+void msg_free(struct msg *msg) {
   assert(msg);
 
   free_iobuf(msg->data);
+
   free(msg);
+}
+
+static void set_reply_buf(struct msg *reply) {
+  assert(!current->reply_buf);
+
+  current->reply_buf = reply;
 }
 
 void do_recv_waitqueue() {
   struct msg *m, *m_next, *head;
+  void (*handler)(struct msg *);
 
   struct msg_queue *recvq = &mycpu->recv_waitq;
 
@@ -152,17 +161,15 @@ restart:
     if(type >= NUM_MSG)
       panic("msg %d", type);
 
-    if(msg_data[type].recv_handler) {
+    handler = msg_data[type].recv_handler;
+
+    if(handler) {     // normal msg type
       vmm_log("msg handle %p %s %p\n", m, msmap[type], m->hdr->connectionid);
-      msg_data[type].recv_handler(m);
+      handler(m);
 
-      free_recv_msg(m);
-    } else {
-      /* register reply msg for msg waiting for reply */
-      int rc = msg_reply_rx(m);
-
-      if(rc < 0)
-        free_recv_msg(m);
+      msg_free(m);
+    } else {          // reply msg type
+      set_reply_buf(m);
     }
   }
 
@@ -216,14 +223,6 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
   return rc;
 }
 
-static int msg_reply_rx(struct msg *msg) {
-  assert(!current->reply_buf);
-
-  current->reply_buf = msg;
-
-  return 0;
-}
-
 static u32 new_connection() {
   static u32 conid = 0;
   u32 c;
@@ -239,7 +238,8 @@ static u32 new_connection() {
 }
 
 static inline void __msginit(struct msg *msg, u16 dst_id, enum msgtype type,
-                             struct msg_header *hdr, void *body, int body_len, int cid, int flags) {
+                             struct msg_header *hdr, void *body, int body_len,
+                             int cid) {
   assert(msg);
   assert(hdr);
 
@@ -251,27 +251,27 @@ static inline void __msginit(struct msg *msg, u16 dst_id, enum msgtype type,
   msg->dst_id = dst_id;
   msg->body = body;
   msg->body_len = body_len;
-  msg->flags = flags;
 }
 
 void __msg_init(struct msg *msg, u16 dst_id, enum msgtype type,
-                struct msg_header *hdr, void *body, int body_len, int flags) {
-  __msginit(msg, dst_id, type, hdr, body, body_len, new_connection(), flags);
+                struct msg_header *hdr, void *body, int body_len) {
+  __msginit(msg, dst_id, type, hdr, body, body_len, new_connection());
 }
 
 void __msg_reply(struct msg *msg, enum msgtype type,
                  struct msg_header *hdr, void *body, int body_len) {
   struct msg reply;
 
-  __msginit(&reply, msg->hdr->src_id, type, hdr, body, body_len, msg->hdr->connectionid, 0);
+  __msginit(&reply, msg->hdr->src_id, type, hdr, body, body_len, msg->hdr->connectionid);
 
   send_msg(&reply);
 }
 
-struct msg *send_msg(struct msg *msg) {
+void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
+                void *cb_arg, int flags) {
   u8 *dst_mac;
 
-  if(msg->flags & M_BCAST) {
+  if(flags & M_BCAST) {
     dst_mac = bcast_mac;
   } else {
     dst_mac = node_macaddr(msg->dst_id);
@@ -290,19 +290,18 @@ struct msg *send_msg(struct msg *msg) {
 
   ether_send_packet(localnode.nic, dst_mac, type, buf);
 
-  if(msg->flags & M_WAITREPLY) {
+  if(reply_cb) {
     struct msg *reply;
     
     while((reply = current->reply_buf) == NULL) {
       wfi();
     }
 
+    reply_cb(reply, cb_arg);
+
+    msg_free(reply);
     current->reply_buf = NULL;
-
-    return reply;
   }
-
-  return NULL;
 }
 
 void msg_sysinit() {

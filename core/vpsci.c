@@ -16,6 +16,7 @@
 #include "memlayout.h"
 
 void _start(void);
+static void recv_wakeup_reply(struct msg *reply, void *arg);
 
 struct cpu_wakeup_msg_hdr {
   POCV2_MSG_HDR_STRUCT;
@@ -58,9 +59,8 @@ static char *psci_status_map(int status) {
 
 static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid) {
   struct msg msg;
-  struct msg *reply;
   struct cpu_wakeup_msg_hdr hdr;
-  struct cpu_wakeup_ack_hdr *ack;
+  int ret;
 
   hdr.vcpuid = target_cpuid;
   hdr.entrypoint = ep_addr;
@@ -68,20 +68,25 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 
   int nodeid = vcpuid_to_nodeid(target_cpuid);
 
-  msg_init(&msg, nodeid, MSG_CPU_WAKEUP, &hdr, NULL, 0, M_WAITREPLY);
+  msg_init(&msg, nodeid, MSG_CPU_WAKEUP, &hdr, NULL, 0);
 
   printf("wakeup vcpu%d@node%d\n", target_cpuid, nodeid);
 
-  reply = send_msg(&msg);
-
-  ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
-  int ret = ack->ret;
-
-  printf("remote vcpu%d wakeup status: %d(=%s)\n", target_cpuid, ret, psci_status_map(ret));
-
-  free_recv_msg(reply);
+  send_msg_cb(&msg, recv_wakeup_reply, &ret);
 
   return ret;
+}
+
+static void recv_wakeup_reply(struct msg *reply, void *arg) {
+  struct cpu_wakeup_ack_hdr *ack;
+  int *ret = arg;
+
+  ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
+  if(ret)
+    *ret = ack->ret;
+
+  printf("remote vcpu%d wakeup status: %d(=%s)\n",
+         target_cpuid, ack->ret, psci_status_map(ack->ret));
 }
 
 static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
@@ -127,9 +132,8 @@ static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {
 
 static void cpu_wakeup_recv_intr(struct msg *msg) {
   struct cpu_wakeup_ack_hdr ackhdr;
-  int ret;
   struct cpu_wakeup_msg_hdr *hdr = (struct cpu_wakeup_msg_hdr *)msg->hdr;
-  int vcpuid = hdr->vcpuid;
+  int ret, vcpuid = hdr->vcpuid;
   u64 ep = hdr->entrypoint;
   struct vcpu *target = node_vcpu(vcpuid);
 

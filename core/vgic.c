@@ -462,7 +462,7 @@ int vgic_emulate_sgi(struct vcpu *vcpu, struct gic_sgi *sgi) {
           hdr.target = vcpuid;
           hdr.sgi_id = intid;
 
-          msg_init(&msg, node->nodeid, MSG_SGI, &hdr, NULL, 0, 0);
+          msg_init(&msg, node->nodeid, MSG_SGI, &hdr, NULL, 0);
 
           send_msg(&msg);
         }

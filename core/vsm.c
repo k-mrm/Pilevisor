@@ -453,7 +453,7 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
     if((copyset & 1) && (node != local_nodeid())) {
       vmm_log("invalidate request %p %d -> %d\n", ipa, local_nodeid(), node);
  
-      msg_init(&msg, node, MSG_INVALIDATE, &hdr, NULL, 0, 0);
+      msg_init(&msg, node, MSG_INVALIDATE, &hdr, NULL, 0);
 
       send_msg(&msg);
     }
@@ -470,7 +470,7 @@ static void send_invalidate_ack(int from_nodeid, u64 ipa) {
   hdr.ipa = ipa;
   hdr.from_nodeid = from_nodeid;
 
-  msg_init(&msg, from_nodeid, MSG_INVALIDATE_ACK, &hdr, NULL, 0, 0);
+  msg_init(&msg, from_nodeid, MSG_INVALIDATE_ACK, &hdr, NULL, 0);
 
   send_msg(&msg);
 }
@@ -715,7 +715,7 @@ static struct msg *send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
   hdr.req_nodeid = req;
   hdr.type = type;
 
-  msg_init(&msg, dst, MSG_FETCH, &hdr, NULL, 0, flags);
+  msg_init(&msg, dst, MSG_FETCH, &hdr, NULL, 0);
 
   return send_msg(&msg);
 }
@@ -734,7 +734,7 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
   }
   */
 
-  msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, 0);
+  msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
   vmm_log("send read fetch reply %p\n", page);
 
   send_msg(&msg);
@@ -756,9 +756,9 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page,
   */
 
   if(send_page)
-    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, 0);
+    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
   else
-    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, NULL, 0, 0);
+    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, NULL, 0);
 
   send_msg(&msg);
 }
@@ -908,21 +908,15 @@ static void recv_fetch_reply_intr(struct msg *msg) {
   struct fetch_reply_body *b = msg->body;
   // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
 
-  /*
-  if(a->ipa == 0x8000000) {
-    printf("!!!!!!!!!!!!\n")
-    bin_dump((u8 *)b->page + 0x000, 0x40);
-  } */
-
-  if(b) {   // recv page (and ownership)
+  if(b) {       // recv page (and ownership)
     vsm_set_cache_fast(a->ipa, b->page);
     printf("get page!!!!!!!!!!!\n");
-  } else {
+  } else {      // recv ownership only
     assert(a->wnr);
     printf("get onwership only");
   }
 
-  panic("TODO: enqueue msg to reply buf");
+  // panic("TODO: enqueue msg to reply buf");
 }
 
 void vsm_node_init(struct memrange *mem) {

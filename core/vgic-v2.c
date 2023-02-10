@@ -142,9 +142,9 @@ static void vgic_v2_itargets_write(struct vcpu *vcpu, struct mmio_access *mmio,
     cfg.intid = intid;
     cfg.value = val;
 
-    msg_init(&msg, 0, MSG_GIC_CONFIG, &cfg, NULL, 0, M_BCAST);
+    msg_init(&msg, 0, MSG_GIC_CONFIG, &cfg, NULL, 0);
 
-    send_msg(&msg);
+    send_msg_bcast(&msg);
   }
 }
 

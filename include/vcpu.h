@@ -41,7 +41,8 @@ struct vcpu {
 
   struct cpu_features features;
 
-  struct msg *volatile reply_buf;
+  /* msg reply manager */
+  struct msg * volatile reply_buf;
 
   u64 sctlr_el1;
 

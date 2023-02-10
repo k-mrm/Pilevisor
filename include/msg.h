@@ -55,15 +55,12 @@ struct msg {
   void *body;
   u32 body_len;
 
-  int flags;
-
   /* private */
   struct msg *next;       /* msg_queue */
   struct iobuf *data;     /* raw data */
 };
 
 #define M_BCAST             (1 << 0)    /* broadcast msg */
-#define M_WAITREPLY         (1 << 1)    /* blocking to receive reply */
 
 #define msg_cpu(msg)        ((msg)->hdr->connectionid & 0x7)
 
@@ -78,9 +75,6 @@ struct msg_queue {
 };
 
 void msg_queue_init(struct msg_queue *q);
-
-void msg_enqueue(struct msg_queue *q, struct msg *msg);
-struct msg *msg_dequeue(struct msg_queue *q);
 
 static inline bool msg_queue_empty(struct msg_queue *q) {
   return q->head == NULL;
@@ -138,15 +132,23 @@ struct msg_data {
     .recv_handler = handler,                                    \
   };
 
-struct msg *send_msg(struct msg *msg);
+void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
+                void *cb_arg, int flags);
+
+#define send_msg(msg)         __send_msg((msg), NULL, NULL, 0)
+
+#define send_msg_bcast(msg)   __send_msg((msg), NULL, NULL, M_BCAST)
+
+#define send_msg_cb(msg, cb, arg) \
+  __send_msg((msg), (cb), (arg), 0)
 
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf);
 
-#define msg_init(msg, dst_id, type, hdr, body, body_len, flags)   \
-  __msg_init(msg, dst_id, type, (struct msg_header *)hdr, body, body_len, flags)
+#define msg_init(msg, dst_id, type, hdr, body, body_len)   \
+  __msg_init(msg, dst_id, type, (struct msg_header *)hdr, body, body_len)
 
 void __msg_init(struct msg *msg, u16 dst_id, enum msgtype type,
-                struct msg_header *hdr, void *body, int body_len, int flags);
+                struct msg_header *hdr, void *body, int body_len);
 
 #define msg_reply(msg, type, hdr, body, body_len)   \
   __msg_reply(msg, type, (struct msg_header *)hdr, body, body_len)
