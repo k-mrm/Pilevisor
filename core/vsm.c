@@ -65,8 +65,8 @@ struct vsm_rw_data {
 
 static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
 static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
-static void send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
-                           bool blocking);
+static struct msg *send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
+                                  bool blocking);
 
 static void vsm_read_server_process(struct vsm_server_proc *proc);
 static void vsm_write_server_process(struct vsm_server_proc *proc);
@@ -113,6 +113,28 @@ struct invalidate_ack_hdr {
   u64 ipa;
   u8 from_nodeid;
 };
+
+static inline struct msg *send_read_fetch_req(int from_node, int to_node,
+                                              ipa_t page_ipa) {
+  return send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, true);
+}
+
+static inline struct msg *send_write_fetch_req(int from_node, int to_node,
+                                               ipa_t page_ipa, bool need_page) {
+  return send_fetch_req(from_node, to_node, page_ipa,
+                        need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, true);
+}
+
+static inline void forward_read_fetch_req(int from_node, int to_node,
+                                          ipa_t page_ipa) {
+  send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, false);
+}
+
+static inline void forward_write_fetch_req(int from_node, int to_node,
+                                           ipa_t page_ipa, bool need_page) {
+  send_fetch_req(from_node, to_node, page_ipa,
+                 need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, false);
+}
 
 /*
  *  success: return 0
@@ -534,6 +556,7 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
     read_reply = send_read_fetch_req(local_nodeid(), manager, page_ipa);
   }
 
+  assert(read_reply);
   pte = vsm_wait_for_recv_timeout(page_ipa);
 
   vmm_log("read req %p: get remote page!\n", page_ipa);
@@ -551,28 +574,6 @@ end:
   vsm_process_waitqueue(page);
 
   return P2V(page_pa);
-}
-
-static inline struct msg *send_read_fetch_req(int from_node, int to_node,
-                                              ipa_t page_ipa) {
-  return send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, true);
-}
-
-static inline struct msg *send_write_fetch_req(int from_node, int to_node,
-                                               ipa_t page_ipa, bool need_page) {
-  return send_fetch_req(from_node, to_node, page_ipa,
-                        need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, true);
-}
-
-static inline void forward_read_fetch_req(int from_node, int to_node,
-                                          ipa_t page_ipa) {
-  send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, false);
-}
-
-static inline void forward_write_fetch_req(int from_node, int to_node,
-                                           ipa_t page_ipa, bool need_page) {
-  send_fetch_req(from_node, to_node, page_ipa,
-                 need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, false);
 }
 
 void *vsm_write_fetch_page_imm(u64 page_ipa, u64 offset, char *buf, u64 size) {
@@ -855,7 +856,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
               req_nodeid, p_owner);
 
     /* forward request to p's owner */
-    forward_write_fetch_request(req_nodeid, p_owner, page_ipa, send_page);
+    forward_write_fetch_req(req_nodeid, p_owner, page_ipa, send_page);
 
     /* now owner is request node */
     p->owner = req_nodeid;
@@ -913,13 +914,15 @@ static void recv_fetch_reply_intr(struct msg *msg) {
     bin_dump((u8 *)b->page + 0x000, 0x40);
   } */
 
-  if(b->page) {   // recv page (and ownership)
+  if(b) {   // recv page (and ownership)
     vsm_set_cache_fast(a->ipa, b->page);
+    printf("get page!!!!!!!!!!!\n");
   } else {
-    panic("onwer moraiiiiiiiii");
+    assert(a->wnr);
+    printf("get onwership only");
   }
 
-  // enqueue msg to reply buf;
+  panic("TODO: enqueue msg to reply buf");
 }
 
 void vsm_node_init(struct memrange *mem) {
