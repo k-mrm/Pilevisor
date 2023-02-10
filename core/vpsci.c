@@ -74,6 +74,9 @@ static i32 vpsci_remote_cpu_wakeup(u32 target_cpuid, u64 ep_addr, u64 contextid)
 
   send_msg_cb(&msg, recv_wakeup_reply, &ret);
 
+  printf("remote vcpu%d wakeup status: %d(=%s)\n",
+         target_cpuid, ret, psci_status_map(ret));
+
   return ret;
 }
 
@@ -84,9 +87,6 @@ static void recv_wakeup_reply(struct msg *reply, void *arg) {
   ack = (struct cpu_wakeup_ack_hdr *)reply->hdr;
   if(ret)
     *ret = ack->ret;
-
-  printf("remote vcpu%d wakeup status: %d(=%s)\n",
-         target_cpuid, ack->ret, psci_status_map(ack->ret));
 }
 
 static int vpsci_vcpu_wakeup_local(struct vcpu *vcpu, u64 ep) {

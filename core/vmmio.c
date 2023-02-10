@@ -64,9 +64,7 @@ int vmmio_reg_handler(u64 ipa, u64 size,
 
 int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
   struct msg msg;
-  struct msg *reply;
   struct mmio_req_hdr hdr;
-  int status;
 
   int target_nodeid = vcpuid_to_nodeid(target_vcpuid);
 
@@ -77,9 +75,9 @@ int vmmio_forward(u32 target_vcpuid, struct mmio_access *mmio) {
 
   msg_init(&msg, target_nodeid, MSG_MMIO_REQUEST, &hdr, NULL, 0);
 
-  send_msg_cb(&msg, vmmio_recv_reply, &status);
+  send_msg_cb(&msg, vmmio_recv_reply, mmio);
 
-  return status;
+  return 0;
 }
 
 static void vmmio_req_recv_intr(struct msg *msg) {
@@ -106,7 +104,7 @@ static void vmmio_req_recv_intr(struct msg *msg) {
 
 static void vmmio_recv_reply(struct msg *reply, void *arg) {
   struct mmio_reply_hdr *rep = (struct mmio_reply_hdr *)reply->hdr;
-  int *status = arg;
+  struct mmio_access *mmio = arg;
 
   printf("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
 
@@ -114,7 +112,6 @@ static void vmmio_recv_reply(struct msg *reply, void *arg) {
     panic("vmmio? %p %p", mmio->ipa, rep->addr);
 
   mmio->val = rep->val;
-  *status = rep->status;
 }
 
 void vmmio_init() {

@@ -65,8 +65,8 @@ struct vsm_rw_data {
 
 static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
 static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
-static struct msg *send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
-                                  bool blocking);
+static void send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
+                           bool blocking);
 
 static void vsm_read_server_process(struct vsm_server_proc *proc);
 static void vsm_write_server_process(struct vsm_server_proc *proc);
@@ -114,15 +114,15 @@ struct invalidate_ack_hdr {
   u8 from_nodeid;
 };
 
-static inline struct msg *send_read_fetch_req(int from_node, int to_node,
+static inline void send_read_fetch_req(int from_node, int to_node,
                                               ipa_t page_ipa) {
-  return send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, true);
+  send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, true);
 }
 
-static inline struct msg *send_write_fetch_req(int from_node, int to_node,
+static inline void send_write_fetch_req(int from_node, int to_node,
                                                ipa_t page_ipa, bool need_page) {
-  return send_fetch_req(from_node, to_node, page_ipa,
-                        need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, true);
+  send_fetch_req(from_node, to_node, page_ipa,
+                 need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, true);
 }
 
 static inline void forward_read_fetch_req(int from_node, int to_node,
@@ -548,15 +548,15 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
 
     vmm_log("read req %p: %d -> %d request to owner\n", page_ipa, local_nodeid(), owner);
 
-    read_reply = send_read_fetch_req(local_nodeid(), owner, page_ipa);
+    send_read_fetch_req(local_nodeid(), owner, page_ipa);
   } else {
     /* ask manager for read access to page and a copy of page */
     vmm_log("read req %p: %d -> %d request to owner\n", page_ipa, local_nodeid(), manager);
 
-    read_reply = send_read_fetch_req(local_nodeid(), manager, page_ipa);
+    send_read_fetch_req(local_nodeid(), manager, page_ipa);
   }
 
-  assert(read_reply);
+  panic("kitaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   pte = vsm_wait_for_recv_timeout(page_ipa);
 
   vmm_log("read req %p: get remote page!\n", page_ipa);
@@ -657,15 +657,14 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
 
     vmm_log("write request %p: %d -> %d request to owner\n", page_ipa, local_nodeid(), owner);
 
-    write_reply = send_write_fetch_req(local_nodeid(), owner, page_ipa, need_page);
+    send_write_fetch_req(local_nodeid(), owner, page_ipa, need_page);
   } else {
     /* ask manager for write access to page and a copy of page */
     vmm_log("write request %p: %d -> %d request to manager\n", page_ipa, local_nodeid(), manager);
 
-    write_reply = send_write_fetch_req(local_nodeid(), manager, page_ipa, need_page);
+    send_write_fetch_req(local_nodeid(), manager, page_ipa, need_page);
   }
 
-  assert(write_reply);
   pte = vsm_wait_for_recv_timeout(page_ipa);
   vmm_log("write request %p: get remote page!\n", page_ipa);
 
@@ -701,15 +700,28 @@ int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr) {
   return pa_page ? 0 : -1;
 }
 
+static void recv_fetch_reply(struct msg *reply, void * __unused arg) {
+  struct fetch_reply_hdr *a = (struct fetch_reply_hdr *)reply->hdr;
+  struct fetch_reply_body *b = reply->body;
+  // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
+
+  if(b) {       // recv page (and ownership)
+    vsm_set_cache_fast(a->ipa, b->page);
+    printf("get page!!!!!!!!!!!\n");
+  } else {      // recv ownership only
+    assert(a->wnr);
+    printf("get onwership only");
+  }
+}
+
 /*
  *  @req: request nodeid
  *  @dst: fetch request destination
  */
-static struct msg *send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
-                                  bool blocking) {
+static void send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
+                           bool waitreply) {
   struct msg msg;
   struct fetch_req_hdr hdr;
-  int flags = blocking ? M_WAITREPLY : 0;
 
   hdr.ipa = ipa;
   hdr.req_nodeid = req;
@@ -717,7 +729,11 @@ static struct msg *send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
 
   msg_init(&msg, dst, MSG_FETCH, &hdr, NULL, 0);
 
-  return send_msg(&msg);
+  if(waitreply) {
+    send_msg_cb(&msg, recv_fetch_reply, NULL);
+  } else {
+    send_msg(&msg);
+  }
 }
 
 static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
@@ -726,13 +742,6 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
 
   hdr.ipa = ipa;
   hdr.wnr = 0;
-
-  /*
-  if(ipa == 0x406c2000) {
-    printf("rsend;; %p ", read_sysreg(cntvct_el0));
-    bin_dump((u8 *)page + 0x350, 0x40);
-  }
-  */
 
   msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
   vmm_log("send read fetch reply %p\n", page);
@@ -903,22 +912,6 @@ static void recv_invalidate_intr(struct msg *msg) {
   vsm_process_waitqueue(page);
 }
 
-static void recv_fetch_reply_intr(struct msg *msg) {
-  struct fetch_reply_hdr *a = (struct fetch_reply_hdr *)msg->hdr;
-  struct fetch_reply_body *b = msg->body;
-  // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
-
-  if(b) {       // recv page (and ownership)
-    vsm_set_cache_fast(a->ipa, b->page);
-    printf("get page!!!!!!!!!!!\n");
-  } else {      // recv ownership only
-    assert(a->wnr);
-    printf("get onwership only");
-  }
-
-  // panic("TODO: enqueue msg to reply buf");
-}
-
 void vsm_node_init(struct memrange *mem) {
   u64 start = mem->start, size = mem->size;
   u64 p;
@@ -941,6 +934,6 @@ void vsm_node_init(struct memrange *mem) {
 }
 
 DEFINE_POCV2_MSG(MSG_FETCH, struct fetch_req_hdr, recv_fetch_request_intr);
-DEFINE_POCV2_MSG(MSG_FETCH_REPLY, struct fetch_reply_hdr, recv_fetch_reply_intr);
+DEFINE_POCV2_MSG(MSG_FETCH_REPLY, struct fetch_reply_hdr, NULL);
 DEFINE_POCV2_MSG(MSG_INVALIDATE, struct invalidate_hdr, recv_invalidate_intr);
 DEFINE_POCV2_MSG(MSG_INVALIDATE_ACK, struct invalidate_ack_hdr, NULL);
