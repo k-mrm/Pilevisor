@@ -45,11 +45,11 @@ MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 endif
 
 ifndef NCPU
-NCPU = 4
+NCPU = 1
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 8
+GUEST_NCPU = 2
 endif
 
 ifndef GUEST_MEMORY
@@ -128,8 +128,8 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
-	#cp guest/vvv4.dtb virt.dtb
-	cp guest/vvv.dtb virt.dtb
+	cp guest/vvv2.dtb virt.dtb
+	#cp guest/vvv.dtb virt.dtb
 	#cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o

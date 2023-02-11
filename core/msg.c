@@ -121,7 +121,6 @@ void msg_free(struct msg *msg) {
 static void set_reply_buf(struct msg *reply) {
   assert(!current->reply_buf);
 
-  vmm_log("!!!!!!!!!!!!!11reply buf lets goooooooooooo\n");
   current->reply_buf = reply;
 }
 
@@ -210,8 +209,6 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
     int id = msg_cpu(msg);
     struct pcpu *cpu = get_cpu(id);
 
-    vmm_log("reply msg -----> %d %d\n", id, msg_connid(msg));
-
     msg_enqueue(&cpu->recv_waitq, msg);
 
     if(cpu != mycpu) {
@@ -294,13 +291,11 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
   if(reply_cb) {
     struct msg *reply;
     
-    vmm_log(".............waiting replyyyyyyyyyyyyyyyyy %p\n", msg_connid(msg));
     while((reply = current->reply_buf) == NULL) {
       wfi();
     }
     current->reply_buf = NULL;
 
-    vmm_log(".............reply buf clean!!!!!!!!\n");
     reply_cb(reply, cb_arg);
     msg_free(reply);
   }
