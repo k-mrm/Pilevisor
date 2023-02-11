@@ -16,12 +16,12 @@ static inline void mbox_write32(u32 reg, u32 val) {
 }
 
 static int mailbox_call(volatile u32 *mbox, enum mbox_ch ch) {
-  // CleanAndInvalidateDataCacheRange(PERIPHERAL_BASE, 0x10000);
+  physaddr_t pmbox = V2P(mbox);
 
   dcache_flush_poc_range(mbox, 36);
 
   // 28-bit address (MSB) and 4-bit value (LSB)
-  u32 r = ((u32)((u64)&mbox) & ~0xf) | (ch & 0xf);
+  u32 r = ((u32)((u64)pmbox) & ~0xf) | (ch & 0xf);
 
   // Wait until we can write
   while (mbox_read32(MBOX_STATUS) & MBOX_FULL)
@@ -60,9 +60,9 @@ int mbox_get_mac_address(u8 *mac) {
   mbox[7] = RPI_FIRMWARE_PROPERTY_END;
 
   int rc = mailbox_call(mbox, MBOX_CH_PROP);
-  if(rc < 0) {
+  if(!rc) {
     vmm_warn("mailbox failed\n");
-    return rc;
+    return -1;
   }
 
   char *m = (char *)&mbox[5];
