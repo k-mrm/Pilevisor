@@ -740,6 +740,7 @@ static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, int req_cp
 
   hdr.ipa = ipa;
   hdr.wnr = 0;
+  hdr.copyset = 0;
 
   msg_init_reqcpu(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, req_cpu);
   vmm_log("send read fetch reply %p\n", page);

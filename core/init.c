@@ -103,7 +103,7 @@ int vmm_init_cpu0(void *fdt_phys) {
 
   nodectl_init();
 
-  localvm_init(1, 256 * MiB, &virt_dtb);
+  localvm_init(4, 256 * MiB, &virt_dtb);
 
   localnode.ctl->init();
   localnode.ctl->startcore();
