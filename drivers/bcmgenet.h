@@ -199,6 +199,39 @@ struct bcmgenet_rx_ring {
 #define PORT_MODE_EXT_RVMII_50 4
 #define LED_ACT_SOURCE_MAC (1 << 9)
 
+#define SYS_RBUF_FLUSH_CTRL 0x08
+#define SYS_TBUF_FLUSH_CTRL 0x0C
+#define RBUF_FLUSH_CTRL_V1 0x04
+
+/* Ext block register offsets and definitions */
+#define EXT_EXT_PWR_MGMT 0x00
+#define EXT_PWR_DOWN_BIAS (1 << 0)
+#define EXT_PWR_DOWN_DLL (1 << 1)
+#define EXT_PWR_DOWN_PHY (1 << 2)
+#define EXT_PWR_DN_EN_LD (1 << 3)
+#define EXT_ENERGY_DET (1 << 4)
+#define EXT_IDDQ_FROM_PHY (1 << 5)
+#define EXT_IDDQ_GLBL_PWR (1 << 7)
+#define EXT_PHY_RESET (1 << 8)
+#define EXT_ENERGY_DET_MASK (1 << 12)
+#define EXT_PWR_DOWN_PHY_TX (1 << 16)
+#define EXT_PWR_DOWN_PHY_RX (1 << 17)
+#define EXT_PWR_DOWN_PHY_SD (1 << 18)
+#define EXT_PWR_DOWN_PHY_RD (1 << 19)
+#define EXT_PWR_DOWN_PHY_EN (1 << 20)
+
+#define EXT_RGMII_OOB_CTRL 0x0C
+#define RGMII_LINK (1 << 4)
+#define OOB_DISABLE (1 << 5)
+#define RGMII_MODE_EN (1 << 6)
+#define ID_MODE_DIS (1 << 16)
+
+#define EXT_GPHY_CTRL 0x1C
+#define EXT_CFG_IDDQ_BIAS (1 << 0)
+#define EXT_CFG_PWR_DOWN (1 << 1)
+#define EXT_CK25_DIS (1 << 4)
+#define EXT_GPHY_RESET (1 << 5)
+
 /* INTRL2 instance 0 definitions */
 #define UMAC_IRQ_SCB            (1 << 0)
 #define UMAC_IRQ_EPHY           (1 << 1)

@@ -14,6 +14,7 @@
 #include "mailbox.h"
 #include "assert.h"
 #include "mm.h"
+#include "arch-timer.h"
 
 #include "bcmgenet.h"
 
@@ -204,6 +205,34 @@ static inline void bcmgenet_rdma_ring_writel(unsigned int ring, u32 val,
       genet_dma_ring_regs[r]);
 }
 
+static inline u32 bcmgenet_rbuf_ctrl_get() {
+  return bcmgenet_sys_readl(SYS_RBUF_FLUSH_CTRL);
+}
+
+static inline void bcmgenet_rbuf_ctrl_set(u32 val) {
+  bcmgenet_sys_writel(val, SYS_RBUF_FLUSH_CTRL);
+}
+
+/* These macros are defined to deal with register map change
+ * between GENET1.1 and GENET2. Only those currently being used
+ * by driver are defined.
+ */
+static inline u32 bcmgenet_tbuf_ctrl_get() {
+  return bcmgenet_readl(GENET_TBUF_OFF + TBUF_CTRL);
+}
+
+static inline void bcmgenet_tbuf_ctrl_set(u32 val) {
+  bcmgenet_writel(val, GENET_TBUF_OFF + TBUF_CTRL);
+}
+
+static inline u32 bcmgenet_bp_mc_get() {
+  return bcmgenet_readl(GENET_TBUF_OFF + TBUF_BP_MC);
+}
+
+static inline void bcmgenet_bp_mc_set(u32 val) {
+  bcmgenet_writel(val, GENET_TBUF_OFF + TBUF_BP_MC);
+}
+
 static void bcmgenet_xmit(struct nic *nic, struct iobuf *iobuf) {
   ;
 }
@@ -327,7 +356,6 @@ static struct nic_ops bcmgenet_ops = {
   .xmit = bcmgenet_xmit,
 };
 
-/*
 static void umac_reset() {
   // 7358a0/7552a0: bad default in RBUF_FLUSH_CTRL.umac_sw_rst
   bcmgenet_rbuf_ctrl_set(0);
@@ -377,7 +405,6 @@ static void init_umac(void) {
   // bcmgenet_intrl2_0_writel(UMAC_IRQ_MDIO_DONE | UMAC_IRQ_MDIO_ERROR,
   // INTRL1_CPU_MASK_CLEAR);
 }
-*/
 
 static int set_hw_addr(u8 *maddr) {
   mbox_get_mac_address(maddr);
@@ -412,7 +439,7 @@ static int bcmgenet_init() {
   assert(((reg >> 16) & 0x0f) == 0); // minor version
   assert((reg & 0xffff) == 0);       // EPHY version
 
-  // init_umac();
+  init_umac();
 
   reg = bcmgenet_umac_readl(UMAC_CMD); // make sure we reflect the value of CRC_CMD_FWD
   m_crc_fwd_en = !!(reg & CMD_CRC_FWD);
