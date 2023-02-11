@@ -19,8 +19,6 @@
 
 #define USE_SCATTER_GATHER
 
-static int msg_reply_rx(struct msg *msg);
-
 extern struct msg_size_data __msg_size_data_start[];
 extern struct msg_size_data __msg_size_data_end[];
 
@@ -123,6 +121,7 @@ void msg_free(struct msg *msg) {
 static void set_reply_buf(struct msg *reply) {
   assert(!current->reply_buf);
 
+  vmm_log("!!!!!!!!!!!!!11reply buf lets goooooooooooo\n");
   current->reply_buf = reply;
 }
 
@@ -211,6 +210,8 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
     int id = msg_cpu(msg);
     struct pcpu *cpu = get_cpu(id);
 
+    vmm_log("reply msg -----> %d %d\n", id, msg_connid(msg));
+
     msg_enqueue(&cpu->recv_waitq, msg);
 
     if(cpu != mycpu) {
@@ -223,7 +224,7 @@ int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
   return rc;
 }
 
-static u32 new_connection() {
+static u32 new_connection(int reqcpu) {
   static u32 conid = 0;
   u32 c;
   u64 flags;
@@ -234,12 +235,12 @@ static u32 new_connection() {
 
   irqrestore(flags);
 
-  return c << 3 | (cpuid() & 0x7);
+  return c << 3 | (reqcpu & 0x7);
 }
 
-static inline void __msginit(struct msg *msg, u16 dst_id, enum msgtype type,
-                             struct msg_header *hdr, void *body, int body_len,
-                             int cid) {
+static inline void __msginitcore(struct msg *msg, u16 dst_id, enum msgtype type,
+                                 struct msg_header *hdr, void *body, int body_len,
+                                 int cid) {
   assert(msg);
   assert(hdr);
 
@@ -254,15 +255,15 @@ static inline void __msginit(struct msg *msg, u16 dst_id, enum msgtype type,
 }
 
 void __msg_init(struct msg *msg, u16 dst_id, enum msgtype type,
-                struct msg_header *hdr, void *body, int body_len) {
-  __msginit(msg, dst_id, type, hdr, body, body_len, new_connection());
+                struct msg_header *hdr, void *body, int body_len, int reqcpu) {
+  __msginitcore(msg, dst_id, type, hdr, body, body_len, new_connection(reqcpu));
 }
 
 void __msg_reply(struct msg *msg, enum msgtype type,
                  struct msg_header *hdr, void *body, int body_len) {
   struct msg reply;
 
-  __msginit(&reply, msg->hdr->src_id, type, hdr, body, body_len, msg->hdr->connectionid);
+  __msginitcore(&reply, msg->hdr->src_id, type, hdr, body, body_len, msg->hdr->connectionid);
 
   send_msg(&reply);
 }
@@ -293,14 +294,15 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
   if(reply_cb) {
     struct msg *reply;
     
+    vmm_log(".............waiting replyyyyyyyyyyyyyyyyy %p\n", msg_connid(msg));
     while((reply = current->reply_buf) == NULL) {
       wfi();
     }
-
-    reply_cb(reply, cb_arg);
-
-    msg_free(reply);
     current->reply_buf = NULL;
+
+    vmm_log(".............reply buf clean!!!!!!!!\n");
+    reply_cb(reply, cb_arg);
+    msg_free(reply);
   }
 }
 

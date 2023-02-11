@@ -462,7 +462,7 @@ struct dt_device *dt_compatible_device(struct dt_device *table, struct device_no
 int compat_dt_device_init(struct dt_device *table, struct device_node *node,
                            const char *compat) {
   for(struct dt_device *dev = table; dev->dev_name[0] || dev->compat; dev++) {
-    for(struct dt_compatible *c = dev->compat; c->comp; c++) {
+    for(const struct dt_compatible *c = dev->compat; c->comp; c++) {
       if(strcmp(c->comp, compat) == 0) {
         if(dev->init) {
           dev->init(node);

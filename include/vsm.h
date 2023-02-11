@@ -41,6 +41,7 @@ struct vsm_server_proc {
   u64 copyset;        // for invalidate server
   int req_nodeid;
   int type;
+  int req_cpu;
   void (*do_process)(struct vsm_server_proc *);
 };
 

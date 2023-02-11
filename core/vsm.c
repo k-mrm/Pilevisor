@@ -66,7 +66,7 @@ struct vsm_rw_data {
 static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
 static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d);
 static void send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
-                           bool blocking);
+                           bool waitreply, int req_cpu);
 
 static void vsm_read_server_process(struct vsm_server_proc *proc);
 static void vsm_write_server_process(struct vsm_server_proc *proc);
@@ -115,25 +115,25 @@ struct invalidate_ack_hdr {
 };
 
 static inline void send_read_fetch_req(int from_node, int to_node,
-                                              ipa_t page_ipa) {
-  send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, true);
+                                       ipa_t page_ipa) {
+  send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, true, cpuid());
 }
 
 static inline void send_write_fetch_req(int from_node, int to_node,
-                                               ipa_t page_ipa, bool need_page) {
+                                        ipa_t page_ipa, bool need_page) {
   send_fetch_req(from_node, to_node, page_ipa,
-                 need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, true);
+                 need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, true, cpuid());
 }
 
 static inline void forward_read_fetch_req(int from_node, int to_node,
-                                          ipa_t page_ipa) {
-  send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, false);
+                                          ipa_t page_ipa, int req_cpu) {
+  send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, false, req_cpu);
 }
 
 static inline void forward_write_fetch_req(int from_node, int to_node,
-                                           ipa_t page_ipa, bool need_page) {
+                                           ipa_t page_ipa, bool need_page, int req_cpu) {
   send_fetch_req(from_node, to_node, page_ipa,
-                 need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, false);
+                 need_page ? WRITE_FETCH : WRITE_FETCH_WITHOUT_PAGE, false, req_cpu);
 }
 
 /*
@@ -165,6 +165,8 @@ static inline void page_spinlock(struct page_desc *page) {
   u8 *lock = &page->lock;
   u8 r, l = cpuid() + 1;
 
+  vmm_log("%p page spinlock\n", page_desc_addr(page));
+
   asm volatile(
     "sevl\n"
     "1: wfe\n"
@@ -175,7 +177,7 @@ static inline void page_spinlock(struct page_desc *page) {
     : "=&r"(r) : "r"(lock), "r"(l) : "memory"
   );
 
-  vmm_log("%p page spinlock\n", page_desc_addr(page));
+  vmm_log("%p page spinlock OK\n", page_desc_addr(page));
 }
 
 /*
@@ -241,7 +243,7 @@ static inline void vwqinit(struct vsm_waitqueue *wq) {
 }
 
 static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid,
-                                                   enum fetch_type type) {
+                                                   enum fetch_type type, int req_cpu) {
   struct vsm_server_proc *p = malloc(sizeof(*p));
 
   p->type = type;
@@ -249,6 +251,7 @@ static struct vsm_server_proc *new_vsm_server_proc(u64 page_ipa, int req_nodeid,
   p->req_nodeid = req_nodeid;
   p->do_process = type == READ_FETCH ? vsm_read_server_process
                                      : vsm_write_server_process;
+  p->req_cpu = req_cpu;
 
   return p;
 }
@@ -523,7 +526,6 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
   u64 page_pa = 0;
   int manager = -1;
   u64 page_ipa = page_desc_addr(page);
-  struct msg *read_reply;
 
   manager = page_manager(page_ipa);
   if(manager < 0)
@@ -601,7 +603,6 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
   int manager = -1;
   u64 page_ipa = page_desc_addr(page);
   bool need_page = true;
-  struct msg *write_reply;
 
   manager = page_manager(page_ipa);
   if(manager < 0)
@@ -636,7 +637,7 @@ static void *__vsm_write_fetch_page(struct page_desc *page, struct vsm_rw_data *
     /*
      *  no need to fetch page from remote node
      */
-    printf("write request %p: write to copyset\n", page_ipa);
+    vmm_log("write request %p: write to copyset\n", page_ipa);
 
     need_page = false;
 
@@ -711,7 +712,7 @@ static void recv_fetch_reply(struct msg *reply, void * __unused arg) {
     vsm_set_cache_fast(a->ipa, b->page);
   } else {      // recv ownership only
     assert(a->wnr);
-    printf("get ownership only\n");
+    vmm_log("get ownership only\n");
   }
 }
 
@@ -720,7 +721,7 @@ static void recv_fetch_reply(struct msg *reply, void * __unused arg) {
  *  @dst: fetch request destination
  */
 static void send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
-                           bool waitreply) {
+                           bool waitreply, int req_cpu) {
   struct msg msg;
   struct fetch_req_hdr hdr;
 
@@ -728,7 +729,7 @@ static void send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
   hdr.req_nodeid = req;
   hdr.type = type;
 
-  msg_init(&msg, dst, MSG_FETCH, &hdr, NULL, 0);
+  msg_init_reqcpu(&msg, dst, MSG_FETCH, &hdr, NULL, 0, req_cpu);
 
   if(waitreply) {
     send_msg_cb(&msg, recv_fetch_reply, NULL);
@@ -737,21 +738,21 @@ static void send_fetch_req(u8 req, u8 dst, u64 ipa, enum fetch_type type,
   }
 }
 
-static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page) {
+static void send_read_fetch_reply(u8 dst_nodeid, u64 ipa, void *page, int req_cpu) {
   struct msg msg;
   struct fetch_reply_hdr hdr;
 
   hdr.ipa = ipa;
   hdr.wnr = 0;
 
-  msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
+  msg_init_reqcpu(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, req_cpu);
   vmm_log("send read fetch reply %p\n", page);
 
   send_msg(&msg);
 }
 
 static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page,
-                                   bool send_page) {
+                                   bool send_page, int req_cpu) {
   struct msg msg;
   struct fetch_reply_hdr hdr;
 
@@ -766,9 +767,9 @@ static void send_write_fetch_reply(u8 dst_nodeid, u64 ipa, void *page,
   */
 
   if(send_page)
-    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE);
+    msg_init_reqcpu(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, page, PAGESIZE, req_cpu);
   else
-    msg_init(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, NULL, 0);
+    msg_init_reqcpu(&msg, dst_nodeid, MSG_FETCH_REPLY, &hdr, NULL, 0, req_cpu);
 
   send_msg(&msg);
 }
@@ -800,7 +801,7 @@ static void vsm_read_server_process(struct vsm_server_proc *proc) {
     vmm_log("read server %p: %d -> %d: I am owner!\n", page_ipa, req_nodeid, local_nodeid());
 
     /* send p */
-    send_read_fetch_reply(req_nodeid, page_ipa, P2V(pa));
+    send_read_fetch_reply(req_nodeid, page_ipa, P2V(pa), proc->req_cpu);
   } else if(local_nodeid() == manager) {  /* I am manager */
     struct manager_page *p = ipa_manager_page(page_ipa);
     int p_owner = p->owner;
@@ -811,7 +812,7 @@ static void vsm_read_server_process(struct vsm_server_proc *proc) {
       panic("read server: req_nodeid(%d) == p_owner(%d)", req_nodeid, p_owner);
 
     /* forward request to p's owner */
-    forward_read_fetch_req(req_nodeid, p_owner, page_ipa);
+    forward_read_fetch_req(req_nodeid, p_owner, page_ipa, proc->req_cpu);
   } else {
     printf("read server: read %p (manager %d) from Node %d", page_ipa, manager, req_nodeid);
     panic("unreachable");
@@ -846,7 +847,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
     vsm_invalidate(page_ipa, copyset);
 
     // send p and copyset;
-    send_write_fetch_reply(req_nodeid, page_ipa, P2V(pa), send_page);
+    send_write_fetch_reply(req_nodeid, page_ipa, P2V(pa), send_page, proc->req_cpu);
 
     free_page(P2V(pa));
 
@@ -866,7 +867,7 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
               req_nodeid, p_owner);
 
     /* forward request to p's owner */
-    forward_write_fetch_req(req_nodeid, p_owner, page_ipa, send_page);
+    forward_write_fetch_req(req_nodeid, p_owner, page_ipa, send_page, proc->req_cpu);
 
     /* now owner is request node */
     p->owner = req_nodeid;
@@ -877,7 +878,8 @@ static void vsm_write_server_process(struct vsm_server_proc *proc) {
 
 static void recv_fetch_request_intr(struct msg *msg) {
   struct fetch_req_hdr *a = (struct fetch_req_hdr *)msg->hdr;
-  struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid, a->type);
+  struct vsm_server_proc *p = new_vsm_server_proc(a->ipa, a->req_nodeid,
+                                                  a->type, msg_cpu(msg));
 
   struct page_desc *page = ipa_to_desc(a->ipa);
 

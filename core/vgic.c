@@ -542,10 +542,15 @@ static void recv_gic_config_msg_intr(struct msg *msg) {
     case GIC_CONFIG_SET_TARGET_V2:
       vgic_v2_set_targets(current, intid, len, val);
       break;
+
     case GIC_CONFIG_SET_ROUTE_V3:
     case GIC_CONFIG_ENABLE:
     case GIC_CONFIG_DISABLE:
       panic("unimplemented");
+      break;
+
+    default:
+      panic("?");
       break;
   }
 }

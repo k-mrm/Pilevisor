@@ -63,6 +63,7 @@ struct msg {
 #define M_BCAST             (1 << 0)    /* broadcast msg */
 
 #define msg_cpu(msg)        ((msg)->hdr->connectionid & 0x7)
+#define msg_connid(msg)     ((msg)->hdr->connectionid)
 
 #define POCV2_MSG_ETH_PROTO       0x0019
 
@@ -145,10 +146,13 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
 int msg_recv_intr(u8 *src_mac, struct iobuf *buf);
 
 #define msg_init(msg, dst_id, type, hdr, body, body_len)   \
-  __msg_init(msg, dst_id, type, (struct msg_header *)hdr, body, body_len)
+  __msg_init(msg, dst_id, type, (struct msg_header *)hdr, body, body_len, cpuid())
+
+#define msg_init_reqcpu(msg, dst_id, type, hdr, body, body_len, reqcpu) \
+  __msg_init(msg, dst_id, type, (struct msg_header *)hdr, body, body_len, reqcpu)
 
 void __msg_init(struct msg *msg, u16 dst_id, enum msgtype type,
-                struct msg_header *hdr, void *body, int body_len);
+                struct msg_header *hdr, void *body, int body_len, int reqcpu);
 
 #define msg_reply(msg, type, hdr, body, body_len)   \
   __msg_reply(msg, type, (struct msg_header *)hdr, body, body_len)
