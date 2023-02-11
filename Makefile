@@ -36,20 +36,20 @@ NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 8
+GUEST_NCPU = 4
 endif
 
 ifndef GUEST_MEMORY
 GUEST_MEMORY = 512
 endif
 
-ifndef GUEST_NR_NODE
-GUEST_NR_NODE = 2
+ifndef NR_NODE
+NR_NODE = 1
 endif
 
 CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
 CFLAGS += -I ./include/
-CFLAGS += -DNR_NODE=$(GUEST_NR_NODE)
+CFLAGS += -DNR_NODE=$(NR_NODE)
 
 ifdef RPI
 CFLAGS += -DRPI4
@@ -133,8 +133,9 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
+	cp guest/vvv4.dtb virt.dtb
 	#cp guest/vvv2.dtb virt.dtb
-	cp guest/vvv.dtb virt.dtb
+	#cp guest/vvv.dtb virt.dtb
 	#cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
