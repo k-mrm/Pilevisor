@@ -140,8 +140,6 @@ void early_fdt_init(const void *fdt_phys) {
   if(fdt_version(fdt_phys) != 17)
     return;
 
-  earlycon_putn(fdt_phys);
-
   early_fdt_memory_init(fdt_phys);
 }
 

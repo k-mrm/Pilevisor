@@ -4,6 +4,7 @@
 #include "mm.h"
 #include "cache.h"
 #include "lib.h"
+#include "memlayout.h"
 
 static void *mbox_base; 
 

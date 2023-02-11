@@ -162,6 +162,8 @@ static int __vprintf(const char *fmt, va_list ap, void (*putc)(char)) {
           break;
       }
     } else {
+      if(c == '\n')
+        putc('\r');
       putc(c);
     }
   }
