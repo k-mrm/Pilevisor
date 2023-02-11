@@ -278,9 +278,9 @@ static void bcmgenet_intr_irq0(void *arg) {
                ~bcmgenet_intrl2_0_readl(INTRL2_CPU_MASK_STATUS);
 
   // clear interrupts
-  bcmgenet_intrl2_0_writel(INTRL2_CPU_CLEAR, status);
+  bcmgenet_intrl2_0_writel(status, INTRL2_CPU_CLEAR);
 
-  if(status & UMAC_IRQ_TXDMA_DONE) {
+  if (status & UMAC_IRQ_TXDMA_DONE) {
     spin_lock(&m_tx_lock);
 
     struct bcmgenet_tx_ring *tx_ring = &m_tx_rings[GENET_DESC_INDEX];
@@ -290,14 +290,37 @@ static void bcmgenet_intr_irq0(void *arg) {
     spin_unlock(&m_tx_lock);
   }
 
-  if(status & UMAC_IRQ_RXDMA_DONE) {
-    // bcmgenet_intrl2_0_writel(INTRL2_CPU_CLEAR, UMAC_IRQ_RXDMA_DONE);
+  if (status & UMAC_IRQ_RXDMA_DONE) {
+    // bcmgenet_intrl2_0_writel(UMAC_IRQ_RXDMA_DONE, INTRL2_CPU_CLEAR);
     // bcmgenet_rxintr(rcv, &len);
   }
 }
 
 static void bcmgenet_intr_irq1(void *arg) {
-  // stub
+  u32 status = bcmgenet_intrl2_1_readl(INTRL2_CPU_STAT) &
+               ~bcmgenet_intrl2_1_readl(INTRL2_CPU_MASK_STATUS);
+
+  // clear interrupts
+  bcmgenet_intrl2_1_writel(status, INTRL2_CPU_CLEAR);
+
+  // m_TxSpinLock.Acquire ();
+  spin_lock(&m_tx_lock);
+
+  // Check Tx priority queue interrupts
+  for (unsigned index = 0; index < TX_QUEUES; index++) {
+    if (!(status & BIT(index)))
+      continue;
+
+    struct bcmgenet_tx_ring *tx_ring = &m_tx_rings[index];
+
+    tx_reclaim(tx_ring);
+  }
+
+  if (status & UMAC_IRQ_RXDMA_DONE) {
+    printf("Received! #1\n");
+  }
+
+  spin_unlock(&m_tx_lock);
 }
 
 static struct nic_ops bcmgenet_ops = {
