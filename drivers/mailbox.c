@@ -5,6 +5,7 @@
 #include "cache.h"
 #include "lib.h"
 #include "memlayout.h"
+#include "panic.h"
 
 static void *mbox_base; 
 

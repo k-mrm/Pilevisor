@@ -17,7 +17,7 @@ int strchrlen(const char *s, int c);
 
 void bin_dump(void *p, u64 size);
 
-#define BIT(n)          (1 << (n))
+#define BIT(n)          (1u << (n))
 #define get_bit(x, n)   (((x) & BIT(n)) >> n)
 
 #define max(x, y)       ((x) > (y) ? (x) : (y))

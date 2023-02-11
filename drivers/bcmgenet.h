@@ -2,8 +2,7 @@
 #define DRIVER_BCMGENET_H
 
 #include "types.h"
-
-#define BIT(n)          (1u << (n))
+#include "lib.h"
 
 #define GENET_DESC_INDEX 16 // max. 16 priority queues and 1 default queue
 
@@ -44,6 +43,46 @@ struct bcmgenet_rx_ring {
 
 /* which ring is descriptor based */
 #define DESC_INDEX 16
+
+/* Body(1500) + EH_SIZE(14) + VLANTAG(4) + BRCMTAG(6) + FCS(4) = 1528.
+ * 1536 is multiple of 256 bytes
+ */
+#define ENET_BRCM_TAG_LEN 6
+#define ENET_PAD 8
+/*
+#define ENET_MAX_MTU_SIZE (ETH_DATA_LEN + ETH_HLEN + VLAN_HLEN + \
+                           ENET_BRCM_TAG_LEN + ETH_FCS_LEN + ENET_PAD)
+                           */
+#define DMA_MAX_BURST_LENGTH 0x08
+
+/* misc. configuration */
+#define CLEAR_ALL_HFB 0xFF
+#define DMA_FC_THRESH_HI (TOTAL_DESC >> 4)
+#define DMA_FC_THRESH_LO 5
+
+/* Rx status bits */
+#define STATUS_RX_EXT_MASK 0x1FFFFF
+#define STATUS_RX_CSUM_MASK 0xFFFF
+#define STATUS_RX_CSUM_OK 0x10000
+#define STATUS_RX_CSUM_FR 0x20000
+#define STATUS_RX_PROTO_TCP 0
+#define STATUS_RX_PROTO_UDP 1
+#define STATUS_RX_PROTO_ICMP 2
+#define STATUS_RX_PROTO_OTHER 3
+#define STATUS_RX_PROTO_MASK 3
+#define STATUS_RX_PROTO_SHIFT 18
+#define STATUS_FILTER_INDEX_MASK 0xFFFF
+/* Tx status bits */
+#define STATUS_TX_CSUM_START_MASK 0X7FFF
+#define STATUS_TX_CSUM_START_SHIFT 16
+#define STATUS_TX_CSUM_PROTO_UDP 0x8000
+#define STATUS_TX_CSUM_OFFSET_MASK 0x7FFF
+#define STATUS_TX_CSUM_LV 0x80000000
+
+/* DMA Descriptor */
+#define DMA_DESC_LENGTH_STATUS 0x00 /* in bytes of data in buffer */
+#define DMA_DESC_ADDRESS_LO 0x04    /* lower bits of PA */
+#define DMA_DESC_ADDRESS_HI 0x08    /* upper 32 bits of PA, GENETv4+ */
 
 #define UMAC_HD_BKP_CTRL 0x004
 #define HD_FC_EN (1 << 0)
@@ -325,6 +364,98 @@ struct bcmgenet_rx_ring {
 #define DMA_XON_THREHOLD_MASK 0xFFFF
 #define DMA_XOFF_THRESHOLD_MASK 0xFFFF
 #define DMA_XOFF_THRESHOLD_SHIFT 16
+/* DMA flow period register */
+#define DMA_FLOW_PERIOD_MASK 0xFFFF
+#define DMA_MAX_PKT_SIZE_MASK 0xFFFF
+#define DMA_MAX_PKT_SIZE_SHIFT 16
+
+/* DMA control register */
+#define DMA_EN (1 << 0)
+#define DMA_RING_BUF_EN_SHIFT 0x01
+#define DMA_RING_BUF_EN_MASK 0xFFFF
+#define DMA_TSB_SWAP_EN (1 << 20)
+
+/* DMA status register */
+#define DMA_DISABLED (1 << 0)
+#define DMA_DESC_RAM_INIT_BUSY (1 << 1)
+
+/* DMA SCB burst size register */
+#define DMA_SCB_BURST_SIZE_MASK 0x1F
+
+/* DMA activity vector register */
+#define DMA_ACTIVITY_VECTOR_MASK 0x1FFFF
+
+/* DMA backpressure mask register */
+#define DMA_BACKPRESSURE_MASK 0x1FFFF
+#define DMA_PFC_ENABLE (1 << 31)
+
+/* DMA backpressure status register */
+#define DMA_BACKPRESSURE_STATUS_MASK 0x1FFFF
+
+/* DMA override register */
+#define DMA_LITTLE_ENDIAN_MODE (1 << 0)
+#define DMA_REGISTER_MODE (1 << 1)
+
+/* DMA timeout register */
+#define DMA_TIMEOUT_MASK 0xFFFF
+#define DMA_TIMEOUT_VAL 5000 /* micro seconds */
+
+/* TDMA rate limiting control register */
+#define DMA_RATE_LIMIT_EN_MASK 0xFFFF
+
+/* TDMA arbitration control register */
+#define DMA_ARBITER_MODE_MASK 0x03
+#define DMA_RING_BUF_PRIORITY_MASK 0x1F
+#define DMA_RING_BUF_PRIORITY_SHIFT 5
+#define DMA_PRIO_REG_INDEX(q) ((q) / 6)
+#define DMA_PRIO_REG_SHIFT(q) (((q) % 6) * DMA_RING_BUF_PRIORITY_SHIFT)
+#define DMA_RATE_ADJ_MASK 0xFF
+
+/* Tx/Rx Dma Descriptor common bits*/
+#define DMA_BUFLENGTH_MASK 0x0fff
+#define DMA_BUFLENGTH_SHIFT 16
+#define DMA_OWN 0x8000
+#define DMA_EOP 0x4000
+#define DMA_SOP 0x2000
+#define DMA_WRAP 0x1000
+/* Tx specific Dma descriptor bits */
+#define DMA_TX_UNDERRUN 0x0200
+#define DMA_TX_APPEND_CRC 0x0040
+#define DMA_TX_OW_CRC 0x0020
+#define DMA_TX_DO_CSUM 0x0010
+#define DMA_TX_QTAG_SHIFT 7
+
+/* Rx Specific Dma descriptor bits */
+#define DMA_RX_CHK_V3PLUS 0x8000
+#define DMA_RX_CHK_V12 0x1000
+#define DMA_RX_BRDCAST 0x0040
+#define DMA_RX_MULT 0x0020
+#define DMA_RX_LG 0x0010
+#define DMA_RX_NO 0x0008
+#define DMA_RX_RXER 0x0004
+#define DMA_RX_CRC_ERROR 0x0002
+#define DMA_RX_OV 0x0001
+#define DMA_RX_FI_MASK 0x001F
+#define DMA_RX_FI_SHIFT 0x0007
+#define DMA_DESC_ALLOC_MASK 0x00FF
+
+#define DMA_ARBITER_RR 0x00
+#define DMA_ARBITER_WRR 0x01
+#define DMA_ARBITER_SP 0x02
+
+/* Maximum number of hardware queues, downsized if needed */
+#define GENET_MAX_MQ_CNT 4
+
+/* Default highest priority queue for multi queue support */
+#define GENET_Q0_PRIORITY 0
+
+#define GENET_Q16_RX_BD_CNT \
+    (TOTAL_DESC - RX_QUEUES * RX_BDS_PER_Q)
+#define GENET_Q16_TX_BD_CNT \
+    (TOTAL_DESC - TX_QUEUES * TX_BDS_PER_Q)
+
+#define RX_BUF_LENGTH 2048
+#define SKB_ALIGNMENT 32
 
 #define WORDS_PER_BD        3
 #define DMA_DESC_SIZE       (WORDS_PER_BD * sizeof(u32))
@@ -395,5 +526,41 @@ enum dma_reg {
   DMA_RING15_TIMEOUT,
   DMA_RING16_TIMEOUT,
 };
+
+static inline u32 readl(void *addr) {
+  return *(volatile u32 *)addr;
+}
+
+static inline void writel(u32 val, void *addr) {
+  *(volatile u32 *)addr = val;
+}
+
+static inline void dmadesc_set_length_status(void *d, u32 value) {
+  writel(value, d + DMA_DESC_LENGTH_STATUS);
+}
+
+static inline u32 dmadesc_get_length_status(void *d) {
+  return readl(d + DMA_DESC_LENGTH_STATUS);
+}
+
+#define lower_32_bits(n) ((u32)(n))
+
+static inline void dmadesc_set_addr(void *d, dma_addr_t addr) {
+  writel(lower_32_bits(addr), d + DMA_DESC_ADDRESS_LO);
+}
+
+/* Combined address + length/status setter */
+static inline void dmadesc_set(void *d, dma_addr_t addr, u32 val) {
+  dmadesc_set_addr(d, addr);
+  dmadesc_set_length_status(d, val);
+}
+
+static inline dma_addr_t dmadesc_get_addr(void *d) {
+  dma_addr_t addr;
+
+  addr = readl(d + DMA_DESC_ADDRESS_LO);
+
+  return addr;
+}
 
 #endif

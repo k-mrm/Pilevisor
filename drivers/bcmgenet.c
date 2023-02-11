@@ -15,6 +15,7 @@
 #include "assert.h"
 #include "mm.h"
 #include "arch-timer.h"
+#include "lib.h"
 
 #include "bcmgenet.h"
 
@@ -45,6 +46,10 @@
 #define ENET_MAX_MTU_SIZE 4536 // with padding // CHANGED
 
 static void *bcmgenet_base;
+
+static struct bcmgenet_data {
+  physaddr_t pbase;
+} genet;
 
 static struct bcmgenet_cb *m_tx_cbs;                             // Tx control blocks
 static struct bcmgenet_tx_ring m_tx_rings[GENET_DESC_INDEX + 1]; // Tx rings
@@ -128,12 +133,14 @@ static const u8 bcmgenet_dma_regs[] = {
   [DMA_INDEX2RING_7] = 0x8C,
 };
 
+static void bcmgenet_intr_disable(void);
+
 static inline u32 bcmgenet_readl(u64 offset) {
-  return *(volatile u32 *)((u64)bcmgenet_base + offset);
+  return *(volatile u32 *)(bcmgenet_base + offset);
 }
 
 static inline void bcmgenet_writel(u32 val, u64 offset) {
-  *(volatile u32 *)((u64)bcmgenet_base + offset) = val;
+  *(volatile u32 *)(bcmgenet_base + offset) = val;
 }
 
 #define GENET_IO_MACRO(name, offset)                                \
@@ -234,7 +241,7 @@ static inline void bcmgenet_bp_mc_set(u32 val) {
 }
 
 static void bcmgenet_xmit(struct nic *nic, struct iobuf *iobuf) {
-  ;
+  printf("bcmgenet xmit\n");
 }
 
 static struct bcmgenet_cb *get_txcb(struct bcmgenet_tx_ring *ring) {
@@ -253,7 +260,7 @@ static struct bcmgenet_cb *get_txcb(struct bcmgenet_tx_ring *ring) {
 static void free_tx_cb(struct bcmgenet_cb *cb) {
   u8 *buffer = cb->buffer;
   if (buffer) {
-    cb->buffer = 0;
+    cb->buffer = NULL;
 
     free(buffer);
   }
@@ -298,7 +305,7 @@ static void bcmgenet_enable_dma(u32 dma_ctrl) {
 }
 
 static void bcmgenet_rxintr() {
-  ;
+  printf("bcmgenet: rxintr\n");
 }
 
 static void bcmgenet_intr_irq0(void *arg) {
@@ -398,12 +405,52 @@ static void init_umac(void) {
 
   bcmgenet_rbuf_writel(1, RBUF_TBUF_SIZE_CTRL);
 
-  intr_disable();
+  bcmgenet_intr_disable();
 
   // Enable MDIO interrupts on GENET v3+
   // NOTE: MDIO interrupts do not work
   // bcmgenet_intrl2_0_writel(UMAC_IRQ_MDIO_DONE | UMAC_IRQ_MDIO_ERROR,
   // INTRL1_CPU_MASK_CLEAR);
+}
+
+static void bcmgenet_intr_disable(void) {
+  // Mask all interrupts
+  bcmgenet_intrl2_0_writel(0xFFFFFFFF, INTRL2_CPU_MASK_SET);
+  bcmgenet_intrl2_0_writel(0xFFFFFFFF, INTRL2_CPU_CLEAR);
+  bcmgenet_intrl2_1_writel(0xFFFFFFFF, INTRL2_CPU_MASK_SET);
+  bcmgenet_intrl2_1_writel(0xFFFFFFFF, INTRL2_CPU_CLEAR);
+}
+
+static void enable_tx_intr(void) {
+  struct bcmgenet_tx_ring *ring;
+  for (unsigned i = 0; i < TX_QUEUES; ++i) {
+    ring = &m_tx_rings[i];
+    ring->int_enable(ring);
+  }
+
+  ring = &m_tx_rings[GENET_DESC_INDEX];
+  ring->int_enable(ring);
+}
+
+static void enable_rx_intr(void) {
+  struct bcmgenet_rx_ring *ring = &m_rx_rings[GENET_DESC_INDEX];
+  ring->int_enable(ring);
+}
+
+static void link_intr_enable(void) {
+  bcmgenet_intrl2_0_writel(UMAC_IRQ_LINK_EVENT, INTRL2_CPU_MASK_CLEAR);
+}
+
+static void tx_ring16_int_enable(struct bcmgenet_tx_ring *ring) {
+  bcmgenet_intrl2_0_writel(UMAC_IRQ_TXDMA_DONE, INTRL2_CPU_MASK_CLEAR);
+}
+
+static void tx_ring_int_enable(struct bcmgenet_tx_ring *ring) {
+  bcmgenet_intrl2_1_writel(1 << ring->index, INTRL2_CPU_MASK_CLEAR);
+}
+
+static void rx_ring16_int_enable(struct bcmgenet_rx_ring *ring) {
+  bcmgenet_intrl2_0_writel(UMAC_IRQ_RXDMA_DONE, INTRL2_CPU_MASK_CLEAR);
 }
 
 static int set_hw_addr(u8 *maddr) {
@@ -419,10 +466,342 @@ static int set_hw_addr(u8 *maddr) {
   return 0;
 }
 
-static int bcmgenet_init() {
+static u32 dma_disable() {
+  // disable DMA
+  u32 dma_ctrl = 1 << (GENET_DESC_INDEX + DMA_RING_BUF_EN_SHIFT) | DMA_EN;
+  u32 reg = bcmgenet_tdma_readl(DMA_CTRL);
+  reg &= ~dma_ctrl;
+  bcmgenet_tdma_writel(reg, DMA_CTRL);
+
+  reg = bcmgenet_rdma_readl(DMA_CTRL);
+  reg &= ~dma_ctrl;
+  bcmgenet_rdma_writel(reg, DMA_CTRL);
+
+  bcmgenet_umac_writel(1, UMAC_TX_FLUSH);
+  usleep(10);
+  bcmgenet_umac_writel(0, UMAC_TX_FLUSH);
+
+  return dma_ctrl;
+}
+
+u8 *free_rx_cb(struct bcmgenet_cb *cb) {
+  u8 *buffer = cb->buffer;
+  cb->buffer = 0;
+  // printk("Free %x\r\n", &buffer);
+  // CleanAndInvalidateDataCacheRange((uint32_t)(uintptr_t)buffer, RX_BUF_LENGTH);
+
+  return buffer;
+}
+
+static u8 *rx_refill(struct bcmgenet_cb *cb) {
+  // Allocate a new Rx DMA buffer
+  // uint8_t *buffer = new u8[RX_BUF_LENGTH];
+  u8 *buffer = malloc(RX_BUF_LENGTH);
+  if (!buffer)
+    return NULL;
+  // printk("Refill %x\r\n", &buffer);
+  //  prepare buffer for DMA
+  dcache_flush_poc_range(buffer, RX_BUF_LENGTH);
+
+  // Grab the current Rx buffer from the ring and DMA-unmap it
+  u8 *rx_buffer = free_rx_cb(cb);
+
+  // Put the new Rx buffer on the ring
+  cb->buffer = buffer;
+  dmadesc_set_addr(cb->bd_addr, buffer);
+
+  // Return the current Rx buffer to caller
+  return rx_buffer;
+}
+
+// Assign DMA buffer to Rx DMA descriptor
+static int alloc_rx_buffers(struct bcmgenet_rx_ring *ring) {
+  // loop here for each buffer needing assign
+  for (unsigned i = 0; i < ring->size; i++) {
+    struct bcmgenet_cb *cb = ring->cbs + i;
+    rx_refill(cb);
+    if (!cb->buffer)
+      return -1;
+  }
+
+  return 0;
+}
+
+// Initialize a RDMA ring
+static int init_rx_ring(unsigned int index, unsigned int size,
+                        unsigned int start_ptr, unsigned int end_ptr) {
+  struct bcmgenet_rx_ring *ring = &m_rx_rings[index];
+
+  ring->index = index;
+
+  assert(index == GENET_DESC_INDEX);
+  ring->int_enable = rx_ring16_int_enable;
+
+  ring->cbs = m_rx_cbs + start_ptr;
+  ring->size = size;
+  ring->c_index = 0;
+  ring->read_ptr = start_ptr;
+  ring->cb_ptr = start_ptr;
+  ring->end_ptr = end_ptr - 1;
+  ring->old_discards = 0;
+
+  int ret = alloc_rx_buffers(ring);
+  if (ret)
+    return ret;
+
+  bcmgenet_rdma_ring_writel(index, 0, RDMA_PROD_INDEX);
+  bcmgenet_rdma_ring_writel(index, 0, RDMA_CONS_INDEX);
+  bcmgenet_rdma_ring_writel(index, ((size << DMA_RING_SIZE_SHIFT) | RX_BUF_LENGTH),
+      DMA_RING_BUF_SIZE);
+  bcmgenet_rdma_ring_writel(
+      index,
+      (DMA_FC_THRESH_LO << DMA_XOFF_THRESHOLD_SHIFT) | DMA_FC_THRESH_HI,
+      RDMA_XON_XOFF_THRESH);
+
+  // Set start and end address, read and write pointers
+  bcmgenet_rdma_ring_writel(index, start_ptr * WORDS_PER_BD, DMA_START_ADDR);
+  bcmgenet_rdma_ring_writel(index, start_ptr * WORDS_PER_BD, RDMA_READ_PTR);
+  bcmgenet_rdma_ring_writel(index, start_ptr * WORDS_PER_BD, RDMA_WRITE_PTR);
+  bcmgenet_rdma_ring_writel(index, end_ptr * WORDS_PER_BD - 1, DMA_END_ADDR);
+
+  return ret;
+}
+
+// Initialize a Tx ring along with corresponding hardware registers
+static void init_tx_ring(unsigned int index, unsigned int size,
+    unsigned int start_ptr, unsigned int end_ptr) {
+  struct bcmgenet_tx_ring *ring = &m_tx_rings[index];
+
+  ring->index = index;
+  if (index == GENET_DESC_INDEX) {
+    ring->queue = 0;
+    ring->int_enable = tx_ring16_int_enable;
+  } else {
+    ring->queue = index + 1;
+    ring->int_enable = tx_ring_int_enable;
+  }
+  ring->cbs = m_tx_cbs + start_ptr;
+  ring->size = size;
+  ring->clean_ptr = start_ptr;
+  ring->c_index = 0;
+  ring->free_bds = size;
+  ring->write_ptr = start_ptr;
+  ring->cb_ptr = start_ptr;
+  ring->end_ptr = end_ptr - 1;
+  ring->prod_index = 0;
+
+  // Set flow period for ring != 16
+  u32 flow_period_val = 0;
+  if (index != GENET_DESC_INDEX)
+    flow_period_val = ENET_MAX_MTU_SIZE << 16;
+
+  bcmgenet_tdma_ring_writel(index, 0, TDMA_PROD_INDEX);
+  bcmgenet_tdma_ring_writel(index, 0, TDMA_CONS_INDEX);
+  bcmgenet_tdma_ring_writel(index, 10, DMA_MBUF_DONE_THRESH);
+  // Disable rate control for now
+  bcmgenet_tdma_ring_writel(index, flow_period_val, TDMA_FLOW_PERIOD);
+  bcmgenet_tdma_ring_writel(index, ((size << DMA_RING_SIZE_SHIFT) | RX_BUF_LENGTH),
+      DMA_RING_BUF_SIZE);
+
+  // Set start and end address, read and write pointers
+  bcmgenet_tdma_ring_writel(index, start_ptr * WORDS_PER_BD, DMA_START_ADDR);
+  bcmgenet_tdma_ring_writel(index, start_ptr * WORDS_PER_BD, TDMA_READ_PTR);
+  bcmgenet_tdma_ring_writel(index, start_ptr * WORDS_PER_BD, TDMA_WRITE_PTR);
+  bcmgenet_tdma_ring_writel(index, end_ptr * WORDS_PER_BD - 1, DMA_END_ADDR);
+}
+
+static int init_rx_queues() {
+  u32 dma_ctrl = bcmgenet_rdma_readl(DMA_CTRL);
+  u32 dma_enable = dma_ctrl & DMA_EN;
+  dma_ctrl &= ~DMA_EN;
+  bcmgenet_rdma_writel(dma_ctrl, DMA_CTRL);
+
+  dma_ctrl = 0;
+  u32 ring_cfg = 0;
+
+  // Initialize Rx default queue 16
+  int ret = init_rx_ring(GENET_DESC_INDEX, GENET_Q16_RX_BD_CNT,
+                         RX_QUEUES * RX_BDS_PER_Q, TOTAL_DESC);
+  if (ret)
+    return ret;
+
+  ring_cfg |= (1 << GENET_DESC_INDEX);
+  dma_ctrl |= (1 << (GENET_DESC_INDEX + DMA_RING_BUF_EN_SHIFT));
+
+  // Enable rings
+  bcmgenet_rdma_writel(ring_cfg, DMA_RING_CFG);
+
+  // Configure ring as descriptor ring and re-enable DMA if enabled
+  if (dma_enable)
+    dma_ctrl |= DMA_EN;
+  bcmgenet_rdma_writel(dma_ctrl, DMA_CTRL);
+
+  return 0;
+}
+
+static void init_tx_queues(bool enable) {
+  u32 dma_ctrl = bcmgenet_tdma_readl(DMA_CTRL);
+  u32 dma_enable = dma_ctrl & DMA_EN;
+  dma_ctrl &= ~DMA_EN;
+  bcmgenet_tdma_writel(dma_ctrl, DMA_CTRL);
+
+  dma_ctrl = 0;
+  u32 ring_cfg = 0;
+
+  if (enable) {
+    // Enable strict priority arbiter mode
+    bcmgenet_tdma_writel(DMA_ARBITER_SP, DMA_ARB_CTRL);
+  }
+
+  u32 dma_priority[3] = {0, 0, 0};
+
+  // Initialize Tx priority queues
+  for (unsigned int i = 0; i < TX_QUEUES; i++) {
+    init_tx_ring(i, TX_BDS_PER_Q, i * TX_BDS_PER_Q, (i + 1) * TX_BDS_PER_Q);
+    ring_cfg |= (1 << i);
+    dma_ctrl |= (1 << (i + DMA_RING_BUF_EN_SHIFT));
+    dma_priority[DMA_PRIO_REG_INDEX(i)] |=
+      ((GENET_Q0_PRIORITY + i) << DMA_PRIO_REG_SHIFT(i));
+  }
+
+  // Initialize Tx default queue 16
+  init_tx_ring(GENET_DESC_INDEX, GENET_Q16_TX_BD_CNT,
+      TX_QUEUES * TX_BDS_PER_Q, TOTAL_DESC);
+  ring_cfg |= (1 << GENET_DESC_INDEX);
+  dma_ctrl |= (1 << (GENET_DESC_INDEX + DMA_RING_BUF_EN_SHIFT));
+  dma_priority[DMA_PRIO_REG_INDEX(GENET_DESC_INDEX)] |=
+    ((GENET_Q0_PRIORITY + TX_QUEUES)
+     << DMA_PRIO_REG_SHIFT(GENET_DESC_INDEX));
+
+  if (enable) {
+    // Set Tx queue priorities
+    bcmgenet_tdma_writel(dma_priority[0], DMA_PRIORITY_0);
+    bcmgenet_tdma_writel(dma_priority[1], DMA_PRIORITY_1);
+    bcmgenet_tdma_writel(dma_priority[2], DMA_PRIORITY_2);
+
+    // Enable Tx queues
+    bcmgenet_tdma_writel(ring_cfg, DMA_RING_CFG);
+
+    // Enable Tx DMA
+    if (dma_enable)
+      dma_ctrl |= DMA_EN;
+    bcmgenet_tdma_writel(dma_ctrl, DMA_CTRL);
+  } else {
+    // Disable Tx queues
+    bcmgenet_tdma_writel(0, DMA_RING_CFG);
+
+    // Disable Tx DMA
+    bcmgenet_tdma_writel(0, DMA_CTRL);
+  }
+}
+
+static int init_dma() {
+  int ret;
+
+  // Initialize common Rx ring structures
+  // m_rx_cbs = new bcmgenet_cb[TOTAL_DESC];
+  m_rx_cbs = malloc(sizeof(struct bcmgenet_cb) * TOTAL_DESC);
+  if (!m_rx_cbs) {
+    ret = -1;
+    goto err_free;
+  }
+
+  memset(m_rx_cbs, 0, TOTAL_DESC * sizeof(struct bcmgenet_cb));
+
+  struct bcmgenet_cb *cb;
+  unsigned int i;
+  for (i = 0; i < TOTAL_DESC; i++) {
+    cb = m_rx_cbs + i;
+    /* set physical address */
+    cb->bd_addr = genet.pbase + RDMA_OFFSET + i * DMA_DESC_SIZE;
+  }
+
+  // Initialize common TX ring structures
+  // m_tx_cbs = new bcmgenet_cb[TOTAL_DESC];
+  m_tx_cbs = malloc(sizeof(struct bcmgenet_cb) * TOTAL_DESC);
+  if (!m_tx_cbs) {
+    ret = -1;
+    goto err_free;
+  }
+
+  memset(m_tx_cbs, 0, TOTAL_DESC * sizeof(struct bcmgenet_cb));
+
+  for (i = 0; i < TOTAL_DESC; i++) {
+    cb = m_tx_cbs + i;
+    /* set physical address */
+    cb->bd_addr = genet.pbase + TDMA_OFFSET + i * DMA_DESC_SIZE;
+  }
+
+  // Init rDma
+  bcmgenet_rdma_writel(DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
+
+  // Initialize Rx queues
+  ret = init_rx_queues();
+  if (ret) {
+    printf("Failed to initialize RX queues (%d)", ret);
+    // free_rx_buffers();
+    goto err_free;
+  }
+
+  // Init tDma
+  bcmgenet_tdma_writel(DMA_MAX_BURST_LENGTH, DMA_SCB_BURST_SIZE);
+
+  // Initialize Tx queues
+  init_tx_queues(true);
+
+  return 0;
+
+err_free:
+  if(m_rx_cbs) {
+    free(m_rx_cbs);
+    m_rx_cbs = NULL;
+  }
+
+  if(m_tx_cbs) {
+    free(m_tx_cbs);
+    m_tx_cbs = NULL;
+  }
+
+  return ret;
+}
+
+static void dma_enable(u32 dma_ctrl) {
+  u32 reg = bcmgenet_rdma_readl(DMA_CTRL);
+  reg |= dma_ctrl;
+  bcmgenet_rdma_writel(reg, DMA_CTRL);
+
+  reg = bcmgenet_tdma_readl(DMA_CTRL);
+  reg |= dma_ctrl;
+  bcmgenet_tdma_writel(reg, DMA_CTRL);
+}
+
+static void hfb_init() {
+  // this has no function, but to suppress warnings from clang compiler >>>
+  bcmgenet_hfb_reg_readl(HFB_CTRL);
+  bcmgenet_hfb_readl(0);
+  // <<<
+
+  bcmgenet_hfb_reg_writel(0, HFB_CTRL);
+  bcmgenet_hfb_reg_writel(0, HFB_FLT_ENABLE_V3PLUS);
+  bcmgenet_hfb_reg_writel(0, HFB_FLT_ENABLE_V3PLUS + 4);
+
+  u32 i;
+  for (i = DMA_INDEX2RING_0; i <= DMA_INDEX2RING_7; i++)
+    bcmgenet_rdma_writel(0, i);
+
+  for (i = 0; i < (HFB_FILTER_CNT / 4); i++)
+    bcmgenet_hfb_reg_writel(0, HFB_FLT_LEN_V3PLUS + i * sizeof(u32));
+
+  for (i = 0; i < HFB_FILTER_CNT * HFB_FILTER_SIZE; i++)
+    bcmgenet_hfb_writel(0, i * sizeof(u32));
+}
+
+static int bcmgenet_init(physaddr_t pbase) {
   u32 reg = bcmgenet_sys_readl(SYS_REV_CTRL); // read GENET HW version
   u8 major = (reg >> 24 & 0x0f);
   u8 mac[6];
+
+  genet.pbase = pbase;
 
   if(major == 6)
     major = 5;
@@ -451,27 +830,26 @@ static int bcmgenet_init() {
     return -1;
   }
 
-  /*
   u32 dma_ctrl = dma_disable(); // disable Rx/Tx DMA and flush Tx queues
 
   ret = init_dma(); // reinitialize TDMA and RDMA and SW housekeeping
   if (ret) {
     printf("Failed to initialize DMA (%d)", ret);
-
-    return false;
+    return -1;
   }
 
-  enable_dma(dma_ctrl); // always enable ring 16 - descriptor ring
+  dma_enable(dma_ctrl); // always enable ring 16 - descriptor ring
 
   hfb_init();
-  */
 
-  // net_init("bcmgenet", mac, mtu, &bcmgenet_dev, &bcmgenet_ops);
+  net_init("bcmgenet", mac, ENET_MAX_MTU_SIZE, NULL, &bcmgenet_ops);
+
   return 0;
 }
 
 static int bcmgenet_dt_init(struct device_node *dev) {
-  u64 base, size; 
+  physaddr_t base;
+  u64 size; 
   int intr0, intr1;
 
   if(dt_node_prop_addr(dev, 0, &base, &size) < 0)
@@ -491,7 +869,7 @@ static int bcmgenet_dt_init(struct device_node *dev) {
 
   printf("bcmgenet: %p(%p) %p %d %d\n", base, bcmgenet_base, size, intr0, intr1);
 
-  return bcmgenet_init();
+  return bcmgenet_init(base);
 }
 
 static const struct dt_compatible bcmgenet_compat[] = {

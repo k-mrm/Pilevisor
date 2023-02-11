@@ -13,6 +13,8 @@ typedef signed char i8;
 /* physical address */
 typedef u64 physaddr_t;
 
+typedef u64 dma_addr_t;
+
 /* intermediate physical address */
 typedef u64 ipa_t;
 
