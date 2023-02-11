@@ -107,12 +107,6 @@ struct invalidate_hdr {
   u8 from_nodeid;
 };
 
-struct invalidate_ack_hdr {
-  POCV2_MSG_HDR_STRUCT;
-  u64 ipa;
-  u8 from_nodeid;
-};
-
 static inline void send_read_fetch_req(int from_node, int to_node,
                                        ipa_t page_ipa) {
   send_fetch_req(from_node, to_node, page_ipa, READ_FETCH, true, cpuid());
@@ -461,18 +455,6 @@ static void vsm_invalidate(u64 ipa, u64 copyset) {
     copyset >>= 1;
     node++;
   } while(copyset);
-}
-
-static void send_invalidate_ack(int from_nodeid, u64 ipa) {
-  struct msg msg;
-  struct invalidate_ack_hdr hdr;
-
-  hdr.ipa = ipa;
-  hdr.from_nodeid = from_nodeid;
-
-  msg_init(&msg, from_nodeid, MSG_INVALIDATE_ACK, &hdr, NULL, 0);
-
-  send_msg(&msg);
 }
 
 static void vsm_invalidate_server_process(struct vsm_server_proc *proc) {
@@ -942,4 +924,3 @@ void vsm_node_init(struct memrange *mem) {
 DEFINE_POCV2_MSG(MSG_FETCH, struct fetch_req_hdr, recv_fetch_request_intr);
 DEFINE_POCV2_MSG(MSG_FETCH_REPLY, struct fetch_reply_hdr, NULL);
 DEFINE_POCV2_MSG(MSG_INVALIDATE, struct invalidate_hdr, recv_invalidate_intr);
-DEFINE_POCV2_MSG(MSG_INVALIDATE_ACK, struct invalidate_ack_hdr, NULL);
