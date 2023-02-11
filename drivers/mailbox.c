@@ -35,9 +35,12 @@ static int mailbox_call(volatile u32 *mbox, enum mbox_ch ch) {
     while (mbox_read32(MBOX_STATUS) & MBOX_EMPTY)
       ;
 
+    dcache_flush_poc_range(mbox, 36);
+
     // Is it a reply to our message?
-    if (r == mbox_read32(MBOX_READ))
+    if (r == mbox_read32(MBOX_READ)) {
       return mbox[1] == MBOX_SUCCESS;  // Is it successful?
+    }
   }
 }
 
@@ -56,7 +59,11 @@ int mbox_get_mac_address(u8 *mac) {
 
   mbox[7] = RPI_FIRMWARE_PROPERTY_END;
 
-  mailbox_call(mbox, MBOX_CH_PROP);
+  int rc = mailbox_call(mbox, MBOX_CH_PROP);
+  if(rc < 0) {
+    vmm_warn("mailbox failed\n");
+    return rc;
+  }
 
   char *m = (char *)&mbox[5];
   memcpy(mac, m, 6);
@@ -91,5 +98,6 @@ void mailbox_init() {
   if(!dev)
     return;
 
-  bcm2835_mbox_init(dev);
+  if(bcm2835_mbox_init(dev) < 0)
+    panic("mbox init fail");
 }
