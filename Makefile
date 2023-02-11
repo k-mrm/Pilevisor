@@ -9,19 +9,6 @@ QEMU = 1
 CPU = cortex-a72
 QCPU = cortex-a72
 
-CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
-CFLAGS += -I ./include/
-
-ifdef RPI
-CFLAGS += -DRPI4
-endif
-
-ifdef QEMU
-CFLAGS += -DBUILD_QEMU
-endif
-
-LDFLAGS = -nostdlib #-nostartfiles
-
 TAP_NUM = $(shell date '+%s')
 
 MAC_H = $(shell date '+%H')
@@ -55,6 +42,24 @@ endif
 ifndef GUEST_MEMORY
 GUEST_MEMORY = 512
 endif
+
+ifndef GUEST_NR_NODE
+GUEST_NR_NODE = 2
+endif
+
+CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
+CFLAGS += -I ./include/
+CFLAGS += -DNR_NODE=$(GUEST_NR_NODE)
+
+ifdef RPI
+CFLAGS += -DRPI4
+endif
+
+ifdef QEMU
+CFLAGS += -DBUILD_QEMU
+endif
+
+LDFLAGS = -nostdlib #-nostartfiles
 
 QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
 QEMUOPTS += -global virtio-mmio.force-legacy=false
