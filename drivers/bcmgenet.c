@@ -367,15 +367,6 @@ static u32 tx_reclaim(struct bcmgenet_tx_ring *ring) {
   return txbds_processed;
 }
 
-static void bcmgenet_enable_dma(u32 dma_ctrl) {
-    u32 reg = bcmgenet_rdma_readl(DMA_CTRL);
-    reg |= dma_ctrl;
-    bcmgenet_rdma_writel(reg, DMA_CTRL);
-
-    reg = bcmgenet_tdma_readl(DMA_CTRL);
-    reg |= dma_ctrl;
-    bcmgenet_tdma_writel(reg, DMA_CTRL);
-}
 
 static int bcmgenet_rxintr(u8 *pBuffer, int *pResultLength) {
   int ret = -1;
@@ -507,7 +498,6 @@ static void bcmgenet_intr_irq0(void *arg) {
 
       printf("\n");
     }
-
   }
 }
 
@@ -645,7 +635,17 @@ static int set_hw_addr(u8 *maddr) {
   return 0;
 }
 
-static u32 dma_disable() {
+static void bcmgenet_dma_enable(u32 dma_ctrl) {
+  u32 reg = bcmgenet_rdma_readl(DMA_CTRL);
+  reg |= dma_ctrl;
+  bcmgenet_rdma_writel(reg, DMA_CTRL);
+
+  reg = bcmgenet_tdma_readl(DMA_CTRL);
+  reg |= dma_ctrl;
+  bcmgenet_tdma_writel(reg, DMA_CTRL);
+}
+
+static u32 bcmgenet_dma_disable() {
   // disable DMA
   u32 dma_ctrl = 1 << (GENET_DESC_INDEX + DMA_RING_BUF_EN_SHIFT) | DMA_EN;
   u32 reg = bcmgenet_tdma_readl(DMA_CTRL);
@@ -893,7 +893,6 @@ static int init_dma() {
   unsigned int i;
   for (i = 0; i < TOTAL_DESC; i++) {
     cb = m_rx_cbs + i;
-    /* set physical address */
     cb->bd_addr = bcmgenet_base + RDMA_OFFSET + i * DMA_DESC_SIZE;
   }
 
@@ -909,7 +908,6 @@ static int init_dma() {
 
   for (i = 0; i < TOTAL_DESC; i++) {
     cb = m_tx_cbs + i;
-    /* set physical address */
     cb->bd_addr = bcmgenet_base + TDMA_OFFSET + i * DMA_DESC_SIZE;
   }
 
@@ -946,15 +944,6 @@ err_free:
   return ret;
 }
 
-static void dma_enable(u32 dma_ctrl) {
-  u32 reg = bcmgenet_rdma_readl(DMA_CTRL);
-  reg |= dma_ctrl;
-  bcmgenet_rdma_writel(reg, DMA_CTRL);
-
-  reg = bcmgenet_tdma_readl(DMA_CTRL);
-  reg |= dma_ctrl;
-  bcmgenet_tdma_writel(reg, DMA_CTRL);
-}
 
 static void hfb_init() {
   // this has no function, but to suppress warnings from clang compiler >>>
@@ -1267,6 +1256,28 @@ static void set_rx_mode(u8 *mac) {
   set_mdf_addr(mac, &i, &mc);
 }
 
+static void umac_enable_set(u32 mask, bool enable) {
+  u32 reg = bcmgenet_umac_readl(UMAC_CMD);
+  if (enable)
+    reg |= mask;
+  else
+    reg &= ~mask;
+
+  bcmgenet_umac_writel(reg, UMAC_CMD);
+  // UniMAC stops on a packet boundary, wait for a full-size packet to be
+  // processed
+  if (enable == 0)
+    usleep(2000);
+}
+
+static void netif_start() {
+  enable_rx_intr(); // NOTE: Rx interrupts are not needed
+  umac_enable_set(CMD_TX_EN | CMD_RX_EN, true);
+  enable_tx_intr();
+  // link_intr_enable();              // NOTE: link interrupts do not work, must
+  // be polled
+}
+
 static int bcmgenet_init() {
   u32 reg = bcmgenet_sys_readl(SYS_REV_CTRL); // read GENET HW version
   u8 major = (reg >> 24 & 0x0f);
@@ -1299,7 +1310,7 @@ static int bcmgenet_init() {
     return -1;
   }
 
-  u32 dma_ctrl = dma_disable(); // disable Rx/Tx DMA and flush Tx queues
+  u32 dma_ctrl = bcmgenet_dma_disable(); // disable Rx/Tx DMA and flush Tx queues
 
   ret = init_dma(); // reinitialize TDMA and RDMA and SW housekeeping
   if (ret) {
@@ -1307,7 +1318,7 @@ static int bcmgenet_init() {
     return -1;
   }
 
-  dma_enable(dma_ctrl); // always enable ring 16 - descriptor ring
+  bcmgenet_dma_enable(dma_ctrl); // always enable ring 16 - descriptor ring
 
   hfb_init();
 
@@ -1317,6 +1328,7 @@ static int bcmgenet_init() {
     return -1;
   }
 
+  netif_start();
   set_rx_mode(mac);
 
   net_init("bcmgenet", mac, ENET_MAX_MTU_SIZE, NULL, &bcmgenet_ops);
