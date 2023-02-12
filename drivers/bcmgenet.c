@@ -15,6 +15,7 @@
 #include "assert.h"
 #include "mm.h"
 #include "arch-timer.h"
+#include "memlayout.h"
 #include "lib.h"
 
 #include "bcmgenet.h"
@@ -44,6 +45,7 @@
 #define ETH_ZLEN          60
 /// #define ENET_MAX_MTU_SIZE 1536 // with padding
 #define ENET_MAX_MTU_SIZE 4536 // with padding // CHANGED
+#define FRAME_BUFFER_SIZE 4500
 
 #define MAX_MC_COUNT 16
 
@@ -135,8 +137,6 @@ static const u8 bcmgenet_dma_regs[] = {
   [DMA_INDEX2RING_6] = 0x88,
   [DMA_INDEX2RING_7] = 0x8C,
 };
-
-static void bcmgenet_intr_disable(void);
 
 static inline u32 bcmgenet_readl(u64 offset) {
   return *(volatile u32 *)(bcmgenet_base + offset);
@@ -243,12 +243,82 @@ static inline void bcmgenet_bp_mc_set(u32 val) {
   bcmgenet_writel(val, GENET_TBUF_OFF + TBUF_BP_MC);
 }
 
+static struct bcmgenet_cb *get_txcb(struct bcmgenet_tx_ring *ring);
+static void bcmgenet_intr_disable(void);
+static u8 *rx_refill(struct bcmgenet_cb *cb);
+
 static void bcmgenet_xmit(struct nic *nic, struct iobuf *iobuf) {
-  printf("bcmgenet xmit\n");
+  u64 flags;
+  unsigned index;
+  u32 length;
+
+  assert(iobuf);
+
+  // Mapping strategy:
+  // index = 0, unclassified, packet xmited through ring16
+  // index = 1, goes to ring 0. (highest priority queue)
+  // index = 2, goes to ring 1.
+  // index = 3, goes to ring 2.
+  // index = 4, goes to ring 3.
+  index = TX_RING_INDEX;
+  if (index == 0)
+    index = GENET_DESC_INDEX;
+  else
+    index -= 1;
+
+  struct bcmgenet_tx_ring *ring = &m_tx_rings[index];
+
+  spin_lock_irqsave(&m_tx_lock, flags);
+
+  if (ring->free_bds < 2) { // is there room for this frame?
+    printf("TX frame dropped!!!!!!!!\r\n");
+    spin_unlock_irqrestore(&m_tx_lock, flags);
+    return;
+  }
+
+  // uint8_t *pTxBuffer = malloc(ENET_MAX_MTU_SIZE);     // allocate and fill DMA
+
+  if(iobuf->body)
+    panic("bcmgenet: unimpl");
+
+  length = iobuf->len;
+  printf("bcmgenet: xmit: iobuf->len %d", length);
+  u8 *pTxBuffer = malloc(length);
+  memcpy(pTxBuffer, iobuf->data, length);
+
+  if (length < ETH_ZLEN) // pad frame if necessary
+  {
+    memset(pTxBuffer + length, 0, ETH_ZLEN - length);
+    length = ETH_ZLEN;
+  }
+
+  struct bcmgenet_cb *tx_cb_ptr = get_txcb(ring); // get Tx control block from ring
+  assert(tx_cb_ptr != 0);
+
+  // prepare for DMA
+  dcache_flush_poc_range(pTxBuffer, length);
+
+  tx_cb_ptr->buffer = pTxBuffer; // set DMA buffer in Tx control block
+
+  // set DMA descriptor and start transfer
+  dmadesc_set(tx_cb_ptr->bd_addr, V2P(pTxBuffer),
+      (length << DMA_BUFLENGTH_SHIFT) |
+      (QTAG_MASK << DMA_TX_QTAG_SHIFT) | DMA_TX_APPEND_CRC |
+      DMA_SOP | DMA_EOP);
+
+  // decrement total BD count and advance our write pointer
+  ring->free_bds--;
+  ring->prod_index++;
+  ring->prod_index &= DMA_P_INDEX_MASK;
+
+  // packets are ready, update producer index
+  bcmgenet_tdma_ring_writel(ring->index, ring->prod_index, TDMA_PROD_INDEX);
+
+  spin_unlock_irqrestore(&m_tx_lock, flags);
 }
 
 static struct bcmgenet_cb *get_txcb(struct bcmgenet_tx_ring *ring) {
-    struct bcmgenet_cb *tx_cb_ptr = ring->cbs;
+  struct bcmgenet_cb *tx_cb_ptr = ring->cbs;
     tx_cb_ptr += ring->write_ptr - ring->cb_ptr;
 
     // Advancing local write pointer
@@ -307,8 +377,100 @@ static void bcmgenet_enable_dma(u32 dma_ctrl) {
     bcmgenet_tdma_writel(reg, DMA_CTRL);
 }
 
-static void bcmgenet_rxintr() {
+static int bcmgenet_rxintr(u8 *pBuffer, int *pResultLength) {
+  int ret = -1;
+
+  assert(pBuffer != 0);
+  assert(pResultLength != 0);
+
+  struct bcmgenet_rx_ring *ring = &m_rx_rings[GENET_DESC_INDEX]; // the only supported Rx queue
+
   printf("bcmgenet: rxintr\n");
+
+  // clear status before servicing to reduce spurious interrupts
+  // NOTE: Rx interrupts are not used
+  //bcmgenet_intrl2_0_writel(UMAC_IRQ_RXDMA_DONE, INTRL2_CPU_CLEAR);
+
+  unsigned p_index = bcmgenet_rdma_ring_readl(ring->index, RDMA_PROD_INDEX);
+
+  unsigned discards = (p_index >> DMA_P_INDEX_DISCARD_CNT_SHIFT) &
+                       DMA_P_INDEX_DISCARD_CNT_MASK;
+  if (discards > ring->old_discards) {
+    discards = discards - ring->old_discards;
+    ring->old_discards += discards;
+
+    // clear HW register when we reach 75% of maximum 0xFFFF
+    if (ring->old_discards >= 0xC000) {
+      ring->old_discards = 0;
+      bcmgenet_rdma_ring_writel(ring->index, 0, RDMA_PROD_INDEX);
+    }
+  }
+
+  p_index &= DMA_P_INDEX_MASK;
+
+  unsigned rxpkttoprocess = (p_index - ring->c_index) & DMA_C_INDEX_MASK;
+  if (rxpkttoprocess > 0) {
+    u32 dma_length_status;
+    u32 dma_flag;
+    int nLength;
+
+    struct bcmgenet_cb *cb = &m_rx_cbs[ring->read_ptr];
+
+    u8 *pRxBuffer = rx_refill(cb);
+    if (pRxBuffer == 0) {
+      printf("Missing RX buffer!");
+      goto out;
+    }
+
+    dma_length_status = dmadesc_get_length_status(cb->bd_addr);
+    dma_flag = dma_length_status & 0xFFFF;
+    nLength = dma_length_status >> DMA_BUFLENGTH_SHIFT;
+
+    if (!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP)) {
+      printf("Dropping fragmented RX packet!");
+      free(pRxBuffer);
+
+      goto out;
+    }
+
+    // report errors
+    if (dma_flag & (DMA_RX_CRC_ERROR | DMA_RX_OV | DMA_RX_NO | DMA_RX_LG | DMA_RX_RXER)) {
+      printf("RX error (0x%x)", (unsigned)dma_flag);
+      free(pRxBuffer);
+
+      goto out;
+    }
+
+#define LEADING_PAD 2
+    nLength -= LEADING_PAD; // remove HW 2 bytes added for IP alignment
+
+    if (m_crc_fwd_en) {
+      nLength -= ETH_FCS_LEN;
+    }
+
+    assert(nLength > 0);
+    assert(nLength <= FRAME_BUFFER_SIZE);
+
+    memcpy(pBuffer, pRxBuffer + LEADING_PAD, nLength);
+
+    *pResultLength = nLength;
+
+    free(pRxBuffer);
+
+    ret = 0;
+
+out:
+    if (ring->read_ptr < ring->end_ptr) {
+      ring->read_ptr++;
+    } else {
+      ring->read_ptr = ring->cb_ptr;
+    }
+
+    ring->c_index = (ring->c_index + 1) & DMA_C_INDEX_MASK;
+    bcmgenet_rdma_ring_writel(ring->index, ring->c_index, RDMA_CONS_INDEX);
+  }
+
+  return ret;
 }
 
 static void bcmgenet_intr_irq0(void *arg) {
@@ -331,7 +493,21 @@ static void bcmgenet_intr_irq0(void *arg) {
 
   if (status & UMAC_IRQ_RXDMA_DONE) {
     // bcmgenet_intrl2_0_writel(UMAC_IRQ_RXDMA_DONE, INTRL2_CPU_CLEAR);
-    // bcmgenet_rxintr(rcv, &len);
+    u8 *rcv = alloc_page();
+    int len;
+
+    bcmgenet_rxintr(rcv, &len);
+
+    if (len != 0) {
+      printf("Received %d\n", len);
+
+      for (int i = 0; i < len; i++) {
+        printf("%02x", rcv[i]);
+      }
+
+      printf("\n");
+    }
+
   }
 }
 
@@ -512,7 +688,8 @@ static u8 *rx_refill(struct bcmgenet_cb *cb) {
 
   // Put the new Rx buffer on the ring
   cb->buffer = buffer;
-  dmadesc_set_addr(cb->bd_addr, buffer);
+  printf("dmadesc_set_addr v %p -> p %p\n", buffer, V2P(buffer));
+  dmadesc_set_addr(cb->bd_addr, V2P(buffer));
 
   // Return the current Rx buffer to caller
   return rx_buffer;
@@ -1041,28 +1218,28 @@ static int mii_probe(void) {
   m_old_pause = -1;
 
   // probe PHY
-    m_phy_id = 0x01;
-    int ret = mdio_reset();
-    if (ret) {
-        m_phy_id = 0x00;
-        ret = mdio_reset();
-    }
-    if (ret)
-        return ret;
+  m_phy_id = 0x01;
+  int ret = mdio_reset();
+  if (ret) {
+    m_phy_id = 0x00;
+    ret = mdio_reset();
+  }
+  if (ret)
+    return ret;
 
-    ret = phy_read_status();
-    if (ret)
-        return ret;
+  ret = phy_read_status();
+  if (ret)
+    return ret;
 
-    mii_setup();
+  mii_setup();
 
-    return mii_config(true); // Configure port multiplexer
+  return mii_config(true); // Configure port multiplexer
 }
 
 static void set_mdf_addr(u8 *addr, int *i, int *mc) {
   bcmgenet_umac_writel(addr[0] << 8 | addr[1], UMAC_MDF_ADDR + (*i * 4));
   bcmgenet_umac_writel(addr[2] << 24 | addr[3] << 16 | addr[4] << 8 | addr[5],
-      UMAC_MDF_ADDR + ((*i + 1) * 4));
+                       UMAC_MDF_ADDR + ((*i + 1) * 4));
 
   u32 reg = bcmgenet_umac_readl(UMAC_MDF_CTRL);
   reg |= (1 << (MAX_MC_COUNT - *mc));

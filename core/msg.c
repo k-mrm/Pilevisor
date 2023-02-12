@@ -286,6 +286,8 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
     buf->body_len = msg->body_len;
   }
 
+  printf("send msg %s\n", msmap[msg->hdr->type]);
+
   ether_send_packet(localnode.nic, dst_mac, type, buf);
 
   if(reply_cb) {

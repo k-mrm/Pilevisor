@@ -48,7 +48,6 @@ void *iobuf_pull(struct iobuf *buf, u32 size);
 void iobuf_set_len(struct iobuf *buf, u32 len);
 
 void netdev_recv(struct iobuf *buf);
-
 void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops);
 
 #endif
