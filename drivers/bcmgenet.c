@@ -48,7 +48,7 @@
 static void *bcmgenet_base;
 
 static struct bcmgenet_data {
-  physaddr_t pbase;
+  ;
 } genet;
 
 static struct bcmgenet_cb *m_tx_cbs;                             // Tx control blocks
@@ -496,7 +496,8 @@ u8 *free_rx_cb(struct bcmgenet_cb *cb) {
 static u8 *rx_refill(struct bcmgenet_cb *cb) {
   // Allocate a new Rx DMA buffer
   // uint8_t *buffer = new u8[RX_BUF_LENGTH];
-  u8 *buffer = malloc(RX_BUF_LENGTH);
+  // u8 *buffer = malloc(RX_BUF_LENGTH);
+  u8 *buffer = alloc_page();
   if (!buffer)
     return NULL;
   // printk("Refill %x\r\n", &buffer);
@@ -569,7 +570,7 @@ static int init_rx_ring(unsigned int index, unsigned int size,
 
 // Initialize a Tx ring along with corresponding hardware registers
 static void init_tx_ring(unsigned int index, unsigned int size,
-    unsigned int start_ptr, unsigned int end_ptr) {
+                         unsigned int start_ptr, unsigned int end_ptr) {
   struct bcmgenet_tx_ring *ring = &m_tx_rings[index];
 
   ring->index = index;
@@ -699,8 +700,8 @@ static int init_dma() {
   int ret;
 
   // Initialize common Rx ring structures
-  // m_rx_cbs = new bcmgenet_cb[TOTAL_DESC];
-  m_rx_cbs = malloc(sizeof(struct bcmgenet_cb) * TOTAL_DESC);
+  // m_rx_cbs = malloc(sizeof(struct bcmgenet_cb) * TOTAL_DESC);
+  m_rx_cbs = alloc_page();
   if (!m_rx_cbs) {
     ret = -1;
     goto err_free;
@@ -713,12 +714,12 @@ static int init_dma() {
   for (i = 0; i < TOTAL_DESC; i++) {
     cb = m_rx_cbs + i;
     /* set physical address */
-    cb->bd_addr = genet.pbase + RDMA_OFFSET + i * DMA_DESC_SIZE;
+    cb->bd_addr = bcmgenet_base + RDMA_OFFSET + i * DMA_DESC_SIZE;
   }
 
   // Initialize common TX ring structures
-  // m_tx_cbs = new bcmgenet_cb[TOTAL_DESC];
-  m_tx_cbs = malloc(sizeof(struct bcmgenet_cb) * TOTAL_DESC);
+  // m_tx_cbs = malloc(sizeof(struct bcmgenet_cb) * TOTAL_DESC);
+  m_tx_cbs = alloc_page();
   if (!m_tx_cbs) {
     ret = -1;
     goto err_free;
@@ -729,7 +730,7 @@ static int init_dma() {
   for (i = 0; i < TOTAL_DESC; i++) {
     cb = m_tx_cbs + i;
     /* set physical address */
-    cb->bd_addr = genet.pbase + TDMA_OFFSET + i * DMA_DESC_SIZE;
+    cb->bd_addr = bcmgenet_base + TDMA_OFFSET + i * DMA_DESC_SIZE;
   }
 
   // Init rDma
@@ -796,12 +797,10 @@ static void hfb_init() {
     bcmgenet_hfb_writel(0, i * sizeof(u32));
 }
 
-static int bcmgenet_init(physaddr_t pbase) {
+static int bcmgenet_init() {
   u32 reg = bcmgenet_sys_readl(SYS_REV_CTRL); // read GENET HW version
   u8 major = (reg >> 24 & 0x0f);
   u8 mac[6];
-
-  genet.pbase = pbase;
 
   if(major == 6)
     major = 5;
@@ -869,7 +868,7 @@ static int bcmgenet_dt_init(struct device_node *dev) {
 
   printf("bcmgenet: %p(%p) %p %d %d\n", base, bcmgenet_base, size, intr0, intr1);
 
-  return bcmgenet_init(base);
+  return bcmgenet_init();
 }
 
 static const struct dt_compatible bcmgenet_compat[] = {
