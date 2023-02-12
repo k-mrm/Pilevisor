@@ -45,7 +45,10 @@
 /// #define ENET_MAX_MTU_SIZE 1536 // with padding
 #define ENET_MAX_MTU_SIZE 4536 // with padding // CHANGED
 
+#define MAX_MC_COUNT 16
+
 static void *bcmgenet_base;
+static void *mdio_base;
 
 static struct bcmgenet_data {
   ;
@@ -488,14 +491,14 @@ u8 *free_rx_cb(struct bcmgenet_cb *cb) {
   u8 *buffer = cb->buffer;
   cb->buffer = 0;
   // printk("Free %x\r\n", &buffer);
-  // CleanAndInvalidateDataCacheRange((uint32_t)(uintptr_t)buffer, RX_BUF_LENGTH);
+  // CleanAndInvalidateDataCacheRange((u64)buffer, RX_BUF_LENGTH);
 
   return buffer;
 }
 
 static u8 *rx_refill(struct bcmgenet_cb *cb) {
   // Allocate a new Rx DMA buffer
-  // uint8_t *buffer = new u8[RX_BUF_LENGTH];
+  // u8 *buffer = new u8[RX_BUF_LENGTH];
   // u8 *buffer = malloc(RX_BUF_LENGTH);
   u8 *buffer = alloc_page();
   if (!buffer)
@@ -797,6 +800,296 @@ static void hfb_init() {
     bcmgenet_hfb_writel(0, i * sizeof(u32));
 }
 
+//
+// UniMAC MDIO
+//
+
+#define MDIO_CMD 0x00 // same register as UMAC_MDIO_CMD
+
+static inline u32 mdio_readl(u32 offset) {
+  return readl(mdio_base + offset);
+}
+
+static inline void mdio_writel(u32 val, u32 offset) {
+  writel(val, mdio_base + offset);
+}
+
+static int bcmgenet_mdio_read(int reg);
+static void bcmgenet_mdio_write(int reg, u16 val);
+
+static inline void mdio_start(void) {
+  u32 reg = mdio_readl(MDIO_CMD);
+  reg |= MDIO_START_BUSY;
+  mdio_writel(reg, MDIO_CMD);
+}
+
+// This is not the default wait_func from the UniMAC MDIO driver,
+// but a private function assigned by the GENET bcmmii module.
+static void mdio_wait(void) {
+  // assert (m_pTimer != 0);
+  // unsigned nStartTicks = m_pTimer->GetClockTicks ();
+
+  do {
+    // if (m_pTimer->GetClockTicks ()-nStartTicks >= CLOCKHZ / 100)
+    // {
+    //      break;
+    // }
+  } while (bcmgenet_umac_readl(UMAC_MDIO_CMD) & MDIO_START_BUSY);
+}
+
+// static inline unsigned mdio_busy(void)
+// {
+//      return mdio_readl(MDIO_CMD) & MDIO_START_BUSY;
+// }
+
+// Workaround for integrated BCM7xxx Gigabit PHYs which have a problem with
+// their internal MDIO management controller making them fail to successfully
+// be read from or written to for the first transaction.  We insert a dummy
+// BMSR read here to make sure that phy_get_device() and get_phy_id() can
+// correctly read the PHY MII_PHYSID1/2 registers and successfully register a
+// PHY device for this peripheral.
+static int mdio_reset(void) {
+  int ret = bcmgenet_mdio_read(MII_BMSR);
+  if (ret < 0)
+    return ret;
+
+  return 0;
+}
+
+static int bcmgenet_mdio_read(int reg) {
+  // Prepare the read operation
+  u32 cmd = MDIO_RD | (m_phy_id << MDIO_PMD_SHIFT) | (reg << MDIO_REG_SHIFT);
+  mdio_writel(cmd, MDIO_CMD);
+
+  mdio_start();
+  mdio_wait();
+
+  cmd = mdio_readl(MDIO_CMD);
+
+  if (cmd & MDIO_READ_FAIL)
+    return -1;
+
+  return cmd & 0xFFFF;
+}
+
+static void bcmgenet_mdio_write(int reg, u16 val) {
+  // Prepare the write operation
+  u32 cmd = MDIO_WR | (m_phy_id << MDIO_PMD_SHIFT) |
+    (reg << MDIO_REG_SHIFT) | (0xFFFF & val);
+  mdio_writel(cmd, MDIO_CMD);
+
+  mdio_start();
+  mdio_wait();
+}
+
+static int phy_read_status() {
+  // Update the link status, return if there was an error
+  int bmsr = bcmgenet_mdio_read(MII_BMSR);
+  if (bmsr < 0)
+    return bmsr;
+
+  if ((bmsr & BMSR_LSTATUS) == 0) {
+    m_link = 0;
+    return 0;
+  } else
+    m_link = 1;
+
+  // Read autonegotiation status
+  // NOTE: autonegotiation is enabled by firmware, not here
+
+  int lpagb = bcmgenet_mdio_read(MII_STAT1000);
+  if (lpagb < 0)
+    return lpagb;
+
+  int ctrl1000 = bcmgenet_mdio_read(MII_CTRL1000);
+  if (ctrl1000 < 0)
+    return ctrl1000;
+
+  if (lpagb & LPA_1000MSFAIL) {
+    printf("Master/Slave resolution failed (0x%X)", ctrl1000);
+    return -1;
+  }
+
+  int common_adv_gb = lpagb & ctrl1000 << 2;
+
+  int lpa = bcmgenet_mdio_read(MII_LPA);
+  if (lpa < 0)
+    return lpa;
+
+  int adv = bcmgenet_mdio_read(MII_ADVERTISE);
+  if (adv < 0)
+    return adv;
+
+  int common_adv = lpa & adv;
+
+  m_speed = 10;
+  m_duplex = 0;
+  m_pause = 0;
+
+  if (common_adv_gb & (LPA_1000FULL | LPA_1000HALF)) {
+    m_speed = 1000;
+
+    if (common_adv_gb & LPA_1000FULL)
+      m_duplex = 1;
+  } else if (common_adv & (LPA_100FULL | LPA_100HALF)) {
+    m_speed = 100;
+
+    if (common_adv & LPA_100FULL)
+      m_duplex = 1;
+  } else if (common_adv & LPA_10FULL) {
+    m_duplex = 1;
+  }
+
+  if (m_duplex == 1)
+    m_pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
+
+  return 0;
+}
+
+static void mii_setup() {
+  // setup netdev link state when PHY link status change and
+  // update UMAC and RGMII block when link up
+  bool status_changed = false;
+
+  if (m_old_link != m_link) {
+    status_changed = true;
+    m_old_link = m_link;
+  }
+
+  if (!m_link)
+    return;
+
+  // check speed/duplex/pause changes
+  if (m_old_speed != m_speed) {
+    status_changed = true;
+    m_old_speed = m_speed;
+  }
+
+  if (m_old_duplex != m_duplex) {
+    status_changed = true;
+    m_old_duplex = m_duplex;
+  }
+
+  if (m_old_pause != m_pause) {
+    status_changed = true;
+    m_old_pause = m_pause;
+  }
+
+  // done if nothing has changed
+  if (!status_changed)
+    return;
+
+  // speed
+  u32 cmd_bits = 0;
+  if (m_speed == 1000)
+    cmd_bits = UMAC_SPEED_1000;
+  else if (m_speed == 100)
+    cmd_bits = UMAC_SPEED_100;
+  else
+    cmd_bits = UMAC_SPEED_10;
+  cmd_bits <<= CMD_SPEED_SHIFT;
+
+  // duplex
+  if (!m_duplex)
+    cmd_bits |= CMD_HD_EN;
+
+  // pause capability
+  if (!m_pause)
+    cmd_bits |= CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE;
+
+  // Program UMAC and RGMII block based on established
+  // link speed, duplex, and pause. The speed set in
+  // umac->cmd tell RGMII block which clock to use for
+  // transmit -- 25MHz(100Mbps) or 125MHz(1Gbps).
+  // Receive clock is provided by the PHY.
+  u32 reg = bcmgenet_ext_readl(EXT_RGMII_OOB_CTRL);
+  reg &= ~OOB_DISABLE;
+  reg |= RGMII_LINK;
+  bcmgenet_ext_writel(reg, EXT_RGMII_OOB_CTRL);
+
+  reg = bcmgenet_umac_readl(UMAC_CMD);
+  reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) | CMD_HD_EN |
+      CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE);
+  reg |= cmd_bits;
+  bcmgenet_umac_writel(reg, UMAC_CMD);
+}
+
+static int mii_config(bool init) {
+  // RGMII_NO_ID: TXC transitions at the same time as TXD
+  //          (requires PCB or receiver-side delay)
+  // RGMII:   Add 2ns delay on TXC (90 degree shift)
+  //
+  // ID is implicitly disabled for 100Mbps (RG)MII operation.
+  u32 id_mode_dis = BIT(16);
+
+  bcmgenet_sys_writel(PORT_MODE_EXT_GPHY, SYS_PORT_CTRL);
+
+  // This is an external PHY (xMII), so we need to enable the RGMII
+  // block for the interface to work
+  u32 reg = bcmgenet_ext_readl(EXT_RGMII_OOB_CTRL);
+  reg |= RGMII_MODE_EN | id_mode_dis;
+  bcmgenet_ext_writel(reg, EXT_RGMII_OOB_CTRL);
+
+  return 0;
+}
+
+static int mii_probe(void) {
+  // Initialize link state variables that mii_setup() uses
+  m_old_link = -1;
+  m_old_speed = -1;
+  m_old_duplex = -1;
+  m_old_pause = -1;
+
+  // probe PHY
+    m_phy_id = 0x01;
+    int ret = mdio_reset();
+    if (ret) {
+        m_phy_id = 0x00;
+        ret = mdio_reset();
+    }
+    if (ret)
+        return ret;
+
+    ret = phy_read_status();
+    if (ret)
+        return ret;
+
+    mii_setup();
+
+    return mii_config(true); // Configure port multiplexer
+}
+
+static void set_mdf_addr(u8 *addr, int *i, int *mc) {
+  bcmgenet_umac_writel(addr[0] << 8 | addr[1], UMAC_MDF_ADDR + (*i * 4));
+  bcmgenet_umac_writel(addr[2] << 24 | addr[3] << 16 | addr[4] << 8 | addr[5],
+      UMAC_MDF_ADDR + ((*i + 1) * 4));
+
+  u32 reg = bcmgenet_umac_readl(UMAC_MDF_CTRL);
+  reg |= (1 << (MAX_MC_COUNT - *mc));
+  bcmgenet_umac_writel(reg, UMAC_MDF_CTRL);
+
+  *i += 2;
+  (*mc)++;
+}
+
+static void set_rx_mode(u8 *mac) {
+  // Promiscuous mode off
+  u32 reg = bcmgenet_umac_readl(UMAC_CMD);
+  reg &= ~CMD_PROMISC;
+  bcmgenet_umac_writel(reg, UMAC_CMD);
+
+  // update MDF filter
+  int i = 0;
+  int mc = 0;
+
+  u8 Buffer_BR[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+  set_mdf_addr(Buffer_BR, &i, &mc);
+
+  // my own address
+  set_mdf_addr(mac, &i, &mc);
+}
+
 static int bcmgenet_init() {
   u32 reg = bcmgenet_sys_readl(SYS_REV_CTRL); // read GENET HW version
   u8 major = (reg >> 24 & 0x0f);
@@ -841,6 +1134,14 @@ static int bcmgenet_init() {
 
   hfb_init();
 
+  ret = mii_probe();
+  if (ret) {
+    printf("Failed to connect to PHY (%d)\r\n", ret);
+    return -1;
+  }
+
+  set_rx_mode(mac);
+
   net_init("bcmgenet", mac, ENET_MAX_MTU_SIZE, NULL, &bcmgenet_ops);
 
   return 0;
@@ -849,7 +1150,9 @@ static int bcmgenet_init() {
 static int bcmgenet_dt_init(struct device_node *dev) {
   physaddr_t base;
   u64 size; 
+  u64 mdio_offset, mdio_size;
   int intr0, intr1;
+  struct device_node *mdio;
 
   if(dt_node_prop_addr(dev, 0, &base, &size) < 0)
     return -1;
@@ -866,7 +1169,17 @@ static int bcmgenet_dt_init(struct device_node *dev) {
   irq_register(intr0, bcmgenet_intr_irq0, NULL);
   irq_register(intr1, bcmgenet_intr_irq1, NULL);
 
+  mdio = dt_compatible_child(dev, "brcm,genet-mdio-v5");
+  if(!mdio)
+    panic("mdio?");
+
+  if(dt_node_prop_addr(mdio, 0, &mdio_offset, &mdio_size) < 0)
+    return -1;
+
+  mdio_base = bcmgenet_base + mdio_offset;
+
   printf("bcmgenet: %p(%p) %p %d %d\n", base, bcmgenet_base, size, intr0, intr1);
+  printf("mdio: %p %p %p\n", mdio_offset, mdio_size, mdio_base);
 
   return bcmgenet_init();
 }

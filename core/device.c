@@ -442,6 +442,22 @@ struct device_node *next_match_node(struct dt_device *table, struct dt_device **
   return NULL;
 }
 
+struct device_node *dt_compatible_child(struct device_node *parent,
+                                        const char *compat) {
+  struct device_node *child;
+
+  for(child = parent->child; child; child = child->next) {
+    const char *c = dt_node_props(child, "compatible");
+    if(!c)
+      continue;
+
+    if(strcmp(c, compat) == 0)
+      return child;
+  }
+
+  return NULL;
+}
+
 struct dt_device *dt_compatible_device(struct dt_device *table, struct device_node *node) {
   const char *compat = dt_node_props(node, "compatible");
   const struct dt_compatible *c;
