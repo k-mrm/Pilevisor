@@ -36,7 +36,7 @@
 #define TDMA_OFFSET     0x4000
 #define WORDS_PER_BD    3 // word per buffer descriptor
 
-#define RX_BUF_LENGTH     2048
+#define RX_BUF_LENGTH     8192
 
 #define TX_RING_INDEX     1 // using highest TX priority queue
 
@@ -245,7 +245,7 @@ static inline void bcmgenet_bp_mc_set(u32 val) {
 
 static struct bcmgenet_cb *get_txcb(struct bcmgenet_tx_ring *ring);
 static void bcmgenet_intr_disable(void);
-static u8 *rx_refill(struct bcmgenet_cb *cb);
+static struct iobuf *rx_refill(struct bcmgenet_cb *cb);
 
 static void bcmgenet_xmit(struct nic *nic, struct iobuf *iobuf) {
   u64 flags;
@@ -281,27 +281,22 @@ static void bcmgenet_xmit(struct nic *nic, struct iobuf *iobuf) {
   if(iobuf->body)
     panic("bcmgenet: unimpl");
 
+  // u8 *pTxBuffer = malloc(length);
+  // memcpy(pTxBuffer, iobuf->data, length);
+  void *txbuffer = iobuf->data;
   length = iobuf->len;
   printf("bcmgenet: xmit: iobuf->len %d", length);
-  u8 *pTxBuffer = malloc(length);
-  memcpy(pTxBuffer, iobuf->data, length);
-
-  if (length < ETH_ZLEN) // pad frame if necessary
-  {
-    memset(pTxBuffer + length, 0, ETH_ZLEN - length);
-    length = ETH_ZLEN;
-  }
 
   struct bcmgenet_cb *tx_cb_ptr = get_txcb(ring); // get Tx control block from ring
   assert(tx_cb_ptr != 0);
 
   // prepare for DMA
-  dcache_flush_poc_range(pTxBuffer, length);
+  dcache_flush_poc_range(txbuffer, length);
 
-  tx_cb_ptr->buffer = pTxBuffer; // set DMA buffer in Tx control block
+  tx_cb_ptr->buffer = iobuf; // set DMA buffer in Tx control block
 
   // set DMA descriptor and start transfer
-  dmadesc_set(tx_cb_ptr->bd_addr, V2P(pTxBuffer),
+  dmadesc_set(tx_cb_ptr->bd_addr, V2P(txbuffer),
       (length << DMA_BUFLENGTH_SHIFT) |
       (QTAG_MASK << DMA_TX_QTAG_SHIFT) | DMA_TX_APPEND_CRC |
       DMA_SOP | DMA_EOP);
@@ -331,11 +326,11 @@ static struct bcmgenet_cb *get_txcb(struct bcmgenet_tx_ring *ring) {
 }
 
 static void free_tx_cb(struct bcmgenet_cb *cb) {
-  u8 *buffer = cb->buffer;
+  struct iobuf *buffer = cb->buffer;
   if (buffer) {
     cb->buffer = NULL;
 
-    free(buffer);
+    free_iobuf(buffer);
   }
 }
 
@@ -368,11 +363,8 @@ static u32 tx_reclaim(struct bcmgenet_tx_ring *ring) {
 }
 
 
-static int bcmgenet_rxintr(u8 *pBuffer, int *pResultLength) {
+static int bcmgenet_rxintr(void) {
   int ret = -1;
-
-  assert(pBuffer != 0);
-  assert(pResultLength != 0);
 
   struct bcmgenet_rx_ring *ring = &m_rx_rings[GENET_DESC_INDEX]; // the only supported Rx queue
 
@@ -407,8 +399,8 @@ static int bcmgenet_rxintr(u8 *pBuffer, int *pResultLength) {
 
     struct bcmgenet_cb *cb = &m_rx_cbs[ring->read_ptr];
 
-    u8 *pRxBuffer = rx_refill(cb);
-    if (pRxBuffer == 0) {
+    struct iobuf *pRxBuffer = rx_refill(cb);
+    if (!pRxBuffer) {
       printf("Missing RX buffer!");
       goto out;
     }
@@ -419,7 +411,7 @@ static int bcmgenet_rxintr(u8 *pBuffer, int *pResultLength) {
 
     if (!(dma_flag & DMA_EOP) || !(dma_flag & DMA_SOP)) {
       printf("Dropping fragmented RX packet!");
-      free(pRxBuffer);
+      free_iobuf(pRxBuffer);
 
       goto out;
     }
@@ -427,7 +419,7 @@ static int bcmgenet_rxintr(u8 *pBuffer, int *pResultLength) {
     // report errors
     if (dma_flag & (DMA_RX_CRC_ERROR | DMA_RX_OV | DMA_RX_NO | DMA_RX_LG | DMA_RX_RXER)) {
       printf("RX error (0x%x)", (unsigned)dma_flag);
-      free(pRxBuffer);
+      free_iobuf(pRxBuffer);
 
       goto out;
     }
@@ -442,11 +434,7 @@ static int bcmgenet_rxintr(u8 *pBuffer, int *pResultLength) {
     assert(nLength > 0);
     assert(nLength <= FRAME_BUFFER_SIZE);
 
-    memcpy(pBuffer, pRxBuffer + LEADING_PAD, nLength);
-
-    *pResultLength = nLength;
-
-    free(pRxBuffer);
+    netdev_recv(pRxBuffer);
 
     ret = 0;
 
@@ -484,20 +472,7 @@ static void bcmgenet_intr_irq0(void *arg) {
 
   if (status & UMAC_IRQ_RXDMA_DONE) {
     // bcmgenet_intrl2_0_writel(UMAC_IRQ_RXDMA_DONE, INTRL2_CPU_CLEAR);
-    u8 *rcv = alloc_page();
-    int len;
-
-    bcmgenet_rxintr(rcv, &len);
-
-    if (len != 0) {
-      printf("Received %d\n", len);
-
-      for (int i = 0; i < len; i++) {
-        printf("%02x", rcv[i]);
-      }
-
-      printf("\n");
-    }
+    bcmgenet_rxintr();
   }
 }
 
@@ -663,20 +638,24 @@ static u32 bcmgenet_dma_disable() {
   return dma_ctrl;
 }
 
-u8 *free_rx_cb(struct bcmgenet_cb *cb) {
-  u8 *buffer = cb->buffer;
-  cb->buffer = 0;
+static struct iobuf *free_rx_cb(struct bcmgenet_cb *cb) {
+  struct iobuf *buffer = cb->buffer;
+  cb->buffer = NULL;
   // printk("Free %x\r\n", &buffer);
   // CleanAndInvalidateDataCacheRange((u64)buffer, RX_BUF_LENGTH);
 
   return buffer;
 }
 
-static u8 *rx_refill(struct bcmgenet_cb *cb) {
+static struct iobuf *rx_refill(struct bcmgenet_cb *cb) {
+  dma_addr_t dmabuf;
+  struct iobuf *rx_buffer;
+
   // Allocate a new Rx DMA buffer
   // u8 *buffer = new u8[RX_BUF_LENGTH];
   // u8 *buffer = malloc(RX_BUF_LENGTH);
-  u8 *buffer = alloc_page();
+  // u8 *buffer = alloc_page();
+  struct iobuf *buffer = alloc_iobuf_pages(RX_BUF_LENGTH);
   if (!buffer)
     return NULL;
   // printk("Refill %x\r\n", &buffer);
@@ -684,12 +663,12 @@ static u8 *rx_refill(struct bcmgenet_cb *cb) {
   dcache_flush_poc_range(buffer, RX_BUF_LENGTH);
 
   // Grab the current Rx buffer from the ring and DMA-unmap it
-  u8 *rx_buffer = free_rx_cb(cb);
+  rx_buffer = free_rx_cb(cb);
 
   // Put the new Rx buffer on the ring
   cb->buffer = buffer;
-  printf("dmadesc_set_addr v %p -> p %p\n", buffer, V2P(buffer));
-  dmadesc_set_addr(cb->bd_addr, V2P(buffer));
+  dmabuf = V2P(buffer->data);
+  dmadesc_set_addr(cb->bd_addr, dmabuf);
 
   // Return the current Rx buffer to caller
   return rx_buffer;

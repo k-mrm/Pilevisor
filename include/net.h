@@ -34,9 +34,12 @@ struct iobuf {
   void *body;
   u32 len;
   u32 body_len;
+
+  int npages;
 };
 
 struct iobuf *alloc_iobuf_headsize(u32 size, u32 headsize);
+struct iobuf *alloc_iobuf_pages(u32 size);
 
 static inline struct iobuf *alloc_iobuf(u32 size) {
   return alloc_iobuf_headsize(size, 0);

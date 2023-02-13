@@ -3,12 +3,13 @@
 
 #include "types.h"
 #include "lib.h"
+#include "net.h"
 
 #define GENET_DESC_INDEX 16 // max. 16 priority queues and 1 default queue
 
 struct bcmgenet_cb {
-  void *bd_addr;      // address of HW buffer descriptor
-  u8 *buffer;         // pointer to frame buffer (DMA address)
+  void *bd_addr;          // address of HW buffer descriptor
+  struct iobuf *buffer;   // frame buffer
 };
 
 struct bcmgenet_tx_ring {
@@ -453,9 +454,6 @@ struct bcmgenet_rx_ring {
     (TOTAL_DESC - RX_QUEUES * RX_BDS_PER_Q)
 #define GENET_Q16_TX_BD_CNT \
     (TOTAL_DESC - TX_QUEUES * TX_BDS_PER_Q)
-
-#define RX_BUF_LENGTH 2048
-#define SKB_ALIGNMENT 32
 
 #define WORDS_PER_BD        3
 #define DMA_DESC_SIZE       (WORDS_PER_BD * sizeof(u32))
