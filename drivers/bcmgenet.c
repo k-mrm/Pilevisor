@@ -278,35 +278,51 @@ static void bcmgenet_xmit(struct nic *nic, struct iobuf *iobuf) {
 
   // uint8_t *pTxBuffer = malloc(ENET_MAX_MTU_SIZE);     // allocate and fill DMA
 
-  if(iobuf->body) {
-    printf("bcmgenet: unimpl");
-    spin_unlock_irqrestore(&m_tx_lock, flags);
-    return;
-  }
+  int num_prod_descs = 1, dma_flag;
 
-  // u8 *pTxBuffer = malloc(length);
-  // memcpy(pTxBuffer, iobuf->data, length);
-  void *txbuffer = iobuf->data;
+  void *tx_header_buffer = iobuf->data;
   length = iobuf->len;
   printf("bcmgenet: xmit: iobuf->len %d", length);
 
-  struct bcmgenet_cb *tx_cb_ptr = get_txcb(ring); // get Tx control block from ring
+  struct bcmgenet_cb *tx_cb_ptr =
+      get_txcb(ring);  // get Tx control block from ring
   assert(tx_cb_ptr != 0);
 
   // prepare for DMA
-  dcache_flush_poc_range(txbuffer, length);
+  dcache_flush_poc_range(tx_header_buffer, length);
 
-  tx_cb_ptr->buffer = iobuf; // set DMA buffer in Tx control block
+  tx_cb_ptr->buffer = iobuf;  // set DMA buffer in Tx control block
 
+  dma_flag = (length << DMA_BUFLENGTH_SHIFT) |
+             (QTAG_MASK << DMA_TX_QTAG_SHIFT) | DMA_TX_APPEND_CRC | DMA_SOP;
+
+  if (!iobuf->body) {
+    dma_flag |= DMA_EOP;
+  }
   // set DMA descriptor and start transfer
-  dmadesc_set(tx_cb_ptr->bd_addr, V2P(txbuffer),
-      (length << DMA_BUFLENGTH_SHIFT) |
-      (QTAG_MASK << DMA_TX_QTAG_SHIFT) | DMA_TX_APPEND_CRC |
-      DMA_SOP | DMA_EOP);
+  dmadesc_set(tx_cb_ptr->bd_addr, V2P(tx_header_buffer), dma_flag);
+
+  if (iobuf->body) {
+    num_prod_descs = 2;
+
+    void *tx_body_buffer = iobuf->body;
+    length = iobuf->body_len;
+
+    tx_cb_ptr = get_txcb(ring);
+
+    dcache_flush_poc_range(tx_body_buffer, length);
+
+    tx_cb_ptr->buffer = iobuf;  // set DMA buffer in Tx control block
+
+    dmadesc_set(tx_cb_ptr->bd_addr, V2P(tx_body_buffer),
+                (length << DMA_BUFLENGTH_SHIFT) |
+                    (QTAG_MASK << DMA_TX_QTAG_SHIFT) | DMA_TX_APPEND_CRC |
+                    DMA_SOP | DMA_EOP);
+  }
 
   // decrement total BD count and advance our write pointer
-  ring->free_bds--;
-  ring->prod_index++;
+  ring->free_bds-=num_prod_descs;
+  ring->prod_index+=num_prod_descs;
   ring->prod_index &= DMA_P_INDEX_MASK;
 
   // packets are ready, update producer index
@@ -373,9 +389,7 @@ static int bcmgenet_rxintr(void) {
 
   printf("bcmgenet: rxintr\n");
 
-  // clear status before servicing to reduce spurious interrupts
-  // NOTE: Rx interrupts are not used
-  //bcmgenet_intrl2_0_writel(UMAC_IRQ_RXDMA_DONE, INTRL2_CPU_CLEAR);
+  bcmgenet_intrl2_0_writel(UMAC_IRQ_RXDMA_DONE, INTRL2_CPU_CLEAR);
 
   unsigned p_index = bcmgenet_rdma_ring_readl(ring->index, RDMA_PROD_INDEX);
 
@@ -439,7 +453,14 @@ static int bcmgenet_rxintr(void) {
     assert(nLength > 0);
     assert(nLength <= FRAME_BUFFER_SIZE);
 
+  //printf("Received %d bytes\r\n", nLength);
+
+//for(int i =0; i< nLength; i++){
+//  printf("%02x", ((u8*)pRxBuffer->head)[i]);
+//}
+    
     netdev_recv(pRxBuffer);
+    
 
     ret = 0;
 
