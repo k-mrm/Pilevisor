@@ -109,10 +109,13 @@ static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(s1ptw) {
     /* fetch pagetable */
     vmm_log("\tiabort fetch pagetable ipa %p %p\n", faultpage, vcpu->reg.elr);
-  }
 
-  if(!vsm_read_fetch_page(faultpage))
-    panic("no page %p %p %p", faultpage, far, vcpu->reg.elr);
+    if(!vsm_read_fetch_page(faultpage))
+      panic("vm_iabort: no page");
+  } else {
+    if(!vsm_read_fetch_instr(faultpage))
+      panic("no page %p %p %p", faultpage, far, vcpu->reg.elr);
+  }
 
   return 0;
 }

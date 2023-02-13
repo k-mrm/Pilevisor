@@ -50,6 +50,7 @@ struct vsm_server_proc {
 int vsm_access(struct vcpu *vcpu, char *buf, u64 ipa, u64 size, bool wr);
 void *vsm_read_fetch_page(u64 page_ipa);
 void *vsm_write_fetch_page(u64 page_ipa);
+void *vsm_read_fetch_instr(u64 page_ipa);
 
 void vsm_init(void);
 void vsm_node_init(struct memrange *mem);

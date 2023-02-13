@@ -21,10 +21,10 @@ dci:
   ret
 
 /*
- *  cache_flush(void *va_start, void *va_end)
+ *  cache_sync_pou(void *va_start, void *va_end)
  */
-.global cache_flush
-cache_flush:
+.global cache_sync_pou
+cache_sync_pou:
   // flush D
   mrs x2, ctr_el0
   ubfx x4, x2, #16, #4

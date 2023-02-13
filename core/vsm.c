@@ -499,6 +499,15 @@ void *vsm_read_fetch_page(u64 page_ipa) {
   return __vsm_read_fetch_page(page, NULL);
 }
 
+void *vsm_read_fetch_instr(u64 page_ipa) {
+  void *p;
+  struct page_desc *page = ipa_to_desc(page_ipa);
+
+  p = __vsm_read_fetch_page(page, NULL);
+
+  cache_sync_pou_range(p, PAGESIZE);
+}
+
 /* read fault handler */
 static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d) {
   u64 *pte;
@@ -687,6 +696,9 @@ static void recv_fetch_reply(struct msg *reply, void * __unused arg) {
   // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
 
   if(b) {       // recv page (and ownership)
+    if(a->ipa == 0x404e1000)
+      bin_dump(b->page, 1024);
+
     vsm_set_cache_fast(a->ipa, a->copyset, b->page);
   } else {      // recv ownership only
     assert(a->wnr);
