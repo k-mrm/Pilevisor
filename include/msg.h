@@ -143,7 +143,7 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
 #define send_msg_cb(msg, cb, arg) \
   __send_msg((msg), (cb), (arg), 0)
 
-int msg_recv_intr(u8 *src_mac, struct iobuf *buf);
+int msg_recv(u8 *src_mac, struct iobuf *buf);
 
 #define msg_init(msg, dst_id, type, hdr, body, body_len)   \
   __msg_init(msg, dst_id, type, (struct msg_header *)hdr, body, body_len, cpuid())

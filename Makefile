@@ -3,8 +3,8 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
-RPI = 1
-#QEMU = 1
+#RPI = 1
+QEMU = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
@@ -32,11 +32,11 @@ MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 endif
 
 ifndef NCPU
-NCPU = 4
+NCPU = 1
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 4
+GUEST_NCPU = 2
 endif
 
 ifndef GUEST_MEMORY
@@ -44,7 +44,7 @@ GUEST_MEMORY = 512
 endif
 
 ifndef NR_NODE
-NR_NODE = 1
+NR_NODE = 2
 endif
 
 CFLAGS = -Wall -Og -g -MD -ffreestanding -nostdinc -nostdlib -nostartfiles -mcpu=$(CPU)
@@ -133,8 +133,8 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#$(LD) -r -b binary guest/xv6/kernel.img -o xv6.o
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
-	cp guest/vvv4.dtb virt.dtb
-	#cp guest/vvv2.dtb virt.dtb
+	#cp guest/vvv4.dtb virt.dtb
+	cp guest/vvv2.dtb virt.dtb
 	#cp guest/vvv.dtb virt.dtb
 	#cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o

@@ -183,26 +183,35 @@ restart:
 }
 
 /* called by hardware rx irq */
-int msg_recv_intr(u8 *src_mac, struct iobuf *buf) {
+int msg_recv(u8 *src_mac, struct iobuf *buf) {
   struct msg *msg = malloc(sizeof(*msg));
   int rc = 0;
+  u32 body_len = 0;
+  void *body = NULL;
 
   /* Packet 1 */
   struct msg_header *hdr = buf->data;
   msg->hdr = hdr;
   msg->data = buf;
 
-  /* Packet 2 */
-  if(buf->body_len != 0) {
-    msg->body_len = buf->body_len;
+  // printf("msg recv %d %p\n", buf->len);
+  // bin_dump(buf->data, 128);
+  // bin_dump(buf->head, 128);
 
-#ifdef USE_SCATTER_GATHER
-    msg->body = buf->body;
-    buf->body = NULL;
-#else   /* !USE_SCATTER_GATHER */
+  if(buf->len > 64) {
+    body = buf->data + 50;
+    body_len = buf->len - 50;
+  } else if(buf->body) {
+    body = buf->body;
+    body_len = buf->body_len;
+  }
+
+  /* Packet 2 */
+  if(body) {
+    msg->body_len = body_len;
+
     msg->body = alloc_page();
-    memcpy(msg->body, buf->body, msg->body_len);
-#endif  /* USE_SCATTER_GATHER */
+    memcpy(msg->body, body, body_len);
   }
 
   if(msg_type_is_reply(msg)) {
@@ -286,7 +295,7 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
     buf->body_len = msg->body_len;
   }
 
-  printf("send msg %s\n", msmap[msg->hdr->type]);
+  // printf("send msg %s\n", msmap[msg->hdr->type]);
 
   ether_send_packet(localnode.nic, dst_mac, type, buf);
 

@@ -35,7 +35,7 @@ void ethernet_recv_intr(struct nic *nic, struct iobuf *iobuf) {
 
   if(memcmp(eth->dst, bcast_mac, 6) == 0 || memcmp(eth->dst, nic->mac, 6) == 0) {
     if((eth->type & 0xff) == 0x19) {
-      msg_recv_intr(eth->src, iobuf);
+      msg_recv(eth->src, iobuf);
 
       return;
     }
