@@ -77,7 +77,7 @@ void free_iobuf(struct iobuf *buf) {
   assert(buf);
 
   if(buf->npages)
-    free_pages(buf->head, buf->npages);
+    free_pages(buf->head, ilog2(buf->npages));
   else
     free(buf->head);
 
@@ -85,6 +85,10 @@ void free_iobuf(struct iobuf *buf) {
     free_page(buf->body);
 
   free(buf);
+}
+
+void iobuf_set_len(struct iobuf *buf, u32 len) {
+  buf->len = len;
 }
 
 void *iobuf_push(struct iobuf *buf, u32 size) {

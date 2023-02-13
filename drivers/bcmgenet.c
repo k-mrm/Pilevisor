@@ -427,8 +427,10 @@ static int bcmgenet_rxintr(void) {
       goto out;
     }
 
+    iobuf_set_len(pRxBuffer, nLength);
+
 #define LEADING_PAD 2
-    nLength -= LEADING_PAD; // remove HW 2 bytes added for IP alignment
+    iobuf_pull(pRxBuffer, LEADING_PAD);   // remove HW 2 bytes added for IP alignment
 
     if (m_crc_fwd_en) {
       nLength -= ETH_FCS_LEN;

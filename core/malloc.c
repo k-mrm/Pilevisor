@@ -40,23 +40,23 @@ static int get_order(u32 size) {
     if(size <= blocksize[order])
       break;
     order++;
-  };
+  }
 
   return order;
 }
 
 static struct frame *malloc_frame(int order) {
+  struct mhdr *freelist = NULL;
+  u32 bsize = blocksize[order];
   struct frame *f = alloc_page();
+
   if(!f)
     return NULL;
 
   f->next = NULL;
 
-  struct mhdr *freelist = NULL;
-
-  u32 bsize = blocksize[order];
-
-  for(u64 maddr = (u64)f + sizeof(struct frame); maddr + bsize < (u64)f + PAGESIZE; maddr += bsize) {
+  for(u64 maddr = (u64)f + sizeof(struct frame); maddr + bsize < (u64)f + PAGESIZE;
+      maddr += bsize) {
     ((struct mhdr *)maddr)->next = freelist;
     freelist = (struct mhdr *)maddr;
   }
