@@ -660,7 +660,7 @@ static struct iobuf *rx_refill(struct bcmgenet_cb *cb) {
   // u8 *buffer = new u8[RX_BUF_LENGTH];
   // u8 *buffer = malloc(RX_BUF_LENGTH);
   // u8 *buffer = alloc_page();
-  struct iobuf *buffer = alloc_iobuf_pages(RX_BUF_LENGTH);
+  struct iobuf *buffer = alloc_iobuf(RX_BUF_LENGTH);
   if (!buffer)
     return NULL;
   // printk("Refill %x\r\n", &buffer);

@@ -34,18 +34,21 @@ void net_init(char *name, u8 *mac, int mtu, void *dev, struct nic_ops *ops) {
   printf("found nic: %s @%m\n", name, netdev.mac);
 }
 
-struct iobuf *alloc_iobuf_pages(u32 size) {
+static struct iobuf *alloc_iobuf_pages(u32 size, u32 headsize) {
   int npages = size >> PAGESHIFT;
-  if(unlikely(!npages))
-    return alloc_iobuf_headsize(size, 0);
-
   struct iobuf *buf = malloc(sizeof(*buf));
+  if(!buf)
+    return NULL;
 
   int order = ilog2(npages);
-  buf->data = buf->head = alloc_pages(order);
-  buf->tail = (u8 *)buf->head + (npages * PAGESIZE);
+  buf->head = alloc_pages(order);
+  if(!buf->head)
+    return NULL;
 
-  buf->len = npages * PAGESIZE;
+  buf->data = buf->head + headsize;
+  buf->tail = buf->head + size;
+
+  buf->len = size - headsize;
 
   buf->body = NULL;
   buf->body_len = 0;
@@ -58,9 +61,17 @@ struct iobuf *alloc_iobuf_headsize(u32 size, u32 headsize) {
   if(size < headsize)
     return NULL;
 
+  if(size >= PAGESIZE)
+    return alloc_iobuf_pages(size, headsize);
+
   struct iobuf *buf = malloc(sizeof(*buf));
+  if(!buf)
+    return NULL;
 
   buf->head = malloc(size);
+  if(!buf->head)
+    return NULL;
+
   buf->data = (u8 *)buf->head + headsize;
   buf->tail = (u8 *)buf->head + size;
 
