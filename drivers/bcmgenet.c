@@ -278,8 +278,11 @@ static void bcmgenet_xmit(struct nic *nic, struct iobuf *iobuf) {
 
   // uint8_t *pTxBuffer = malloc(ENET_MAX_MTU_SIZE);     // allocate and fill DMA
 
-  if(iobuf->body)
-    panic("bcmgenet: unimpl");
+  if(iobuf->body) {
+    printf("bcmgenet: unimpl");
+    spin_unlock_irqrestore(&m_tx_lock, flags);
+    return;
+  }
 
   // u8 *pTxBuffer = malloc(length);
   // memcpy(pTxBuffer, iobuf->data, length);
