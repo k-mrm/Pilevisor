@@ -11,7 +11,7 @@ static int spintable_boot(struct pcpu *cpu, physaddr_t entrypoint) {
   int id = pcpu_id(cpu);
   u64 addr = release_addr[id];
 
-  volatile void *rel_addr = iomap(addr, sizeof(addr));
+  void *rel_addr = iomap(addr, sizeof(addr));
   if(!rel_addr)
     return -1;
 

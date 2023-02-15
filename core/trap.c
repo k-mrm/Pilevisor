@@ -94,33 +94,37 @@ void fiq_handler() {
   panic("fiq");
 }
 
-static int vm_iabort(struct vcpu *vcpu, u64 iss, u64 far) {
+static int vm_iabort(struct vcpu *vcpu, u64 esr) {
+  int iss = esr & 0x1ffffff;
   bool fnv = (iss >> 10) & 0x1;
   bool s1ptw = (iss >> 7) & 0x1;
+  u64 faultipa, far;
 
   if(fnv)
     panic("fnv");
 
-  u64 faultpage = faulting_ipa_page();
+  if(faulting_addr(esr, &far, &faultipa) < 0)
+    return -1;
 
   if(vcpu->reg.elr == 0)
-    panic("? %p %p %p", faultpage, far, vcpu->reg.elr);
+    panic("? %p %p %p", faultipa, far, vcpu->reg.elr);
 
   if(s1ptw) {
     /* fetch pagetable */
-    vmm_log("\tiabort fetch pagetable ipa %p %p\n", faultpage, vcpu->reg.elr);
+    vmm_log("\tiabort fetch pagetable ipa %p %p\n", faultipa, vcpu->reg.elr);
 
-    if(!vsm_read_fetch_page(faultpage))
+    if(!vsm_read_fetch_page(faultipa))
       panic("vm_iabort: no page");
   } else {
-    if(!vsm_read_fetch_instr(faultpage))
-      panic("no page %p %p %p", faultpage, far, vcpu->reg.elr);
+    if(!vsm_read_fetch_instr(faultipa))
+      panic("no page %p %p %p", faultipa, far, vcpu->reg.elr);
   }
 
   return 0;
 }
 
-static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
+static int vm_dabort(struct vcpu *vcpu, u64 esr) {
+  int iss = esr & 0x1ffffff;
   int isv = (iss >> 24) & 0x1;
   int sas = (iss >> 22) & 0x3;
   int r = (iss >> 16) & 0x1f;
@@ -128,6 +132,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   int fnv = (iss >> 10) & 0x1;
   bool s1ptw = (iss >> 7) & 0x1;
   bool wnr = (iss >> 6) & 0x1;
+  u64 far, fipa_page;
 
   if(fnv)
     panic("fnv");
@@ -135,7 +140,9 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   if(ar)
     vmm_warn("acqrel %p\n", vcpu->reg.elr);
     */
-  u64 fipa_page = faulting_ipa_page();
+
+  if(faulting_addr(esr, &far, &fipa_page) < 0)
+    return -1;
 
   printf("VM DABORT !!!! %p %p elr %p\n", far, fipa_page, vcpu->reg.elr);
 
@@ -290,27 +297,29 @@ static void iabort_iss_dump(u64 iss) {
 void vm_sync_handler() {
   local_irq_enable();
 
+  u64 far;
   u64 esr = read_sysreg(esr_el2);
-  u64 elr = read_sysreg(elr_el2);
-  u64 far = read_sysreg(far_el2);
-  u64 ec = (esr >> 26) & 0x3f;
-  u64 iss = esr & 0x1ffffff;
+  int iss = esr & 0x1ffffff;
+  int ec = (esr >> 26) & 0x3f;
 
   switch(ec) {
     case 0x1:     /* trap WF* */
       // vmm_log("wf* trapped\n");
       current->reg.elr += 4;
       break;
+
     case 0x16:    /* trap hvc */
       if(hvc_handler(current, iss) < 0)
         panic("unknown hvc #%d", iss);
 
       break;
+
     case 0x17:    /* trap smc */
       if(hvc_handler(current, iss) < 0)
         panic("unknown smc #%d", iss);
 
       break;
+
     case 0x18:    /* trap system regsiter */
       if(vsysreg_emulate(current, iss) < 0)
         panic("unknown msr/mrs access %p", iss);
@@ -318,17 +327,18 @@ void vm_sync_handler() {
       current->reg.elr += 4;
 
       break;
+
     case 0x20:    /* instruction abort */
-      if(vm_iabort(current, iss, far) < 0) {
-        printf("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
+      if(vm_iabort(current, esr) < 0) {
         iabort_iss_dump(iss);
         panic("iabort");
       }
 
       break;
+
     case 0x24: {  /* trap EL0/1 data abort */
       int redo;
-      if((redo = vm_dabort(current, iss, far)) < 0) {
+      if((redo = vm_dabort(current, esr)) < 0) {
         dabort_iss_dump(iss);
         panic("unexcepted dabort");
       }
@@ -338,8 +348,10 @@ void vm_sync_handler() {
 
       break;
     }
+
     default:
-      vmm_log("ec %p iss %p elr %p far %p\n", ec, iss, elr, far);
+      far = read_sysreg(far_el2);
+      vmm_log("ec %p esr %p elr %p far %p\n", ec, esr, current->reg.elr, far);
       panic("unknown sync");
   }
 }

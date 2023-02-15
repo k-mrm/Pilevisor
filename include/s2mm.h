@@ -108,14 +108,16 @@ static inline bool hpfar_is_valid(u64 esr) {
   return true;
 }
 
-static inline int faulting_ipa(u64 esr, u64 *fipa) {
+static inline int faulting_addr(u64 esr, u64 *far, u64 *fipa) {
+  u64 fa = read_sysreg(far_el2);
+  *far = fa;
+
   if(hpfar_is_valid(esr)) {
     *fipa = read_sysreg(hpfar_el2);
   } else {
-    u64 far = read_sysreg(far_el2);
     u64 tmp = read_sysreg(par_el1), par;
 
-    do_at_trans(far, "s1e1r");
+    do_at_trans(fa, "s1e1r");
     par = read_sysreg(par_el1);
 
     write_sysreg(par_el1, tmp);

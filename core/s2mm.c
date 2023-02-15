@@ -324,13 +324,6 @@ u64 at_uva2ipa(u64 uva) {
   }
 }
 
-u64 faulting_ipa_page() {
-  u64 hpfar = read_sysreg(hpfar_el2); 
-  u64 ipa_page = (hpfar & HPFAR_FIPA_MASK) << 8;
-
-  return ipa_page & ~(PAGESIZE-1);
-}
-
 static int root_level_sl0(int root) {
   switch(root) {
     case 3:

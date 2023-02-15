@@ -212,6 +212,8 @@ int msg_recv(u8 *src_mac, struct iobuf *buf) {
 
     msg->body = alloc_page();
     memcpy(msg->body, body, body_len);
+
+    dcache_flush_poc_range(msg->body, body_len);
   }
 
   if(msg_type_is_reply(msg)) {
