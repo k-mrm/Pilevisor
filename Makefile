@@ -3,8 +3,8 @@ CC = $(PREFIX)gcc
 LD = $(PREFIX)ld
 OBJCOPY = $(PREFIX)objcopy
 
-RPI = 1
-#QEMU = 1
+#RPI = 1
+QEMU = 1
 
 CPU = cortex-a72
 QCPU = cortex-a72
@@ -16,9 +16,9 @@ MAC_M = $(shell date '+%M')
 MAC_S = $(shell date '+%S')
 
 ifdef RPI
-#QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
+QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
 else
-#QEMUPREFIX = ~/qemu/build/
+QEMUPREFIX = ~/qemu/build/
 endif
 
 QEMU = $(QEMUPREFIX)qemu-system-aarch64

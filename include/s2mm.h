@@ -102,18 +102,19 @@ void s2mmu_init(void);
 static inline bool hpfar_is_valid(u64 esr) {
   // TODO: cortex-a53 errata
 
-  if(!(esr & ESR_DAbort_S1PTW) && (esr & FSC_PERM_FAULT) == FSC_PERM_FAULT)
+  if(!(esr & ESR_DAbort_S1PTW) && ((esr & FSC_PERM_FAULT) == FSC_PERM_FAULT))
     return false;
 
   return true;
 }
 
-static inline int faulting_addr(u64 esr, u64 *far, u64 *fipa) {
+static inline int faulting_addr(u64 esr, u64 *far, u64 *fipa_page) {
   u64 fa = read_sysreg(far_el2);
   *far = fa;
 
   if(hpfar_is_valid(esr)) {
-    *fipa = read_sysreg(hpfar_el2);
+    u64 hpfar = read_sysreg(hpfar_el2);
+    *fipa_page = (hpfar & HPFAR_FIPA_MASK) << 8;
   } else {
     u64 tmp = read_sysreg(par_el1), par;
 
@@ -125,7 +126,7 @@ static inline int faulting_addr(u64 esr, u64 *far, u64 *fipa) {
     if(par & 1)     // translation fault
       return -1;
 
-    *fipa = PAR_ADDR(par);
+    *fipa_page = PAR_ADDR(par);
   }
 
   return 0;
