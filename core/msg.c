@@ -200,7 +200,7 @@ int msg_recv(u8 *src_mac, struct iobuf *buf) {
 
   if(buf->len > 64) {
     body = buf->data + 50;
-    body_len = buf->len - 50;
+    body_len = buf->len - 54;
   } else if(buf->body) {
     body = buf->body;
     body_len = buf->body_len;
@@ -210,6 +210,7 @@ int msg_recv(u8 *src_mac, struct iobuf *buf) {
   if(body) {
     msg->body_len = body_len;
 
+    vmm_log("recv %d len\n", body_len);
     msg->body = alloc_page();
     memcpy(msg->body, body, body_len);
   }

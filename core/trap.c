@@ -145,6 +145,9 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     return 1;
   }
 
+  printf("VM DABORT !!!! %p %p elr %p\n", far, fipa_page, vcpu->reg.elr);
+
+
   u64 ipa = fipa_page | (far & (PAGESIZE-1));
   vcpu->dabt.fault_va = far;
   vcpu->dabt.fault_ipa = ipa;
@@ -158,6 +161,15 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     pa = vsm_write_fetch_page(fipa_page);
   else
     pa = vsm_read_fetch_page(fipa_page);
+
+  if(fipa_page == 0x4089b000) {
+    printf("!!!!!!!!!!!!!!!!!!nanda omae %p %p\n", far, fipa_page);
+    dabort_iss_dump(iss);
+    s2_pte_dump(fipa_page);
+    do_at_trans(far, s12, e1, r);
+    u64 par = read_sysreg(par_el1);
+    dump_par_el1(par);
+  }
 
   if(pa)
     return 1;

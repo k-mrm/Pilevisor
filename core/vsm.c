@@ -549,9 +549,9 @@ static void *__vsm_read_fetch_page(struct page_desc *page, struct vsm_rw_data *d
   pte = s2_accessible_pte(page_ipa);
   assert(pte);
 
-  vmm_log("read req %p: get remote page!\n", page_ipa);
-
   page_pa = PTE_PA(*pte);
+
+  vmm_log("read req %p: get remote page! %p\n", page_ipa, page_pa);
 
   /* read data */
   if(unlikely(d))

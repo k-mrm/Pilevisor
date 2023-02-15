@@ -65,6 +65,8 @@
 #define HCR_TGE           (1u << 27)
 #define HCR_TDZ           (1u << 28)
 #define HCR_RW            (1u << 31)
+#define HCR_CD            (1ul << 32)
+#define HCR_ID            (1ul << 33)
 
 #define HPFAR_FIPA_MASK   0xffffffffffful
 
@@ -84,10 +86,12 @@ static inline int cpuid() {
   return mpidr & 0xf;
 }
 
-static inline u64 at_ipa2pa(u64 ipa) {
-  asm volatile("at s12e1r, %0" :: "r"(ipa) : "memory");
-  return read_sysreg(par_el1);
-}
+/*
+ *  translation by at instruction
+ *  e.g. at s12e1r, %0
+ */
+#define do_at_trans(ipa, stage, el, rw)   \
+  asm volatile("at " #stage #el #rw ", %0" :: "r"(ipa) : "memory")
 
 static inline bool local_irq_enabled() {
   return !((read_sysreg(daif) >> 7) & 0x1);
