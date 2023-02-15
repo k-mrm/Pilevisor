@@ -210,7 +210,6 @@ int msg_recv(u8 *src_mac, struct iobuf *buf) {
   if(body) {
     msg->body_len = body_len;
 
-    vmm_log("recv %d len\n", body_len);
     msg->body = alloc_page();
     memcpy(msg->body, body, body_len);
   }

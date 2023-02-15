@@ -86,12 +86,14 @@ static inline int cpuid() {
   return mpidr & 0xf;
 }
 
+#define PAR_ADDR(par)         ((par) & 0xfffffffff000)
+
 /*
  *  translation by at instruction
  *  e.g. at s12e1r, %0
  */
-#define do_at_trans(ipa, stage, el, rw)   \
-  asm volatile("at " #stage #el #rw ", %0" :: "r"(ipa) : "memory")
+#define do_at_trans(addr, _at)   \
+  asm volatile("at " _at ", %0" :: "r"(addr) : "memory")
 
 static inline bool local_irq_enabled() {
   return !((read_sysreg(daif) >> 7) & 0x1);

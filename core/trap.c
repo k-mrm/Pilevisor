@@ -137,6 +137,8 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     */
   u64 fipa_page = faulting_ipa_page();
 
+  printf("VM DABORT !!!! %p %p elr %p\n", far, fipa_page, vcpu->reg.elr);
+
   if(s1ptw) {
     /* fetch pagetable */
     vmm_log("\tdabort fetch pagetable ipa %p %p\n", fipa_page, vcpu->reg.elr);
@@ -144,9 +146,6 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
 
     return 1;
   }
-
-  printf("VM DABORT !!!! %p %p elr %p\n", far, fipa_page, vcpu->reg.elr);
-
 
   u64 ipa = fipa_page | (far & (PAGESIZE-1));
   vcpu->dabt.fault_va = far;
@@ -162,6 +161,17 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
   else
     pa = vsm_read_fetch_page(fipa_page);
 
+  // tlb_s2_flush_all();
+  if(far == 0xffffffc0084b8910) {
+    printf("nanda omaeeeeeeeeeeeee %p %p %p %p\n", far, ipa, pa);
+    // bin_dump(pa, 128);
+
+    dump_guest_ttbr1(far);
+
+    vcpu_dump(vcpu);
+  }
+
+  /*
   if(fipa_page == 0x4089b000) {
     printf("!!!!!!!!!!!!!!!!!!nanda omae %p %p\n", far, fipa_page);
     dabort_iss_dump(iss);
@@ -170,6 +180,7 @@ static int vm_dabort(struct vcpu *vcpu, u64 iss, u64 far) {
     u64 par = read_sysreg(par_el1);
     dump_par_el1(par);
   }
+  */
 
   if(pa)
     return 1;

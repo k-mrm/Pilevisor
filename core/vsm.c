@@ -422,7 +422,7 @@ static void vsm_set_cache_fast(u64 ipa_page, u8 copyset, u8 *page) {
 
   vmm_bug_on(!PAGE_ALIGNED(ipa_page), "pagealign");
 
-  // printf("vsm: cache @%p(%p) copyset: %p\n", ipa_page, page_phys, copyset);
+  vmm_log("vsm: cache @%p(%p) copyset: %p\n", ipa_page, page_phys, copyset);
 
   /* set access permission later */
   s2_map_page_copyset(ipa_page, page_phys, copyset);
@@ -504,8 +504,12 @@ void *vsm_read_fetch_instr(u64 page_ipa) {
   struct page_desc *page = ipa_to_desc(page_ipa);
 
   p = __vsm_read_fetch_page(page, NULL);
+  if(!p)
+    return NULL;
 
   cache_sync_pou_range(p, PAGESIZE);
+
+  return p;
 }
 
 /* read fault handler */
@@ -696,9 +700,6 @@ static void recv_fetch_reply(struct msg *reply, void * __unused arg) {
   // vmm_log("recv remote ipa %p ----> pa %p\n", a->ipa, b->page);
 
   if(b) {       // recv page (and ownership)
-    if(a->ipa == 0x404e1000)
-      bin_dump(b->page, 1024);
-
     vsm_set_cache_fast(a->ipa, a->copyset, b->page);
   } else {      // recv ownership only
     assert(a->wnr);

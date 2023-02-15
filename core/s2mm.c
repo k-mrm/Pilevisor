@@ -41,7 +41,36 @@ void s2_pte_dump(ipa_t ipa) {
   printf("mair %p %p\n", read_sysreg(mair_el2), read_sysreg(mair_el1));
 }
 
+void dump_guest_ttbr1(u64 va) {
+  u64 ttbr_phys = ipa2pa(read_sysreg(ttbr1_el1));
+  if(!ttbr_phys)
+    return;
+
+  u64 *ttbr1 = P2V(ttbr_phys);
+  u64 *next, pgd;
+
+  printf("va %p TTBR_EL1 %p %p %d\n", va, ttbr_phys, ttbr1, PIDX(1, va));
+
+  pgd = ttbr1[PIDX(1, va)];
+  if(!pgd)
+    return;
+  printf("pgd 1: %p\n", pgd);
+
+  next = P2V(ipa2pa(PTE_PA(pgd)));
+  pgd = next[PIDX(2, va)];
+  if(!pgd)
+    return;
+  printf("pgt 2: %p\n", pgd);
+
+  next = P2V(ipa2pa(PTE_PA(pgd)));
+  pgd = next[PIDX(3, va)];
+  if(!pgd)
+    return;
+  printf("pgt 3: %p\n", pgd);
+}
+
 static inline u64 pageflag_to_s2pte_flags(enum pageflag flags) {
+
   u64 f = 0;
 
   if(flags & PAGE_NORMAL)
@@ -282,7 +311,7 @@ u64 at_uva2pa(u64 uva) {
 u64 at_uva2ipa(u64 uva) {
   u64 par;
 
-  asm volatile("at s1e1r, %0" :: "r"(uva) : "memory");
+  do_at_trans(uva, "s1e1r");
 
   par = read_sysreg(par_el1);
 
@@ -291,7 +320,7 @@ u64 at_uva2ipa(u64 uva) {
     dump_par_el1(par);
     return 0;
   } else {
-    return (par & 0xfffffffff000) | PAGE_OFFSET(uva);
+    return PAR_ADDR(par) | PAGE_OFFSET(uva);
   }
 }
 

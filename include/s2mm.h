@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "mm.h"
+#include "esr.h"
 
 extern int s2_root_level;
 extern u64 *vttbr;
@@ -69,7 +70,6 @@ extern u64 *vttbr;
 #define S2PTE_COPYSET_MASK    S2PTE_COPYSET(0xf)
 
 void switch_vttbr(physaddr_t vttbr);
-ipa_t faulting_ipa_page(void);
 
 void *ipa2hva(ipa_t ipa);
 physaddr_t ipa2pa(ipa_t ipa);
@@ -98,6 +98,36 @@ void vmiomap(ipa_t ipa, u64 pa, u64 size);
 
 void s2mmu_init_core(void);
 void s2mmu_init(void);
+
+static inline bool hpfar_is_valid(u64 esr) {
+  // TODO: cortex-a53 errata
+
+  if(!(esr & ESR_DAbort_S1PTW) && (esr & FSC_PERM_FAULT) == FSC_PERM_FAULT)
+    return false;
+
+  return true;
+}
+
+static inline int faulting_ipa(u64 esr, u64 *fipa) {
+  if(hpfar_is_valid(esr)) {
+    *fipa = read_sysreg(hpfar_el2);
+  } else {
+    u64 far = read_sysreg(far_el2);
+    u64 tmp = read_sysreg(par_el1), par;
+
+    do_at_trans(far, "s1e1r");
+    par = read_sysreg(par_el1);
+
+    write_sysreg(par_el1, tmp);
+
+    if(par & 1)     // translation fault
+      return -1;
+
+    *fipa = PAR_ADDR(par);
+  }
+
+  return 0;
+}
 
 static inline bool s2_accessible(ipa_t ipa) {
   return __page_accessible(vttbr, ipa, s2_root_level);
