@@ -20,7 +20,7 @@ QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
 GIC_VERSION = 2
 else
 QEMUPREFIX = ~/qemu/build/
-GIC_VERSION = 3
+GIC_VERSION = 2
 endif
 
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
@@ -135,7 +135,7 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
 	#cp guest/vvv4.dtb virt.dtb
 	#cp guest/vvv2.dtb virt.dtb
-	#cp guest/vvv8.dtb virt.dtb
+	cp guest/vvv8.dtb virt.dtb
 	#cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
