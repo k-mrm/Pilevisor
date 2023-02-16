@@ -94,7 +94,6 @@ int vmm_init_cpu0(void *fdt_phys) {
   arch_timer_init();
   arch_timer_init_core();
 
-  // virtio_mmio_init();
   peripheral_device_init();
 
   hcr_setup();
@@ -102,7 +101,6 @@ int vmm_init_cpu0(void *fdt_phys) {
   msg_sysinit();
 
   nodectl_init();
-
   localvm_init(1, 256 * MiB, &virt_dtb);
 
   localnode.ctl->init();

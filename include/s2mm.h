@@ -99,6 +99,8 @@ void vmiomap(ipa_t ipa, u64 pa, u64 size);
 void s2mmu_init_core(void);
 void s2mmu_init(void);
 
+void guest_icache_invalidate(void *p, u64 size);
+
 static inline bool hpfar_is_valid(u64 esr) {
   // TODO: cortex-a53 errata
 

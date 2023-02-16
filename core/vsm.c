@@ -507,10 +507,7 @@ void *vsm_read_fetch_instr(u64 page_ipa) {
   if(!p)
     return NULL;
 
-  // cache_sync_pou_range(p, PAGESIZE);
-  asm volatile("ic ialluis");
-  dsb(ish);
-  isb();
+  guest_icache_invalidate(p, PAGESIZE);
 
   return p;
 }

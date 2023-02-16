@@ -41,17 +41,26 @@ void s2_pte_dump(ipa_t ipa) {
   printf("mair %p %p\n", read_sysreg(mair_el2), read_sysreg(mair_el1));
 }
 
-void dump_guest_ttbr1(u64 va) {
-  u64 ttbr_phys = ipa2pa(read_sysreg(ttbr1_el1));
+/* for debug */
+void dump_guest_ttbr01(u64 va) {
+  int sel = va & (1ul << 63);
+  u64 ttbr_phys;
+  u64 *ttbr, *next, pgd;
+
+  if(sel)
+    ttbr_phys = ipa2pa(read_sysreg(ttbr1_el1));
+  else
+    ttbr_phys = ipa2pa(read_sysreg(ttbr0_el1));
+
+  ttbr_phys = ipa2pa(read_sysreg(ttbr1_el1));
   if(!ttbr_phys)
     return;
 
-  u64 *ttbr1 = P2V(ttbr_phys);
-  u64 *next, pgd;
+  ttbr = P2V(ttbr_phys);
 
-  printf("va %p TTBR_EL1 %p %p %d\n", va, ttbr_phys, ttbr1, PIDX(1, va));
+  printf("va %p TTBR_EL1 %p %p %d\n", va, ttbr_phys, ttbr, PIDX(1, va));
 
-  pgd = ttbr1[PIDX(1, va)];
+  pgd = ttbr[PIDX(1, va)];
   if(!pgd)
     return;
   printf("pgd 1: %p\n", pgd);
@@ -70,7 +79,6 @@ void dump_guest_ttbr1(u64 va) {
 }
 
 static inline u64 pageflag_to_s2pte_flags(enum pageflag flags) {
-
   u64 f = 0;
 
   if(flags & PAGE_NORMAL)
@@ -218,6 +226,13 @@ void s2_page_invalidate(ipa_t ipa) {
   free_page(P2V(pa));
 }
 
+void guest_icache_invalidate(void *p, u64 size) {
+  // cache_sync_pou_range(p, PAGESIZE);
+  asm volatile("ic ialluis");
+  dsb(ish);
+  isb();
+}
+
 void s2_page_ro(ipa_t ipa) {
   assert(PAGE_ALIGNED(ipa));
 
@@ -295,7 +310,7 @@ void *ipa2hva(ipa_t ipa) {
 u64 at_uva2pa(u64 uva) {
   u64 par;
 
-  asm volatile("at s12e1r, %0" :: "r"(uva) : "memory");
+  do_at_trans(uva, "s12e1r");
 
   par = read_sysreg(par_el1);
 
