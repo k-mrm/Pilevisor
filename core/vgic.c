@@ -22,6 +22,7 @@
 #include "assert.h"
 #include "vgic-v2.h"
 #include "vgic-v3.h"
+#include "spinlock.h"
 
 static struct vgic vgic_dist;
 
@@ -32,33 +33,43 @@ struct sgi_msg_hdr {
 };
 
 void vgic_enable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
+  struct irq *hwirq;
+
   if(irq->enabled)
     return;
 
-  irq->enabled = 1;
+  irq->enabled = true;
   u32 intid = irq->intid;
 
   vmm_warn("vcpu %d enable irq %d\n", vcpu->vcpuid, intid);
 
-  if(valid_intid(intid))
-    localnode.irqchip->enable_irq(intid);
-  else
-    panic("?");
+  if(irq->hw) {
+    hwirq = irq_get(irq->hwirq);
+    if(!hwirq)
+      return;
+
+    irq_enable(hwirq);
+  }
 }
 
 void vgic_disable_irq(struct vcpu *vcpu, struct vgic_irq *irq) {
+  struct irq *hwirq;
+
   if(!irq->enabled)
     return;
 
-  irq->enabled = 0;
+  irq->enabled = false;
   u32 intid = irq->intid;
 
   vmm_warn("vcpu %d disable irq %d\n", vcpu->vcpuid, intid);
 
-  if(valid_intid(intid))
-    localnode.irqchip->disable_irq(intid);
-  else
-    panic("?");
+  if(irq->hw) {
+    hwirq = irq_get(irq->hwirq);
+    if(!hwirq)
+      return;
+
+    irq_disable(hwirq);
+  }
 }
 
 void vgic_inject_pending_irqs() {

@@ -304,11 +304,9 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
   if(reply_cb) {
     struct msg *reply;
     
-    // printf("cpu%d: msg waiting.............. %p\n", cpuid(), type);
     while((reply = current->reply_buf) == NULL) {
       wfi();
     }
-    // printf("cpu%d: kitawwwwwwwwwwwwwwwwwwww %p\n", cpuid(), type);
     current->reply_buf = NULL;
 
     reply_cb(reply, cb_arg);

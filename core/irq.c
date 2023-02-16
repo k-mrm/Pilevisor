@@ -24,6 +24,20 @@ void irq_register(u32 pirq, void (*handler)(void *), void *arg) {
   localnode.irqchip->setup_irq(pirq);
 }
 
+void irq_enable(struct irq *irq) {
+  int intid = irq_no(irq);
+
+  irq->count++;
+  localnode.irqchip->enable_irq(intid);
+}
+
+void irq_disable(struct irq *irq) {
+  int intid = irq_no(irq);
+
+  if(--irq->count == 0)
+    localnode.irqchip->disable_irq(intid);
+}
+
 static inline void irq_enter() {
   mycpu->irq_depth++;
 }

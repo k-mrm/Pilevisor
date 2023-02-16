@@ -13,6 +13,9 @@ struct localnode localnode = {0};    /* me */
 
 void localvm_initcore() {
   vcpu_init_core();
+
+  // connect timer irq
+  vgic_connect_hwirq(27, 27);
 }
 
 void setup_node0_bootclock() {

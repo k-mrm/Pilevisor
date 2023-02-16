@@ -141,8 +141,11 @@ static int vm_dabort(struct vcpu *vcpu, u64 esr) {
     vmm_warn("acqrel %p\n", vcpu->reg.elr);
     */
 
-  if(faulting_addr(esr, &far, &fipa_page) < 0)
+  if(faulting_addr(esr, &far, &fipa_page) < 0) {
+    printf("VM DABORT !!!! %p %p elr %p\n", far, fipa_page, vcpu->reg.elr);
+    printf("fipa_page fault\n");
     return -1;
+  }
 
   vmm_log("VM DABORT !!!! %p %p elr %p\n", far, fipa_page, vcpu->reg.elr);
 

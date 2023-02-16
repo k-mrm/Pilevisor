@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "param.h"
+#include "spinlock.h"
 
 #define NIRQ        256
 
@@ -11,6 +12,8 @@ struct irq {
   void (*handler)(void *);
   void *arg;
   int nhandle[NCPU_MAX];
+
+  spinlock_t lock;
 };
 
 extern struct irq irqlist[NIRQ];
@@ -27,5 +30,8 @@ int handle_irq(u32 pirq);
 void irq_register(u32 pirq, void (*handler)(void *), void *arg);
 
 void irqstats(void);
+
+void irq_enable(struct irq *irq);
+void irq_disable(struct irq *irq);
 
 #endif
