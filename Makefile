@@ -17,13 +17,13 @@ MAC_S = $(shell date '+%S')
 
 ifdef RPI
 QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
+GIC_VERSION = 2
 else
 QEMUPREFIX = ~/qemu/build/
+GIC_VERSION = 2
 endif
 
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
-
-GIC_VERSION = 2
 
 ifdef RPI
 MACHINE = raspi4b1g
@@ -32,11 +32,11 @@ MACHINE = virt,gic-version=$(GIC_VERSION),virtualization=on
 endif
 
 ifndef NCPU
-NCPU = 1
+NCPU = 4
 endif
 
 ifndef GUEST_NCPU
-GUEST_NCPU = 2
+GUEST_NCPU = 8
 endif
 
 ifndef GUEST_MEMORY
@@ -134,8 +134,8 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	$(LD) -r -b binary $(KERNIMG) -o image.o
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
 	#cp guest/vvv4.dtb virt.dtb
-	cp guest/vvv2.dtb virt.dtb
-	#cp guest/vvv.dtb virt.dtb
+	#cp guest/vvv2.dtb virt.dtb
+	cp guest/vvv8.dtb virt.dtb
 	#cp guest/vm.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
@@ -230,9 +230,9 @@ linux-gdb: $(KERNIMG)
 
 linux: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=2 -smp cores=4,sockets=2 \
-	  -cpu cortex-a72 -kernel ./guest/linux/Image5.4l \
+	  -cpu cortex-a72 -kernel $(KERNIMG) \
 	  -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0 nokaslr" -m 512
+	  -nographic -append "console=ttyAMA0 nokaslr" -m 1G
 
 linux-rpi:
 	$(QEMU) -M raspi3b -smp cores=4 \
