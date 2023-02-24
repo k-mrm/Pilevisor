@@ -28,7 +28,8 @@ static struct vm_desc vm_desc = {
   .nallocate = 512 * MiB,
   .ram_start = 0x40000000,
   .entrypoint = 0x40200000,
-  .fdt_base = 0x48400000,
+  //.fdt_base = 0x48400000,
+  .fdt_base = 0x4d400000,
   .initrd_base = 0x48000000,
 };
 

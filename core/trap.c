@@ -106,6 +106,8 @@ static int vm_iabort(struct vcpu *vcpu, u64 esr) {
   if(faulting_addr(esr, &far, &faultipa) < 0)
     return -1;
 
+  vmm_log("VM IABORT !!!! %p %p elr %p\n", far, faultipa, vcpu->reg.elr);
+
   if(vcpu->reg.elr == 0)
     panic("? %p %p %p", faultipa, far, vcpu->reg.elr);
 

@@ -92,9 +92,6 @@ static void vmmio_req_recv_intr(struct msg *msg) {
   if(vmmio_emulate(vcpu, &hdr->mmio) < 0)
     status = VMMIO_FAILED;
 
-  printf("mmio access %s %p %p\n",
-          hdr->mmio.wnr ? "write" : "read", hdr->mmio.ipa, hdr->mmio.val);
-
   rephdr.addr = hdr->mmio.ipa;
   rephdr.val = hdr->mmio.val;
   rephdr.status = status;
@@ -105,8 +102,6 @@ static void vmmio_req_recv_intr(struct msg *msg) {
 static void vmmio_recv_reply(struct msg *reply, void *arg) {
   struct mmio_reply_hdr *rep = (struct mmio_reply_hdr *)reply->hdr;
   struct mmio_access *mmio = arg;
-
-  printf("rep!!!!!!!!!!!!!! %p %p %d\n", rep->addr, rep->val, rep->status);
 
   if(mmio->ipa != rep->addr)
     panic("vmmio? %p %p", mmio->ipa, rep->addr);

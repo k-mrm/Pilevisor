@@ -20,7 +20,7 @@ QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
 GIC_VERSION = 2
 else
 QEMUPREFIX = ~/qemu/build/
-GIC_VERSION = 2
+GIC_VERSION = 3
 endif
 
 QEMU = $(QEMUPREFIX)qemu-system-aarch64
@@ -61,7 +61,7 @@ endif
 
 LDFLAGS = -nostdlib #-nostartfiles
 
-QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
+QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 768
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic
 
@@ -135,8 +135,8 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	$(LD) -r -b binary guest/linux/rootfs.img -o rootfs.img.o
 	#cp guest/vvv4.dtb virt.dtb
 	#cp guest/vvv2.dtb virt.dtb
-	cp guest/vvv8.dtb virt.dtb
-	#cp guest/vm.dtb virt.dtb
+	#cp guest/vvv8.dtb virt.dtb
+	#cp guest/virta.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
@@ -232,7 +232,7 @@ linux: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=$(GIC_VERSION) -smp cores=4,sockets=2 \
 	  -cpu cortex-a72 -kernel $(KERNIMG) \
 	  -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0 nokaslr" -m 1G
+	  -nographic -append "console=ttyAMA0 root=/dev/ram rootfs=ramfs rdinit=/sbin/init nokaslr" -m 1G
 
 linux-rpi:
 	$(QEMU) -M raspi3b -smp cores=4 \
@@ -249,7 +249,7 @@ dts-numa: dtb-numa
 dtb:
 	$(QEMU) -M virt,gic-version=$(GIC_VERSION),dumpdtb=virt.dtb -smp $(GUEST_NCPU) \
 	  -cpu cortex-a72 -kernel $(KERNIMG) -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0,115200 nokaslr" -m $(GUEST_MEMORY)
+	  -nographic -append "console=ttyAMA0 root=/dev/ram rootfs=ramfs rdinit=/sbin/init nokaslr" -m $(GUEST_MEMORY)
 
 dtb-numa:
 	$(QEMU) -M virt,gic-version=$(GIC_VERSION),dumpdtb=virt.dtb \
