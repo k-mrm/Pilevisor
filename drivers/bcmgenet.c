@@ -522,11 +522,11 @@ static void bcmgenet_intr_irq1(void *arg) {
     tx_reclaim(tx_ring);
   }
 
+  spin_unlock(&m_tx_lock);
+
   if (status & UMAC_IRQ_RXDMA_DONE) {
     printf("Received! #1\n");
   }
-
-  spin_unlock(&m_tx_lock);
 }
 
 static struct nic_ops bcmgenet_ops = {
@@ -668,7 +668,10 @@ static struct iobuf *free_rx_cb(struct bcmgenet_cb *cb) {
   struct iobuf *buffer = cb->buffer;
   cb->buffer = NULL;
   // printk("Free %x\r\n", &buffer);
-  // CleanAndInvalidateDataCacheRange((u64)buffer, RX_BUF_LENGTH);
+
+  if(buffer) {
+    dcache_flush_poc_range(buffer->data, RX_BUF_LENGTH);
+  }
 
   return buffer;
 }
@@ -686,7 +689,7 @@ static struct iobuf *rx_refill(struct bcmgenet_cb *cb) {
     return NULL;
   // printk("Refill %x\r\n", &buffer);
   //  prepare buffer for DMA
-  dcache_flush_poc_range(buffer, RX_BUF_LENGTH);
+  dcache_flush_poc_range(buffer->data, RX_BUF_LENGTH);
 
   // Grab the current Rx buffer from the ring and DMA-unmap it
   rx_buffer = free_rx_cb(cb);

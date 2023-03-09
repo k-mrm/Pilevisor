@@ -10,6 +10,7 @@
 #include "localnode.h"
 
 u8 bcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+u8 zeromac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
 void ether_send_packet(struct nic *nic, u8 *dst_mac, u16 type, struct iobuf *buf) {
   struct etherheader *eth = iobuf_push(buf, sizeof(struct etherheader));
@@ -39,6 +40,8 @@ void ethernet_recv_intr(struct nic *nic, struct iobuf *iobuf) {
 
       return;
     }
+  } else if(memcmp(eth->dst, zeromac, 6) == 0) {
+    panic("packet from hell!");
   }
 
   free_iobuf(iobuf);

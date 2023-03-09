@@ -226,7 +226,7 @@ linux-gdb: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=$(GIC_VERSION) -smp cores=4,sockets=2 \
 	  -cpu cortex-a72 -kernel $(KERNIMG) \
 	  -initrd guest/linux/rootfs.img \
-	  -nographic -append "console=ttyAMA0 nokaslr" -m 512 -S -gdb tcp::1234
+	  -nographic -append "console=ttyAMA0 root=/dev/ram rootfs=ramfs rdinit=/sbin/init nokaslr" -m 512 -S -gdb tcp::1234
 
 linux: $(KERNIMG)
 	$(QEMU) -M virt,gic-version=$(GIC_VERSION) -smp cores=4,sockets=2 \

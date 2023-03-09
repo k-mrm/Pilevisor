@@ -16,6 +16,7 @@
 #include "malloc.h"
 #include "panic.h"
 #include "assert.h"
+#include "arch-timer.h"
 
 #define USE_SCATTER_GATHER
 
@@ -114,7 +115,6 @@ void msg_free(struct msg *msg) {
   assert(msg);
 
   free_iobuf(msg->data);
-
   free(msg);
 }
 
@@ -303,13 +303,17 @@ void __send_msg(struct msg *msg, void (*reply_cb)(struct msg *, void *),
 
   if(reply_cb) {
     struct msg *reply;
+    int timeout_us = 200000;
     
-    while((reply = current->reply_buf) == NULL) {
-      wfi();
-    }
+    while((reply = current->reply_buf) == NULL && timeout_us--)
+      usleep(1);
+
+    if(current->reply_buf == NULL)
+      panic("deadlock?");
     current->reply_buf = NULL;
 
     reply_cb(reply, cb_arg);
+
     msg_free(reply);
   }
 }
