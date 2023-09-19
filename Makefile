@@ -19,7 +19,7 @@ ifdef RPI
 QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
 GIC_VERSION = 2
 else
-QEMUPREFIX = ~/qemu/build/
+#QEMUPREFIX = ~/qemu/build/
 GIC_VERSION = 3
 endif
 
