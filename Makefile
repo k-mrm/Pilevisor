@@ -16,7 +16,7 @@ MAC_M = $(shell date '+%M')
 MAC_S = $(shell date '+%S')
 
 ifdef RPI
-QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
+#QEMUPREFIX = ~/project/qemu-patch-raspberry4/build/
 GIC_VERSION = 2
 else
 #QEMUPREFIX = ~/qemu/build/
@@ -40,7 +40,7 @@ GUEST_NCPU = 8
 endif
 
 ifndef GUEST_MEMORY
-GUEST_MEMORY = 512
+GUEST_MEMORY = 1G
 endif
 
 ifndef NR_NODE
@@ -61,7 +61,7 @@ endif
 
 LDFLAGS = -nostdlib #-nostartfiles
 
-QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 768
+QEMUOPTS = -cpu $(CPU) -machine $(MACHINE) -smp $(NCPU) -m 1G
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -nographic
 
@@ -118,7 +118,7 @@ vmm-boot.img: poc-main
 vmm.img: poc-sub
 	$(OBJCOPY) -O binary $^ $@
 
-SDPATH = /media/k-mrm/boot/
+#SDPATH = /media/k-mrm/boot/
 
 install-main: vmm-boot.img boot/config.txt
 	cp boot/config.txt $(SDPATH)
@@ -136,11 +136,12 @@ poc-main: $(MAINOBJS) memory.ld dtb $(KERNIMG) guest/linux/rootfs.img
 	#cp guest/vvv4.dtb virt.dtb
 	#cp guest/vvv2.dtb virt.dtb
 	#cp guest/vvv8.dtb virt.dtb
-	#cp guest/virta.dtb virt.dtb
+	cp guest/virta.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(MAINOBJS) virt.dtb.o rootfs.img.o image.o
 
-poc-sub: $(SUBOBJS) memory.ld dtb-numa
+poc-sub: $(SUBOBJS) memory.ld dtb
+	cp guest/virta.dtb virt.dtb
 	$(LD) -r -b binary virt.dtb -o virt.dtb.o
 	$(LD) $(LDFLAGS) -T memory.ld -o $@ $(SUBOBJS) virt.dtb.o
 
