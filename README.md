@@ -19,3 +19,5 @@ $ make dev-main
 
 ## Acknowledgement
 2022年度 未踏IT人材発掘・育成事業 (https://www.ipa.go.jp/jinzai/mitou/it/2022/gaiyou_tn-2.html)
+
+  - DEMO in MITOU DEMO DAY: https://www.youtube.com/watch?v=BPSkASK__Sg
